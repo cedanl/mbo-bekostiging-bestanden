@@ -4,14 +4,14 @@
 schema_version = "4.8.3"
 
 [VLP]
-fields = [
-    "Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak",
-]
+fields      = ["Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
+date_fields = ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
+int_fields  = []
 
 [PER]
-fields = [
-    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht",
-]
+fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht"]
+date_fields = ["Geboortedatum"]
+int_fields  = []
 
 [ISG]
 fields = [
@@ -19,6 +19,8 @@ fields = [
     "Inschrijvingvolgnummer", "DatumInschrijving", "DatumUitschrijvingGepland",
     "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
 ]
+date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
+int_fields  = []
 
 [ISP]
 fields = [
@@ -28,12 +30,13 @@ fields = [
     "LocatiecodeVSV", "Onderwijsaanbieder", "Onderwijslocatie",
     "Leerroute", "Leerroutefase",
 ]
+date_fields = ["DatumBegin"]
+int_fields  = []
 
 [ISE]
-fields = [
-    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
-    "Inschrijvingvolgnummer", "DatumBegin", "DatumEind",
-]
+fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "DatumBegin", "DatumEind"]
+date_fields = ["DatumBegin", "DatumEind"]
+int_fields  = []
 
 [BPV]
 fields = [
@@ -42,6 +45,8 @@ fields = [
     "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk",
     "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
 ]
+date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
+int_fields  = []
 
 [DIP]
 # Positie 7 ontbreekt in PvE v4.8.3 maar is aanwezig in alle bekende leveringen (altijd leeg).
@@ -51,6 +56,8 @@ fields = [
     "_onbekend", "IndicatieBekostigbaar", "Inschrijvingvolgnummer",
     "Onderwijsaanbieder",
 ]
+date_fields = ["DatumResultaat"]
+int_fields  = []
 
 [AMO]
 fields = [
@@ -59,6 +66,8 @@ fields = [
     "Resultaatvolgnummer", "CodeAMvBOnderdeel", "DatumResultaat",
     "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+date_fields = ["DatumResultaat"]
+int_fields  = []
 
 [GEO]
 fields = [
@@ -69,6 +78,8 @@ fields = [
     "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
     "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+date_fields = ["DatumResultaat"]
+int_fields  = ["Eindcijfer", "CijferIE", "CijferCE"]
 
 [KZD]
 fields = [
@@ -77,6 +88,8 @@ fields = [
     "Resultaatvolgnummer", "CodeKeuzedeel", "DatumResultaat",
     "Resultaat", "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+date_fields = ["DatumResultaat"]
+int_fields  = []
 
 [SLR]
 fields = [
@@ -84,3 +97,5 @@ fields = [
     "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO",
     "AantalGEO", "AantalKZD",
 ]
+date_fields = []
+int_fields  = ["AantalPER", "AantalISG", "AantalISP", "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO", "AantalGEO", "AantalKZD"]
