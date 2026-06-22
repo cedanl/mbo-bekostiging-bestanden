@@ -1,0 +1,86 @@
+# Veldschema voor RO (Registratieoverzicht)
+# Gebaseerd op DUO PvE v4.8.3, Bijlage 7
+# Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
+schema_version = "4.8.3"
+
+[VLP]
+fields = [
+    "Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak",
+]
+
+[PER]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht",
+]
+
+[ISG]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "Inschrijvingvolgnummer", "DatumInschrijving", "DatumUitschrijvingGepland",
+    "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
+]
+
+[ISP]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "Inschrijvingvolgnummer", "DatumBegin", "Opleidingcode",
+    "Leertraject", "Niveau", "IndicatieBekostigbaar",
+    "LocatiecodeVSV", "Onderwijsaanbieder", "Onderwijslocatie",
+    "Leerroute", "Leerroutefase",
+]
+
+[ISE]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "Inschrijvingvolgnummer", "DatumBegin", "DatumEind",
+]
+
+[BPV]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "Inschrijvingvolgnummer", "Volgnummer", "Afsluitdatum",
+    "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk",
+    "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
+]
+
+[DIP]
+# Positie 7 ontbreekt in PvE v4.8.3 maar is aanwezig in alle bekende leveringen (altijd leeg).
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
+    "_onbekend", "IndicatieBekostigbaar", "Inschrijvingvolgnummer",
+    "Onderwijsaanbieder",
+]
+
+[AMO]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "ResultaatvolgnummerDiploma", "OpleidingcodeDiploma",
+    "Resultaatvolgnummer", "CodeAMvBOnderdeel", "DatumResultaat",
+    "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+
+[GEO]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "ResultaatvolgnummerDiploma", "OpleidingcodeDiploma",
+    "Resultaatvolgnummer", "CodeGeneriekExamenonderdeel", "DatumResultaat",
+    "Eindcijfer", "VrijstellingGeneriekExamenonderdeel",
+    "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
+    "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+
+[KZD]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "ResultaatvolgnummerDiploma", "OpleidingcodeDiploma",
+    "Resultaatvolgnummer", "CodeKeuzedeel", "DatumResultaat",
+    "Resultaat", "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+
+[SLR]
+fields = [
+    "Recordsoort", "AantalPER", "AantalISG", "AantalISP",
+    "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO",
+    "AantalGEO", "AantalKZD",
+]
