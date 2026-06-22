@@ -18,18 +18,32 @@ def _normalize_row(row: list[str], n: int) -> list[str]:
     return row + [""] * (n - len(row))
 
 
-def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:
-    """Lees een RO-bestand in en splits per recordtype.
+def read_multi_record_csv(
+    path: str | Path,
+    schema_name: str,
+) -> dict[str, pl.DataFrame]:
+    """Lees een multi-record CSV-bestand in en splits per recordtype.
+
+    Geschikt voor elk DUO-bestandstype dat de multi-record CSV-structuur
+    gebruikt (RO, GRONDSLAG IP MBO, …). Kolomnamen komen uit het opgegeven
+    schema-TOML.
+
+    Args:
+        path:        Pad naar het bronbestand.
+        schema_name: Naam van het schema (bijv. ``"ro"`` of ``"grondslag"``).
 
     Returns:
         Dict met recordtype-code als sleutel en een DataFrame als waarde.
-        Kolomnamen komen uit ro_schema.toml.
+
+    Raises:
+        FileNotFoundError: Als het bronbestand of schema niet bestaat.
+        ValueError:        Als het bestand leeg is.
     """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Bronbestand niet gevonden: {path}")
 
-    raw_schema = load_schema()
+    raw_schema = load_schema(schema_name)
     schema = {rt: v["fields"] for rt, v in raw_schema.items()}
 
     try:
@@ -62,3 +76,11 @@ def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:
         )
 
     return result
+
+
+def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:
+    """Lees een RO-bestand in en splits per recordtype.
+
+    Dunne wrapper om :func:`read_multi_record_csv` met schema ``"ro"``.
+    """
+    return read_multi_record_csv(path, "ro")

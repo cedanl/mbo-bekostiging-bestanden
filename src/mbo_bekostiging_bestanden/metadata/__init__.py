@@ -3,16 +3,27 @@
 import tomllib
 from pathlib import Path
 
-SCHEMA_PATH = Path(__file__).parent / "ro_schema.toml"
+SCHEMA_DIR = Path(__file__).parent
 
 
-def load_schema() -> dict[str, dict]:
-    """Laad ro_schema.toml en geef de recordtype-entries terug.
+def load_schema(name: str = "ro") -> dict[str, dict]:
+    """Laad een schema-TOML en geef de recordtype-entries terug.
+
+    Args:
+        name: Naam van het schema zonder extensie (bijv. ``"ro"``,
+              ``"grondslag"``). Laadt ``{name}_schema.toml`` uit de
+              ``metadata/``-map.
 
     Returns:
         Dict van recordtype-code naar schema-dict met ``fields``,
-        ``date_fields`` en ``int_fields``.
+        ``date_fields``, ``int_fields`` en optioneel ``single_row``.
+
+    Raises:
+        FileNotFoundError: Als het gevraagde schema-bestand niet bestaat.
     """
-    with open(SCHEMA_PATH, "rb") as f:
+    schema_path = SCHEMA_DIR / f"{name}_schema.toml"
+    if not schema_path.exists():
+        raise FileNotFoundError(f"Schema niet gevonden: {schema_path}")
+    with open(schema_path, "rb") as f:
         data = tomllib.load(f)
     return {k: v for k, v in data.items() if isinstance(v, dict)}
