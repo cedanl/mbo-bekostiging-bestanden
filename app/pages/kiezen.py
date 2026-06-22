@@ -60,7 +60,9 @@ with col_volgende:
         disabled=not can_proceed,
         use_container_width=True,
     ):
-        # Wis vorige verwerkingsresultaten zodat verwerken.py opnieuw runt
+        # Widget-bound keys (key=) worden soms gewist bij paginawissel;
+        # zet de waarde expliciet als gewone session-state key.
+        st.session_state["verwerk_source"] = source
         st.session_state.pop("verwerk_done", None)
         st.session_state.pop("verwerk_output_dir", None)
         st.switch_page("pages/verwerken.py")

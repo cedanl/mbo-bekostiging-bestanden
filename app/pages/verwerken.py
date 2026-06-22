@@ -17,7 +17,7 @@ st.markdown(
 )
 st.title("Verwerken")
 
-source: Path | None = st.session_state.get("selected_source")
+source: Path | None = st.session_state.get("verwerk_source")
 if source is None:
     st.warning("Geen bestand geselecteerd — ga terug naar stap 1.")
     if st.button("← Bestand kiezen"):
