@@ -58,3 +58,11 @@ def validate_grondslag(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFram
     Dunne wrapper om :func:`validate_multi_record` met schema ``"grondslag"``.
     """
     return validate_multi_record(frames, "grondslag")
+
+
+def validate_tbgi(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Valideer een TBGI-pakket na decoding.
+
+    Dunne wrapper om :func:`validate_multi_record` met schema ``"tbgi"``.
+    """
+    return validate_multi_record(frames, "tbgi")

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from mbo_bekostiging_bestanden.pipeline import run_pipeline
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 
 
 def load_config() -> dict:
@@ -38,13 +38,11 @@ def main() -> None:
     )
     if st.button("Verwerk"):
         target = output_dir / source.stem
-        frames = run_pipeline(source, target)
+        frames = run_auto_pipeline(source, target)
         total = sum(df.height for df in frames.values())
-        st.success(
-            f"Verwerkt: {len(frames)} recordtypes, {total} rijen totaal → {target}"
-        )
+        st.success(f"Verwerkt: {len(frames)} tabellen, {total} rijen totaal → {target}")
 
-        rt = st.selectbox("Bekijk recordtype", sorted(frames.keys()))
+        rt = st.selectbox("Bekijk tabel", sorted(frames.keys()))
         st.dataframe(frames[rt].head(100))
 
 

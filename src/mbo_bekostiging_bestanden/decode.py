@@ -67,7 +67,12 @@ def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) 
     return ""
 
 
-def decode_multi_record_csv(
+def _to_float_expr(col: pl.Expr) -> pl.Expr:
+    """Converteer een string-kolom naar ``pl.Float64`` (null bij lege waarde)."""
+    return pl.when(col == "").then(None).otherwise(col).cast(pl.Float64)
+
+
+def decode_frames(
     frames: dict[str, pl.DataFrame],
     schema_name: str,
 ) -> dict[str, pl.DataFrame]:
@@ -75,14 +80,15 @@ def decode_multi_record_csv(
 
     - Datumvelden worden ``pl.Date`` (null bij lege waarde).
     - Integer-velden worden ``pl.Int64``.
+    - Float-velden worden ``pl.Float64``.
     - Overige velden blijven ``pl.Utf8``.
 
     Args:
-        frames:      Dict van recordtype-code naar ruwe DataFrame.
-        schema_name: Naam van het schema (bijv. ``"ro"`` of ``"grondslag"``).
+        frames:      Dict van tabelnaam naar ruwe DataFrame.
+        schema_name: Naam van het schema (bijv. ``"ro"``, ``"grondslag"``, ``"tbgi"``).
 
     Returns:
-        Dict van recordtype-code naar getypeerde DataFrame.
+        Dict van tabelnaam naar getypeerde DataFrame.
     """
     schema = load_schema(schema_name)
 
@@ -99,6 +105,7 @@ def decode_multi_record_csv(
         rt_schema = schema[rt]
         date_fields = set(rt_schema.get("date_fields", []))
         int_fields = set(rt_schema.get("int_fields", []))
+        float_fields = set(rt_schema.get("float_fields", []))
 
         exprs = []
         for col in df.columns:
@@ -112,6 +119,8 @@ def decode_multi_record_csv(
                     .cast(pl.Int64)
                     .alias(col)
                 )
+            elif col in float_fields:
+                exprs.append(_to_float_expr(pl.col(col)).alias(col))
             else:
                 exprs.append(pl.col(col))
 
@@ -120,17 +129,33 @@ def decode_multi_record_csv(
     return result
 
 
+def decode_multi_record_csv(
+    frames: dict[str, pl.DataFrame],
+    schema_name: str,
+) -> dict[str, pl.DataFrame]:
+    """Alias voor :func:`decode_frames` voor achterwaartse compatibiliteit."""
+    return decode_frames(frames, schema_name)
+
+
 def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     """Decodeer een RO-pakket naar getypeerde DataFrames.
 
-    Dunne wrapper om :func:`decode_multi_record_csv` met schema ``"ro"``.
+    Dunne wrapper om :func:`decode_frames` met schema ``"ro"``.
     """
-    return decode_multi_record_csv(frames, "ro")
+    return decode_frames(frames, "ro")
 
 
 def decode_grondslag(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     """Decodeer een GRONDSLAG IP MBO-pakket naar getypeerde DataFrames.
 
-    Dunne wrapper om :func:`decode_multi_record_csv` met schema ``"grondslag"``.
+    Dunne wrapper om :func:`decode_frames` met schema ``"grondslag"``.
     """
-    return decode_multi_record_csv(frames, "grondslag")
+    return decode_frames(frames, "grondslag")
+
+
+def decode_tbgi(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Decodeer een TBGI-pakket naar getypeerde DataFrames.
+
+    Dunne wrapper om :func:`decode_frames` met schema ``"tbgi"``.
+    """
+    return decode_frames(frames, "tbgi")
