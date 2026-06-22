@@ -1,0 +1,5 @@
+# Datapaden voor de Streamlit-app. Wijzen standaard naar de demo-data.
+[data]
+raw = "data/01-raw/demo"
+prepared = "data/02-prepared/demo"
+output = "data/03-output/demo"

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv_cache/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Data — alles genegeerd behalve de demo-mappen
+data/01-raw/*
+data/02-prepared/*
+data/03-output/*
+!data/*/demo/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
