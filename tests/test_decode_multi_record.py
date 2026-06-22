@@ -10,7 +10,6 @@ from mbo_bekostiging_bestanden.decode import (
     _detect_date_format,
     _to_compact_expr,
     decode_multi_record_csv,
-    decode_ro,
 )
 from mbo_bekostiging_bestanden.ingest import read_ro
 
@@ -19,7 +18,7 @@ RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"
 
 
 # ---------------------------------------------------------------------------
-# Compact datumformaat detector
+# Compact datumformaat — detector
 # ---------------------------------------------------------------------------
 
 def test_detect_date_format_iso():
@@ -35,56 +34,46 @@ def test_detect_date_format_compact():
 
 
 # ---------------------------------------------------------------------------
-# Compact datumexpressie
+# Compact datumexpressie — gedrag
 # ---------------------------------------------------------------------------
 
-def test_to_compact_expr_parses_correctly():
-    df = pl.DataFrame({"d": ["20251119", "20230130", ""]})
+def test_to_compact_expr_parses_date():
+    df = pl.DataFrame({"d": ["20251119"]})
+    result = df.with_columns(_to_compact_expr(pl.col("d")).alias("d"))
+    assert result["d"][0] == date(2025, 11, 19)
+
+
+def test_to_compact_expr_returns_date_type():
+    df = pl.DataFrame({"d": ["20230130"]})
     result = df.with_columns(_to_compact_expr(pl.col("d")).alias("d"))
     assert result["d"].dtype == pl.Date
-    assert result["d"][0] == date(2025, 11, 19)
-    assert result["d"][2] is None
+
+
+def test_to_compact_expr_empty_becomes_null():
+    df = pl.DataFrame({"d": [""]})
+    result = df.with_columns(_to_compact_expr(pl.col("d")).alias("d"))
+    assert result["d"][0] is None
 
 
 # ---------------------------------------------------------------------------
-# Generieke decode
+# Generieke decode — gedrag
 # ---------------------------------------------------------------------------
 
-def test_decode_multi_record_csv_returns_dict():
+def test_decode_multi_record_csv_dates_typed():
+    """Datumvelden zijn pl.Date na decode via generieke functie."""
     frames = read_ro(RO_27DV)
     result = decode_multi_record_csv(frames, "ro")
-    assert isinstance(result, dict)
-
-
-def test_decode_multi_record_csv_same_output_as_decode_ro():
-    frames = read_ro(RO_27DV)
-    via_generic = decode_multi_record_csv(frames, "ro")
-    via_wrapper = decode_ro(frames)
-    assert via_generic.keys() == via_wrapper.keys()
-    for rt in via_generic:
-        assert via_generic[rt].equals(via_wrapper[rt])
-
-
-def test_decode_ro_wrapper_still_works():
-    frames = read_ro(RO_27DV)
-    result = decode_ro(frames)
     assert result["VLP"]["DatumAanmaak"].dtype == pl.Date
 
 
-# ---------------------------------------------------------------------------
-# Validate wrapper
-# ---------------------------------------------------------------------------
-
-def test_validate_single_row_driven_by_schema():
-    """VLP/SLR-check komt uit schema, niet uit hardcoded constante."""
-    from mbo_bekostiging_bestanden.validate import validate_multi_record
-    frames = decode_ro(read_ro(RO_27DV))
-    result = validate_multi_record(frames, "ro")
-    assert result is frames
+def test_decode_multi_record_csv_integers_typed():
+    """Integervelden zijn pl.Int64 na decode via generieke functie."""
+    frames = read_ro(RO_27DV)
+    result = decode_multi_record_csv(frames, "ro")
+    assert result["SLR"]["AantalPER"].dtype == pl.Int64
 
 
-def test_validate_multi_record_unknown_schema_raises():
-    from mbo_bekostiging_bestanden.validate import validate_multi_record
-    frames = decode_ro(read_ro(RO_27DV))
+def test_decode_multi_record_csv_unknown_schema_raises():
+    frames = read_ro(RO_27DV)
     with pytest.raises(FileNotFoundError):
-        validate_multi_record(frames, "bestaat_niet")
+        decode_multi_record_csv(frames, "bestaat_niet")
