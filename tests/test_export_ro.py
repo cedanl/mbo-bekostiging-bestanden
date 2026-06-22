@@ -85,7 +85,7 @@ def test_export_ro_csv_row_counts(frames, tmp_path):
 
 def test_export_ro_invalid_fmt_raises(frames, tmp_path):
     with pytest.raises(ValueError, match="Onbekend formaat"):
-        export_ro(frames, tmp_path, fmt="xlsx")  # type: ignore[arg-type]
+        export_ro(frames, tmp_path, fmt="xlsx")  # type: ignore
 
 
 # ---------------------------------------------------------------------------

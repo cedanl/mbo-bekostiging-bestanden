@@ -1,19 +1,10 @@
 """Inlezen van ruwe bekostigingsbestanden."""
 
-import tomllib
 from pathlib import Path
 
 import polars as pl
 
-
-def _load_schema(schema_path: Path) -> dict[str, list[str]]:
-    with open(schema_path, "rb") as f:
-        data = tomllib.load(f)
-    return {
-        key: value["fields"]
-        for key, value in data.items()
-        if isinstance(value, dict) and "fields" in value
-    }
+from mbo_bekostiging_bestanden.metadata import load_schema
 
 
 def _detect_separator(line: str) -> str:
@@ -38,8 +29,8 @@ def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:
     if not path.exists():
         raise FileNotFoundError(f"Bronbestand niet gevonden: {path}")
 
-    schema_path = Path(__file__).parent / "metadata" / "ro_schema.toml"
-    schema = _load_schema(schema_path)
+    raw_schema = load_schema()
+    schema = {rt: v["fields"] for rt, v in raw_schema.items()}
 
     try:
         content = path.read_text(encoding="utf-8-sig")

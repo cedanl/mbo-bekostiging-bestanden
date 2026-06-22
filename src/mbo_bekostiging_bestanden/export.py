@@ -8,22 +8,6 @@ import polars as pl
 OutputFormat = Literal["parquet", "csv"]
 
 
-def export_data(data: pl.DataFrame, path: str | Path) -> Path:
-    """Schrijf één DataFrame weg als Parquet.
-
-    Args:
-        data: Te schrijven DataFrame.
-        path: Doelpad inclusief bestandsnaam.
-
-    Returns:
-        Het pad waar de data is weggeschreven.
-    """
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    data.write_parquet(path)
-    return path
-
-
 def export_ro(
     frames: dict[str, pl.DataFrame],
     output_dir: str | Path,

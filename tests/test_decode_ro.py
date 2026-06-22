@@ -87,6 +87,26 @@ def test_decode_ro_slr_count_value():
 
 
 # ---------------------------------------------------------------------------
+# Datumformaat-detectie zonder VLP
+# ---------------------------------------------------------------------------
+
+def test_decode_ro_dates_typed_without_vlp():
+    """Datumformaat wordt gevonden via andere recordtypes als VLP ontbreekt."""
+    frames = read_ro(RO_27DV)
+    frames_no_vlp = {rt: df for rt, df in frames.items() if rt != "VLP"}
+    result = decode_ro(frames_no_vlp)
+    assert result["ISG"]["DatumInschrijving"].dtype == pl.Date
+
+
+def test_decode_ro_dutch_dates_typed_without_vlp():
+    """Dutch datumformaat wordt ook zonder VLP correct gedetecteerd."""
+    frames = read_ro(RO_25LX)
+    frames_no_vlp = {rt: df for rt, df in frames.items() if rt != "VLP"}
+    result = decode_ro(frames_no_vlp)
+    assert result["ISG"]["DatumInschrijving"].dtype == pl.Date
+
+
+# ---------------------------------------------------------------------------
 # Alle demo-bestanden
 # ---------------------------------------------------------------------------
 

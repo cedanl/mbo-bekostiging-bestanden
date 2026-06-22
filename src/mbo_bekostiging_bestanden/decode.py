@@ -1,16 +1,10 @@
 """Decoderen van RO-velden: strings omzetten naar juiste types via schema-metadata."""
 
 import re
-import tomllib
-from pathlib import Path
 
 import polars as pl
 
-
-def _load_schema(schema_path: Path) -> dict[str, dict]:
-    with open(schema_path, "rb") as f:
-        data = tomllib.load(f)
-    return {k: v for k, v in data.items() if isinstance(v, dict)}
+from mbo_bekostiging_bestanden.metadata import load_schema
 
 
 def _detect_date_format(sample: str) -> str:
@@ -45,13 +39,16 @@ def _to_dutch_expr(col: pl.Expr) -> pl.Expr:
     return iso.str.to_date("%Y-%m-%d", strict=False)
 
 
-def _find_date_sample(frames: dict[str, pl.DataFrame]) -> str:
-    """Zoek de eerste niet-lege datumwaarde uit VLP.DatumAanmaak."""
-    vlp = frames.get("VLP")
-    if vlp is not None and vlp.height > 0:
-        val = vlp["DatumAanmaak"][0]
-        if val:
-            return val
+def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) -> str:
+    """Zoek de eerste niet-lege datumwaarde door alle schema-datumvelden te scannen."""
+    for rt, df in frames.items():
+        if rt not in schema or df.height == 0:
+            continue
+        for field in schema[rt].get("date_fields", []):
+            if field in df.columns:
+                val = df[field][0]
+                if val:
+                    return val
     return ""
 
 
@@ -63,10 +60,9 @@ def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     - Examenscores (GEO) worden nullable pl.Int64.
     - Overige velden blijven pl.Utf8.
     """
-    schema_path = Path(__file__).parent / "metadata" / "ro_schema.toml"
-    schema = _load_schema(schema_path)
+    schema = load_schema()
 
-    sample = _find_date_sample(frames)
+    sample = _find_date_sample(frames, schema)
     date_fmt = _detect_date_format(sample) if sample else "iso"
     to_date = _to_dutch_expr if date_fmt == "dutch" else _to_iso_expr
 

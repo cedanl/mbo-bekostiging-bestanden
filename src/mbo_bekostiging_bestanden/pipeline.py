@@ -7,7 +7,7 @@ import polars as pl
 from mbo_bekostiging_bestanden.decode import decode_ro
 from mbo_bekostiging_bestanden.export import OutputFormat, export_ro
 from mbo_bekostiging_bestanden.ingest import read_ro
-from mbo_bekostiging_bestanden.validate import validate_data
+from mbo_bekostiging_bestanden.validate import validate_ro
 
 
 def run_pipeline(
@@ -27,9 +27,6 @@ def run_pipeline(
     """
     frames = read_ro(Path(source))
     frames = decode_ro(frames)
-
-    for _rt, df in frames.items():
-        validate_data(df)
-
+    validate_ro(frames)
     export_ro(frames, Path(target), fmt=fmt)
     return frames
