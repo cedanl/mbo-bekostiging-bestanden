@@ -1,11 +1,13 @@
 """Metadata: veldindelingen en codeboeken voor de bekostigingsbestanden."""
 
 import tomllib
+from functools import lru_cache
 from pathlib import Path
 
 SCHEMA_DIR = Path(__file__).parent
 
 
+@lru_cache
 def load_schema(name: str = "ro") -> dict[str, dict]:
     """Laad een schema-TOML en geef de recordtype-entries terug.
 
