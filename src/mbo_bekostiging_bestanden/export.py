@@ -1,35 +1,60 @@
 """Wegschrijven van schone data naar de output-map."""
 
 from pathlib import Path
+from typing import Literal
 
 import polars as pl
 
+OutputFormat = Literal["parquet", "csv"]
+
 
 def export_data(data: pl.DataFrame, path: str | Path) -> Path:
-    """Schrijf één DataFrame weg als Parquet."""
+    """Schrijf één DataFrame weg als Parquet.
+
+    Args:
+        data: Te schrijven DataFrame.
+        path: Doelpad inclusief bestandsnaam.
+
+    Returns:
+        Het pad waar de data is weggeschreven.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     data.write_parquet(path)
     return path
 
 
-def export_ro(frames: dict[str, pl.DataFrame], output_dir: str | Path) -> list[Path]:
-    """Schrijf elk RO-recordtype als apart Parquet-bestand naar output_dir.
+def export_ro(
+    frames: dict[str, pl.DataFrame],
+    output_dir: str | Path,
+    fmt: OutputFormat = "parquet",
+) -> list[Path]:
+    """Schrijf elk RO-recordtype als apart bestand naar output_dir.
 
     Args:
         frames:     Dict van recordtype-code naar getypeerde DataFrame.
         output_dir: Doelmap (wordt aangemaakt als die niet bestaat).
+        fmt:        Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
 
     Returns:
         Lijst van geschreven paden.
+
+    Raises:
+        ValueError: Als ``fmt`` geen ondersteund formaat is.
     """
+    if fmt not in ("parquet", "csv"):
+        raise ValueError(f"Onbekend formaat {fmt!r}. Kies 'parquet' of 'csv'.")
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     written = []
     for rt, df in frames.items():
-        path = output_dir / f"{rt}.parquet"
-        df.write_parquet(path)
+        path = output_dir / f"{rt}.{fmt}"
+        if fmt == "parquet":
+            df.write_parquet(path)
+        else:
+            df.write_csv(path)
         written.append(path)
 
     return written
