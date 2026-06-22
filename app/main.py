@@ -6,7 +6,6 @@ Bevat geen bedrijfslogica; roept alleen de package-functies aan.
 import tomllib
 from pathlib import Path
 
-import polars as pl
 import streamlit as st
 
 from mbo_bekostiging_bestanden.pipeline import run_pipeline
@@ -38,10 +37,15 @@ def main() -> None:
         format_func=lambda p: str(p.relative_to(raw_dir)),
     )
     if st.button("Verwerk"):
-        target = output_dir / f"{source.stem}.parquet"
-        data: pl.DataFrame = run_pipeline(source, target)
-        st.success(f"Verwerkt: {len(data)} rijen geschreven naar {target}")
-        st.dataframe(data.head(100).to_pandas())
+        target = output_dir / source.stem
+        frames = run_pipeline(source, target)
+        total = sum(df.height for df in frames.values())
+        st.success(
+            f"Verwerkt: {len(frames)} recordtypes, {total} rijen totaal → {target}"
+        )
+
+        rt = st.selectbox("Bekijk recordtype", sorted(frames.keys()))
+        st.dataframe(frames[rt].head(100))
 
 
 if __name__ == "__main__":

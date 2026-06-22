@@ -2,20 +2,43 @@
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.metadata import load_schema
 
-def validate_data(data: pl.DataFrame) -> pl.DataFrame:
-    """Controleer de data op kwaliteit en geef deze ongewijzigd terug.
+_SINGLE_ROW_TYPES = ("VLP", "SLR")
 
-    Stopt met een fout als een harde controle faalt.
+
+def validate_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Valideer een volledig RO-pakket na decoding.
+
+    Controles:
+    - Alle verwachte kolommen aanwezig per recordtype (schema-gedreven).
+    - VLP en SLR bevatten elk exact 1 rij.
 
     Args:
-        data: Gedecodeerde data uit :func:`decode.decode_fields`.
+        frames: Dict van recordtype-code naar getypeerde DataFrame.
 
     Returns:
-        Dezelfde data, mits alle controles slagen.
-    """
-    if data.is_empty():
-        raise ValueError("Geen rijen in de dataset na inlezen.")
+        Dezelfde frames, mits alle controles slagen.
 
-    # TODO: voeg controles toe op verplichte kolommen, dubbelingen en bereik.
-    return data
+    Raises:
+        ValueError: Als een harde controle faalt.
+    """
+    schema = load_schema()
+
+    for rt, df in frames.items():
+        if rt not in schema:
+            continue
+        expected = set(schema[rt]["fields"])
+        missing = expected - set(df.columns)
+        if missing:
+            raise ValueError(
+                f"{rt}: ontbrekende kolommen {sorted(missing)}"
+            )
+
+    for rt in _SINGLE_ROW_TYPES:
+        if rt in frames and frames[rt].height != 1:
+            raise ValueError(
+                f"{rt} moet exact 1 rij bevatten, gevonden: {frames[rt].height}"
+            )
+
+    return frames

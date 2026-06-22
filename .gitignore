@@ -7,11 +7,19 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Data — alles genegeerd behalve de demo-mappen
+# Data
+# 01-raw: echte data genegeerd, alleen demo-bronbestanden in git
 data/01-raw/*
-data/02-prepared/*
-data/03-output/*
-!data/*/demo/
+!data/01-raw/demo/
+
+# 02-prepared en 03-output: gegenereerde output, nooit in git
+# Mappen zelf vrijgesteld zodat .gitkeep erin werkt
+data/02-prepared/**
+!data/02-prepared/**/
+!data/02-prepared/**/.gitkeep
+data/03-output/**
+!data/03-output/**/
+!data/03-output/**/.gitkeep
 
 # OS / editor
 .DS_Store
