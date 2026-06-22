@@ -1,6 +1,5 @@
 """Orkestratie van de ingestion-pipeline: ingest > decode > validate > export."""
 
-from collections.abc import Callable
 from pathlib import Path
 
 import polars as pl
@@ -11,8 +10,7 @@ from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro
 from mbo_bekostiging_bestanden.validate import validate_grondslag, validate_ro
 
 # Bestandsnaam-prefix (hoofdletters) → bestandstype-sleutel.
-# Volgorde is relevant: langere prefixen eerst zodat "GRONDSLAG_IP_MBO_" niet
-# matcht op een hypothetische prefix "GRONDSLAG_".
+# Langere prefixen eerst: "GRONDSLAG_IP_MBO_" vóór een eventuele "GRONDSLAG_".
 _PREFIXES: dict[str, str] = {
     "GRONDSLAG_IP_MBO_": "grondslag",
     "RO_": "ro",
@@ -30,14 +28,6 @@ def detect_bestandstype(path: str | Path) -> str | None:
         if name.startswith(prefix):
             return bestandstype
     return None
-
-
-# Registry van bestandstype-sleutel → pipeline-functie.
-# Type is Callable zodat mypy/ty de signatuur kan verifiëren bij uitbreiding.
-_PIPELINES: dict[str, Callable[..., dict[str, pl.DataFrame]]] = {
-    "ro": lambda s, t, fmt: run_pipeline(s, t, fmt=fmt),
-    "grondslag": lambda s, t, fmt: run_grondslag_pipeline(s, t, fmt=fmt),
-}
 
 
 def run_auto_pipeline(
@@ -64,7 +54,7 @@ def run_auto_pipeline(
             f"Onbekend bestandstype: {Path(source).name!r}. "
             f"Ondersteund: {sorted(_PIPELINES)}"
         )
-    return _PIPELINES[bestandstype](source, target, fmt)
+    return _PIPELINES[bestandstype](source, target, fmt=fmt)
 
 
 def run_pipeline(
@@ -109,3 +99,12 @@ def run_grondslag_pipeline(
     validate_grondslag(frames)
     export_frames(frames, Path(target), fmt=fmt)
     return frames
+
+
+# Registry van bestandstype-sleutel → pipeline-functie.
+# Staat ná de functies zodat directe referenties werken zonder lambdas.
+# run_auto_pipeline leest _PIPELINES op aanroeptijd, niet op definitietijd.
+_PIPELINES = {
+    "ro": run_pipeline,
+    "grondslag": run_grondslag_pipeline,
+}
