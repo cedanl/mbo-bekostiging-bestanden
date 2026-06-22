@@ -37,7 +37,7 @@ KZD|BSN1||8286771|25655|8286772|K0067||Behaald|||
 | 5 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer |
 | 6 | Code keuzedeel | Ja | AN5 | Unieke identificatie |
 | 7 | Resultaat | Nee | AN70 | `BEHAALD` of `NIET BEHAALD` |
-| 8 | Certificaat | Ja | AN1 | `1` = certificaat, `0` = niet; alleen bij los KZD |
+| 8 | Certificaat | Nee | AN1 | `1` = certificaat, `0` = niet; alleen gevuld bij los keuzedeel |
 | 9 | Datum resultaat | Nee | D `ccyymmdd` | Alleen bij los keuzedeel |
 | 10 | Inschrijvingvolgnummer | Nee | AN1..20 | Alleen bij los keuzedeel |
 | 11 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` |

@@ -169,6 +169,9 @@ Voorbeeld: bekostigingsjaar 2027 = inschrijvingen studiejaar 2025–2026, diplom
 
 ## Voorbeeld (demo-data 25LX, bekostigingsjaar 2027)
 
+!!! note "Voorbeeld is ingekort"
+    Het `<Teldatum>`-blok bevat in werkelijkheid alle 16 elementen uit de veldtabel hierboven (inclusief `Verblijfsjaarfactor`, `LeeftijdOpEenAugustusStudiejaar`, enz.). Het voorbeeld toont een representatieve subset. Zie de demo-XML voor de volledige structuur.
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <Bekostigingsgrondslagen>
@@ -192,16 +195,21 @@ Voorbeeld: bekostigingsjaar 2027 = inschrijvingen studiejaar 2025–2026, diplom
       <BBLBOLFactor>1</BBLBOLFactor>
       <PrijsfactorMBO>1</PrijsfactorMBO>
       <BijdrageInschrijvingAanDeelnemerswaarde>1</BijdrageInschrijvingAanDeelnemerswaarde>
+      <!-- overige Teldatum-elementen aanwezig in data: zie veldtabel -->
     </Teldatum>
   </Inschrijving>
   <Diploma>
     <BRIN>25LX</BRIN>
     <Burgerservicenummer>200000000</Burgerservicenummer>
+    <Onderwijsnummer xsi:nil="true"/>
+    <Inschrijvingvolgnummer>001</Inschrijvingvolgnummer>
     <Resultaatvolgnummer>1362433</Resultaatvolgnummer>
     <Opleidingcode>25297</Opleidingcode>
     <DatumBehaald>2025-06-17</DatumBehaald>
     <Niveau>MBO-4</Niveau>
     <IndicatieSpecialistendiploma>false</IndicatieSpecialistendiploma>
+    <NiveauHoogstBekostigdeDiploma xsi:nil="true"/>
+    <IndicatieHoogstBekostigdeDiplomaIsSpecialist xsi:nil="true"/>
     <StatusBepalingBekostigingsstatus>V</StatusBepalingBekostigingsstatus>
     <Bekostigingsstatus>true</Bekostigingsstatus>
     <BijdrageDiplomawaarde>5</BijdrageDiplomawaarde>
