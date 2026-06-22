@@ -1,0 +1,83 @@
+site_name: MBO-bekostigingsbestanden
+site_description: Documentatie over de ruwe DUO MBO-bekostigingsbestanden – wat ze bevatten, hoe ze zijn opgebouwd en wat alle velden betekenen.
+site_url: https://cedanl.github.io/mbo-bekostiging-bestanden/
+repo_url: https://github.com/cedanl/mbo-bekostiging-bestanden
+repo_name: cedanl/mbo-bekostiging-bestanden
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: nl
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Donker thema
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Licht thema
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+
+plugins:
+  - search:
+      lang: nl
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Aan de slag: aan-de-slag.md
+  - Databestanden:
+    - databestanden/index.md
+    - RO – Registratieoverzicht: databestanden/ro.md
+    - TBGI – Bekostigingsgrondslagen XML: databestanden/tbgi.md
+    - GRONDSLAG IP MBO: databestanden/grondslag-ip.md
+  - Recordtypes:
+    - recordtypes/index.md
+    - VLP – Voorlooprecord: recordtypes/vlp.md
+    - PER – Persoon: recordtypes/per.md
+    - ISG – Inschrijving: recordtypes/isg.md
+    - ISP – Inschrijvingsperiode: recordtypes/isp.md
+    - ISE – Extra ondersteuning: recordtypes/ise.md
+    - BPV – Beroepspraktijkvorming: recordtypes/bpv.md
+    - DIP – Diploma: recordtypes/dip.md
+    - AMO – AMvB-onderdeel: recordtypes/amo.md
+    - GEO – Generiek examenonderdeel: recordtypes/geo.md
+    - KZD – Keuzedeel: recordtypes/kzd.md
+    - BII – Bekostigingsinformatie inschrijving: recordtypes/bii.md
+    - BID – Bekostigingsinformatie diploma: recordtypes/bid.md
+    - SLR / CTR – Sluit- en controletotalen: recordtypes/slr.md
+  - Waardenlijsten: waardenlijsten.md
