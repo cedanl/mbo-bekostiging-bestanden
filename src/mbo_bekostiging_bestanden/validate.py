@@ -50,3 +50,11 @@ def validate_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     Dunne wrapper om :func:`validate_multi_record` met schema ``"ro"``.
     """
     return validate_multi_record(frames, "ro")
+
+
+def validate_grondslag(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Valideer een GRONDSLAG IP MBO-pakket na decoding.
+
+    Dunne wrapper om :func:`validate_multi_record` met schema ``"grondslag"``.
+    """
+    return validate_multi_record(frames, "grondslag")

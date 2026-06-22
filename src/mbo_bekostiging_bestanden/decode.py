@@ -40,17 +40,17 @@ def _to_dutch_expr(col: pl.Expr) -> pl.Expr:
     """
     non_empty = pl.when(col == "").then(pl.lit(None, dtype=pl.Utf8)).otherwise(col)
     parts = non_empty.str.split("-")
-    day   = parts.list.get(0, null_on_oob=True).str.zfill(2)
+    day = parts.list.get(0, null_on_oob=True).str.zfill(2)
     month = parts.list.get(1, null_on_oob=True).str.zfill(2)
-    year  = parts.list.get(2, null_on_oob=True)
-    iso   = pl.concat_str([year, month, day], separator="-", ignore_nulls=False)
+    year = parts.list.get(2, null_on_oob=True)
+    iso = pl.concat_str([year, month, day], separator="-", ignore_nulls=False)
     return iso.str.to_date("%Y-%m-%d", strict=False)
 
 
 _DATE_EXPR = {
-    "iso":     _to_iso_expr,
+    "iso": _to_iso_expr,
     "compact": _to_compact_expr,
-    "dutch":   _to_dutch_expr,
+    "dutch": _to_dutch_expr,
 }
 
 
@@ -98,7 +98,7 @@ def decode_multi_record_csv(
 
         rt_schema = schema[rt]
         date_fields = set(rt_schema.get("date_fields", []))
-        int_fields  = set(rt_schema.get("int_fields", []))
+        int_fields = set(rt_schema.get("int_fields", []))
 
         exprs = []
         for col in df.columns:
@@ -126,3 +126,11 @@ def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     Dunne wrapper om :func:`decode_multi_record_csv` met schema ``"ro"``.
     """
     return decode_multi_record_csv(frames, "ro")
+
+
+def decode_grondslag(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Decodeer een GRONDSLAG IP MBO-pakket naar getypeerde DataFrames.
+
+    Dunne wrapper om :func:`decode_multi_record_csv` met schema ``"grondslag"``.
+    """
+    return decode_multi_record_csv(frames, "grondslag")

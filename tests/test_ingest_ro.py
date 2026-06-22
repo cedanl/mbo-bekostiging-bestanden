@@ -14,14 +14,15 @@ import pytest
 from mbo_bekostiging_bestanden.ingest import read_ro
 
 DEMO_H15 = Path("data/01-raw/demo/h15")
-RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"   # separator |
-RO_25LX = DEMO_H15 / "RO_25LX_20250101_20251231.csv"   # separator ;
-RO_21CY = DEMO_H15 / "RO_21CY_20250730_20250731.csv"   # separator ;, VLP als laatste
+RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"  # separator |
+RO_25LX = DEMO_H15 / "RO_25LX_20250101_20251231.csv"  # separator ;
+RO_21CY = DEMO_H15 / "RO_21CY_20250730_20250731.csv"  # separator ;, VLP als laatste
 
 
 # ---------------------------------------------------------------------------
 # Basis
 # ---------------------------------------------------------------------------
+
 
 def test_read_ro_returns_dict():
     result = read_ro(RO_27DV)
@@ -36,6 +37,7 @@ def test_read_ro_file_not_found():
 # ---------------------------------------------------------------------------
 # Structuur
 # ---------------------------------------------------------------------------
+
 
 def test_read_ro_contains_required_recordtypes():
     # ISE en AMO zijn optioneel; demo-bestanden zijn subsets.
@@ -61,42 +63,63 @@ def test_read_ro_slr_has_one_row():
 # Kolomnamen
 # ---------------------------------------------------------------------------
 
+
 def test_read_ro_vlp_column_names():
     result = read_ro(RO_27DV)
     assert result["VLP"].columns == [
-        "Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"
+        "Recordsoort",
+        "BRIN",
+        "DatumBeginPeriode",
+        "DatumEindePeriode",
+        "DatumAanmaak",
     ]
 
 
 def test_read_ro_per_column_names():
     result = read_ro(RO_27DV)
     assert result["PER"].columns == [
-        "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
-        "Geboortedatum", "Geslacht",
+        "Recordsoort",
+        "Burgerservicenummer",
+        "Onderwijsnummer",
+        "Geboortedatum",
+        "Geslacht",
     ]
 
 
 def test_read_ro_isg_column_names():
     result = read_ro(RO_27DV)
     assert result["ISG"].columns == [
-        "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
-        "Inschrijvingvolgnummer", "DatumInschrijving", "DatumUitschrijvingGepland",
-        "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
+        "Recordsoort",
+        "Burgerservicenummer",
+        "Onderwijsnummer",
+        "Inschrijvingvolgnummer",
+        "DatumInschrijving",
+        "DatumUitschrijvingGepland",
+        "DatumUitschrijvingWerkelijk",
+        "RedenUitschrijving",
     ]
 
 
 def test_read_ro_slr_column_names():
     result = read_ro(RO_27DV)
     assert result["SLR"].columns == [
-        "Recordsoort", "AantalPER", "AantalISG", "AantalISP",
-        "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO",
-        "AantalGEO", "AantalKZD",
+        "Recordsoort",
+        "AantalPER",
+        "AantalISG",
+        "AantalISP",
+        "AantalISE",
+        "AantalBPV",
+        "AantalDIP",
+        "AantalAMO",
+        "AantalGEO",
+        "AantalKZD",
     ]
 
 
 # ---------------------------------------------------------------------------
 # Inhoud
 # ---------------------------------------------------------------------------
+
 
 def test_read_ro_vlp_brin_pipe():
     assert read_ro(RO_27DV)["VLP"]["BRIN"][0] == "27DV"
@@ -114,14 +137,24 @@ def test_read_ro_slr_counts_are_integers():
     """
     result = read_ro(RO_27DV)
     slr = result["SLR"].row(0, named=True)
-    for col in ["AantalPER", "AantalISG", "AantalISP", "AantalISE",
-                "AantalBPV", "AantalDIP", "AantalAMO", "AantalGEO", "AantalKZD"]:
+    for col in [
+        "AantalPER",
+        "AantalISG",
+        "AantalISP",
+        "AantalISE",
+        "AantalBPV",
+        "AantalDIP",
+        "AantalAMO",
+        "AantalGEO",
+        "AantalKZD",
+    ]:
         int(slr[col])  # mag niet gooien
 
 
 # ---------------------------------------------------------------------------
 # Robuustheid
 # ---------------------------------------------------------------------------
+
 
 def test_read_ro_inverted_file_structure():
     """21CY heeft VLP als laatste en SLR als eerste — volgorde mag niet uitmaken."""

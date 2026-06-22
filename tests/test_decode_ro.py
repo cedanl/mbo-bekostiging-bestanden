@@ -8,13 +8,14 @@ from mbo_bekostiging_bestanden.decode import decode_ro
 from mbo_bekostiging_bestanden.ingest import read_ro
 
 DEMO_H15 = Path("data/01-raw/demo/h15")
-RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"   # ISO-datums
-RO_25LX = DEMO_H15 / "RO_25LX_20250101_20251231.csv"   # Nederlandse datums
+RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"  # ISO-datums
+RO_25LX = DEMO_H15 / "RO_25LX_20250101_20251231.csv"  # Nederlandse datums
 
 
 # ---------------------------------------------------------------------------
 # Basis
 # ---------------------------------------------------------------------------
+
 
 def test_decode_ro_returns_dict():
     frames = read_ro(RO_27DV)
@@ -32,6 +33,7 @@ def test_decode_ro_preserves_recordtypes():
 # Datumvelden
 # ---------------------------------------------------------------------------
 
+
 def test_decode_ro_vlp_dates_are_date_type():
     result = decode_ro(read_ro(RO_27DV))
     for col in ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]:
@@ -40,6 +42,7 @@ def test_decode_ro_vlp_dates_are_date_type():
 
 def test_decode_ro_iso_date_value():
     from datetime import date
+
     result = decode_ro(read_ro(RO_27DV))
     assert result["VLP"]["DatumAanmaak"][0] == date(2026, 3, 25)
 
@@ -47,6 +50,7 @@ def test_decode_ro_iso_date_value():
 def test_decode_ro_dutch_date_value():
     """25LX gebruikt dd-m-yyyy formaat zonder leading zeros."""
     from datetime import date
+
     result = decode_ro(read_ro(RO_25LX))
     assert result["VLP"]["DatumAanmaak"][0] == date(2026, 3, 23)
 
@@ -75,6 +79,7 @@ def test_decode_ro_per_geboortedatum_is_date():
 # Integervelden
 # ---------------------------------------------------------------------------
 
+
 def test_decode_ro_slr_counts_are_integer():
     result = decode_ro(read_ro(RO_27DV))
     for col in ["AantalPER", "AantalISG", "AantalISP", "AantalBPV", "AantalDIP"]:
@@ -89,6 +94,7 @@ def test_decode_ro_slr_count_value():
 # ---------------------------------------------------------------------------
 # Datumformaat-detectie zonder VLP
 # ---------------------------------------------------------------------------
+
 
 def test_decode_ro_dates_typed_without_vlp():
     """Datumformaat wordt gevonden via andere recordtypes als VLP ontbreekt."""
@@ -109,6 +115,7 @@ def test_decode_ro_dutch_dates_typed_without_vlp():
 # ---------------------------------------------------------------------------
 # Alle demo-bestanden
 # ---------------------------------------------------------------------------
+
 
 def test_decode_ro_all_demo_files():
     for path in DEMO_H15.glob("RO_*.csv"):

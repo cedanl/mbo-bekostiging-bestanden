@@ -22,6 +22,7 @@ def frames():
 # Parquet (standaard)
 # ---------------------------------------------------------------------------
 
+
 def test_export_ro_parquet_creates_files(frames, tmp_path):
     export_ro(frames, tmp_path)
     assert len(list(tmp_path.glob("*.parquet"))) == len(frames)
@@ -58,6 +59,7 @@ def test_export_ro_parquet_row_counts(frames, tmp_path):
 # CSV
 # ---------------------------------------------------------------------------
 
+
 def test_export_ro_csv_creates_files(frames, tmp_path):
     export_ro(frames, tmp_path, fmt="csv")
     assert len(list(tmp_path.glob("*.csv"))) == len(frames)
@@ -91,6 +93,7 @@ def test_export_ro_invalid_fmt_raises(frames, tmp_path):
 # ---------------------------------------------------------------------------
 # Geen overlap tussen formaten in dezelfde map
 # ---------------------------------------------------------------------------
+
 
 def test_export_ro_no_format_mixing(frames, tmp_path):
     export_ro(frames, tmp_path / "parquet", fmt="parquet")
