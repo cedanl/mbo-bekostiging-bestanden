@@ -105,13 +105,55 @@ frames = run_auto_pipeline(
 
 Detecteert het type op basis van de bestandsnaam (`RO_`, `GRONDSLAG_IP_MBO_`, `TBGI_`) en roept automatisch de juiste pipeline aan.
 
+## Leveringen over jaren stapelen
+
+Na normalisatie kun je meerdere leveringen samenvoegen tot één tabel per recordtype,
+met een `levering`-kolom die de herkomst bijhoudt.
+
+```python
+from mbo_bekostiging_bestanden.stack import stack_prepared
+
+frames = stack_prepared(
+    sources=[
+        "data/02-prepared/demo/h15/21CY",
+        "data/02-prepared/demo/h15/25LX",
+        "data/02-prepared/demo/h17/IP",
+    ],
+    relative_to="data/02-prepared/demo",   # labels worden "h15/21CY", "h15/25LX", "h17/IP"
+)
+
+# frames["ISG"] bevat rijen uit alle drie leveringen, eerste kolom = "levering"
+```
+
+Schema-drift tussen jaren (bijv. `Burgerservicenummer` in RO vs. `PseudoNummer` in GRONDSLAG)
+wordt automatisch afgehandeld — ontbrekende kolommen krijgen `null`.
+
+## CLI
+
+```bash
+# Eén bestand verwerken
+uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
+    data/02-prepared/demo/h15/27DV
+
+# Leveringen stapelen
+uv run mbo stapel \
+    data/02-prepared/demo/h15/21CY \
+    data/02-prepared/demo/h15/25LX \
+    data/02-prepared/demo/h17/IP \
+    --output data/03-output/demo/gestapeld \
+    --relative-to data/02-prepared/demo
+```
+
 ## Interactieve app
 
 ```bash
 uv run streamlit run app/main.py
 ```
 
-Open daarna `http://localhost:8501`, kies een bronbestand en klik op **Verwerk**.
+Open daarna `http://localhost:8501`. De app heeft twee tabbladen:
+
+- **Verwerk bestand** — verwerk één ruw bestand naar Parquet in `data/02-prepared/`.
+- **Stapel leveringen** — selecteer meerdere prepared-mappen en voeg ze samen in `data/03-output/`.
 
 ## Tests
 
