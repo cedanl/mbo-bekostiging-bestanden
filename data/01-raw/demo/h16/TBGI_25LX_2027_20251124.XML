@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Bekostigingsgrondslagen xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<Inschrijving>
+		<BRIN>25LX</BRIN>
+		<Burgerservicenummer>100000000</Burgerservicenummer>
+		<Onderwijsnummer xsi:nil="true"/>
+		<Inschrijvingvolgnummer>002</Inschrijvingvolgnummer>
+		<DatumInschrijving>2024-02-01</DatumInschrijving>
+		<DatumUitschrijvingGepland>2026-01-31</DatumUitschrijvingGepland>
+		<DatumUitschrijvingWerkelijk xsi:nil="true"/>
+		<NiveauHoogstBekostigdeDiploma xsi:nil="true"/>
+		<Teldatum>
+			<Teldatum>2025-10-01</Teldatum>
+			<DatumTijdBepalingBekostigingsgrondslagen>2025-11-21 10:42:29</DatumTijdBepalingBekostigingsgrondslagen>
+			<StatusBepalingBekostigingsstatus>V</StatusBepalingBekostigingsstatus>
+			<LeeftijdOpEenAugustusStudiejaar>25</LeeftijdOpEenAugustusStudiejaar>
+			<Opleidingcode>25748</Opleidingcode>
+			<Niveau>MBO-1</Niveau>
+			<Leertraject>BOL</Leertraject>
+			<Leerroutefase xsi:nil="true"/>
+			<IndicatieBekostigbaar>true</IndicatieBekostigbaar>
+			<Bekostigingsstatus>true</Bekostigingsstatus>
+			<InschrijvingVoorCorrectiefactor>true</InschrijvingVoorCorrectiefactor>
+			<BBLBOLFactor>1</BBLBOLFactor>
+			<PrijsfactorMBO>1</PrijsfactorMBO>
+			<AantalBekostigdeVerblijfsjarenMBO>0</AantalBekostigdeVerblijfsjarenMBO>
+			<Verblijfsjaarfactor xsi:nil="true"/>
+			<BijdrageInschrijvingAanDeelnemerswaarde>1</BijdrageInschrijvingAanDeelnemerswaarde>
+			<BekostigingsrelevanteBPV>
+				<Inschrijvingvolgnummer xsi:nil="true"/>
+				<Volgnummer xsi:nil="true"/>
+				<Afsluitdatum xsi:nil="true"/>
+				<DatumBegin xsi:nil="true"/>
+				<DatumEindGepland xsi:nil="true"/>
+				<DatumEindWerkelijk xsi:nil="true"/>
+				<Opleidingcode xsi:nil="true"/>
+			</BekostigingsrelevanteBPV>
+			<Signaal>
+				<Signaalvolgnummer xsi:nil="true"/>
+				<Signaalcode xsi:nil="true"/>
+				<Signaalomschrijving xsi:nil="true"/>
+				<Parameter>
+					<Parametervolgnummer xsi:nil="true"/>
+					<Parameternaam xsi:nil="true"/>
+					<Parameterwaarde xsi:nil="true"/>
+				</Parameter>
+			</Signaal>
+		</Teldatum>
+	</Inschrijving>
+	<Diploma>
+		<BRIN>25LX</BRIN>
+		<Burgerservicenummer>200000000</Burgerservicenummer>
+		<Onderwijsnummer xsi:nil="true"/>
+		<Resultaatvolgnummer>1362433</Resultaatvolgnummer>
+		<Opleidingcode>25297</Opleidingcode>
+		<Inschrijvingvolgnummer>001</Inschrijvingvolgnummer>
+		<DatumBehaald>2025-06-17</DatumBehaald>
+		<Niveau>MBO-4</Niveau>
+		<IndicatieSpecialistendiploma>false</IndicatieSpecialistendiploma>
+		<NiveauHoogstBekostigdeDiploma xsi:nil="true"/>
+		<IndicatieHoogstBekostigdeDiplomaIsSpecialist xsi:nil="true"/>
+		<DatumTijdBepalingBekostigingsgrondslagen>2025-07-07 07:13:15</DatumTijdBepalingBekostigingsgrondslagen>
+		<StatusBepalingBekostigingsstatus>V</StatusBepalingBekostigingsstatus>
+		<Bekostigingsstatus>true</Bekostigingsstatus>
+		<BijdrageDiplomawaarde>5</BijdrageDiplomawaarde>
+		<Signaal>
+			<Signaalvolgnummer xsi:nil="true"/>
+			<Signaalcode xsi:nil="true"/>
+			<Signaalomschrijving xsi:nil="true"/>
+			<Parameter>
+				<Parametervolgnummer xsi:nil="true"/>
+				<Parameternaam xsi:nil="true"/>
+				<Parameterwaarde xsi:nil="true"/>
+			</Parameter>
+		</Signaal>
+	</Diploma>
+</Bekostigingsgrondslagen>

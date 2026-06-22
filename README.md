@@ -26,20 +26,24 @@ bekostigingsdata werken.
    uv run streamlit run app/main.py
    ```
 
-3. Of draai de pipeline in Python:
+3. Of draai de pipeline in Python (zodra het inlezen/decoderen geïmplementeerd is):
 
    ```python
    from mbo_bekostiging_bestanden.pipeline import run_pipeline
-   run_pipeline("data/01-raw/demo/bekostiging_demo.csv", "data/03-output/demo/bekostiging.parquet")
+   run_pipeline("data/01-raw/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025.csv", "data/03-output/demo/grondslag.parquet")
    ```
 
-De repo bevat synthetische demo-data, zodat alles direct werkt zonder eigen bestanden.
+De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 ## Data
 
-- **Input**: ruwe bekostigingsbestanden in `data/01-raw/` (fixed-width/CSV van DUO).
+- **Input**: ruwe bekostigingsbestanden in `data/01-raw/`. Het zijn multi-record
+  bestanden van DUO: regels beginnen met een recordtype (`VLP`, `PER`, `ISG`, …),
+  `;`-gescheiden, plus XML-bestanden (TBGI). Het inlezen en decoderen per
+  recordtype volgt in aparte issues.
 - **Output**: schone Parquet-tabellen in `data/02-prepared/` of `data/03-output/`.
-- Echte data staat niet in git; alleen synthetische demo-data in `data/*/demo/`.
+- Echte data staat niet in git; alleen demo-data in `data/*/demo/` (overgenomen
+  uit [`cedanl/duo-mbo-datafiles`](https://github.com/cedanl/duo-mbo-datafiles)).
 
 ## Ontwikkeling
 

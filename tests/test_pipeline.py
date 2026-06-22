@@ -1,33 +1,33 @@
-"""Tests voor de ingestion-pipeline op de demo-data."""
+"""Skeleton-tests op de demo-data.
+
+De ruwe DUO-bestanden zijn multi-record (regeltypes VLP/PER/ISG, ``;``-gescheiden)
+en XML. Het echte inlezen/decoderen volgt in aparte issues; deze tests borgen
+alleen dat de demo-data aanwezig is en dat de validatie lege data afwijst.
+"""
 
 from pathlib import Path
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.ingest import read_raw_file
-from mbo_bekostiging_bestanden.pipeline import run_pipeline
 from mbo_bekostiging_bestanden.validate import validate_data
 
-DEMO = Path("data/01-raw/demo/bekostiging_demo.csv")
+DEMO_DIR = Path("data/01-raw/demo")
 
 
-def test_read_raw_file_returns_rows():
-    data = read_raw_file(DEMO)
-    assert isinstance(data, pl.DataFrame)
-    assert not data.is_empty()
+def test_demo_data_present():
+    files = list(DEMO_DIR.rglob("*"))
+    files = [f for f in files if f.is_file()]
+    assert files, "Geen demo-bestanden gevonden in data/01-raw/demo"
+
+
+def test_validate_passes_non_empty():
+    data = pl.DataFrame({"x": [1, 2, 3]})
+    assert validate_data(data).height == 3
 
 
 def test_validate_rejects_empty():
-    empty = pl.DataFrame()
     try:
-        validate_data(empty)
+        validate_data(pl.DataFrame())
     except ValueError:
         return
     raise AssertionError("validate_data had moeten falen op lege data")
-
-
-def test_run_pipeline_writes_output(tmp_path):
-    target = tmp_path / "out.parquet"
-    data = run_pipeline(DEMO, target)
-    assert target.exists()
-    assert len(data) == 5

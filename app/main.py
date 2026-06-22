@@ -27,12 +27,16 @@ def main() -> None:
     raw_dir = Path(config["data"]["raw"])
     output_dir = Path(config["data"]["output"])
 
-    sources = sorted(raw_dir.glob("*.csv"))
+    sources = sorted(p for p in raw_dir.rglob("*") if p.is_file())
     if not sources:
         st.info(f"Geen bronbestanden gevonden in {raw_dir}.")
         return
 
-    source = st.selectbox("Kies een bronbestand", sources, format_func=lambda p: p.name)
+    source = st.selectbox(
+        "Kies een bronbestand",
+        sources,
+        format_func=lambda p: str(p.relative_to(raw_dir)),
+    )
     if st.button("Verwerk"):
         target = output_dir / f"{source.stem}.parquet"
         data: pl.DataFrame = run_pipeline(source, target)

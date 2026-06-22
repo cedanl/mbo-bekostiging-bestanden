@@ -43,7 +43,10 @@ mbo-bekostiging-bestanden/
 - Pipeline (Python): `run_pipeline(source, target)` uit `pipeline.py`
 
 ## Data
-- **Input**: ruwe bekostigingsbestanden in `data/01-raw/` (fixed-width/CSV van DUO).
+- **Input**: ruwe DUO-bekostigingsbestanden in `data/01-raw/`. Multi-record,
+  `;`-gescheiden (regeltypes `VLP`/`PER`/`ISG`/…) plus XML (TBGI). Demo-data
+  staat in submappen `h15/`, `h16/`, `h17/`.
 - **Output**: schone Parquet in `data/02-prepared/` of `data/03-output/`.
-- Echte data is gitignored; alleen synthetische demo-data in `data/*/demo/` staat in git.
+- Echte data is gitignored; alleen demo-data in `data/*/demo/` staat in git
+  (overgenomen uit `cedanl/duo-mbo-datafiles`).
 - Privacy: geen persoonsgegevens committen; bekostiging is op instellingsniveau.
