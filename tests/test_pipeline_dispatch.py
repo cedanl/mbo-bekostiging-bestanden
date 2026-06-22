@@ -27,9 +27,8 @@ def test_detect_bestandstype_grondslag():
     assert detect_bestandstype(GRONDSLAG) == "grondslag"
 
 
-def test_detect_bestandstype_tbgi_not_yet_supported():
-    """TBGI is nog niet geïmplementeerd — geeft None terug, geen crash."""
-    assert detect_bestandstype(TBGI) is None
+def test_detect_bestandstype_tbgi():
+    assert detect_bestandstype(TBGI) == "tbgi"
 
 
 def test_detect_bestandstype_unknown():

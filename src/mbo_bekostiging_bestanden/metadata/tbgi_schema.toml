@@ -1,0 +1,63 @@
+# Veldschema voor TBGI (Terugmelding BekostigingsGrondslagen individueel)
+# Gebaseerd op DUO PvE; XML-structuur wordt door read_tbgi platgeslagen naar
+# vier tabellen: Inschrijving, Teldatum (incl. BPV-velden), Diploma, Signaal.
+schema_version = "1.0"
+
+[Inschrijving]
+fields = [
+    "BRIN", "Burgerservicenummer", "Onderwijsnummer",
+    "Inschrijvingvolgnummer",
+    "DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk",
+    "NiveauHoogstBekostigdeDiploma",
+]
+date_fields  = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
+int_fields   = []
+float_fields = []
+
+[Teldatum]
+# BPV-velden zijn geprefixed met "BPV_" (BekostigingsrelevanteBPV is 1:1 met Teldatum).
+# DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
+fields = [
+    "BRIN", "Inschrijvingvolgnummer",
+    "Teldatum",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+    "LeeftijdOpEenAugustusStudiejaar", "Opleidingcode", "Niveau", "Leertraject",
+    "Leerroutefase", "IndicatieBekostigbaar", "Bekostigingsstatus",
+    "InschrijvingVoorCorrectiefactor",
+    "BBLBOLFactor", "PrijsfactorMBO",
+    "AantalBekostigdeVerblijfsjarenMBO", "Verblijfsjaarfactor",
+    "BijdrageInschrijvingAanDeelnemerswaarde",
+    "BPV_Inschrijvingvolgnummer", "BPV_Volgnummer",
+    "BPV_Afsluitdatum", "BPV_DatumBegin", "BPV_DatumEindGepland", "BPV_DatumEindWerkelijk",
+    "BPV_Opleidingcode",
+]
+date_fields  = ["Teldatum", "BPV_Afsluitdatum", "BPV_DatumBegin", "BPV_DatumEindGepland", "BPV_DatumEindWerkelijk"]
+int_fields   = ["LeeftijdOpEenAugustusStudiejaar", "AantalBekostigdeVerblijfsjarenMBO"]
+float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
+
+[Diploma]
+# DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
+fields = [
+    "BRIN", "Burgerservicenummer", "Onderwijsnummer",
+    "Resultaatvolgnummer", "Opleidingcode", "Inschrijvingvolgnummer",
+    "DatumBehaald", "Niveau",
+    "IndicatieSpecialistendiploma", "NiveauHoogstBekostigdeDiploma",
+    "IndicatieHoogstBekostigdeDiplomaIsSpecialist",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+    "Bekostigingsstatus", "BijdrageDiplomawaarde",
+]
+date_fields  = ["DatumBehaald"]
+int_fields   = []
+float_fields = ["BijdrageDiplomawaarde"]
+
+[Signaal]
+# Bron = "Inschrijving" of "Diploma".
+# Teldatum en Resultaatvolgnummer zijn null voor respectievelijk Diploma en Inschrijving.
+fields = [
+    "Bron", "BRIN", "Inschrijvingvolgnummer", "Teldatum", "Resultaatvolgnummer",
+    "Signaalvolgnummer", "Signaalcode", "Signaalomschrijving",
+    "Parametervolgnummer", "Parameternaam", "Parameterwaarde",
+]
+date_fields  = []
+int_fields   = ["Signaalvolgnummer", "Parametervolgnummer"]
+float_fields = []

@@ -75,6 +75,36 @@ isg = pl.read_parquet("data/02-prepared/demo/h17/27DV/ISG.parquet")
 per.join(isg, on="PseudoNummer")
 ```
 
+## TBGI XML verwerken
+
+```python
+from mbo_bekostiging_bestanden.pipeline import run_tbgi_pipeline
+
+frames = run_tbgi_pipeline(
+    source="data/01-raw/demo/h16/TBGI_25LX_2027_20251124.XML",
+    target="data/02-prepared/demo/h16/25LX",
+)
+```
+
+Geeft vier DataFrames terug: `Inschrijving`, `Teldatum`, `Diploma`, `Signaal`. Datumvelden zijn `pl.Date`, factoren en bijdragen zijn `pl.Float64`, tellers zijn `pl.Int64`.
+
+`Teldatum` en `Inschrijving` koppelen via `BRIN` + `Inschrijvingvolgnummer`; `Signaal` heeft een `Bron`-kolom (`"Inschrijving"` of `"Diploma"`) om de herkomst te onderscheiden.
+
+## Automatisch bestandstype detecteren
+
+Als je niet vooraf weet welk bestandstype je hebt, gebruik dan `run_auto_pipeline`:
+
+```python
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
+
+frames = run_auto_pipeline(
+    source="data/01-raw/demo/h16/TBGI_25LX_2027_20251124.XML",
+    target="data/02-prepared/demo/h16/25LX",
+)
+```
+
+Detecteert het type op basis van de bestandsnaam (`RO_`, `GRONDSLAG_IP_MBO_`, `TBGI_`) en roept automatisch de juiste pipeline aan.
+
 ## Interactieve app
 
 ```bash
