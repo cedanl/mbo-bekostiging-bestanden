@@ -60,6 +60,30 @@ def test_validate_ro_slr_multiple_rows_raises(frames):
 
 
 # ---------------------------------------------------------------------------
+# Generieke validate_multi_record
+# ---------------------------------------------------------------------------
+
+def test_validate_multi_record_passes_ro_frames(frames):
+    from mbo_bekostiging_bestanden.validate import validate_multi_record
+    result = validate_multi_record(frames, "ro")
+    assert result is frames
+
+
+def test_validate_multi_record_single_row_check_from_schema(frames):
+    """single_row-check komt uit schema — dubbele VLP gooit ValueError."""
+    from mbo_bekostiging_bestanden.validate import validate_multi_record
+    bad = {**frames, "VLP": pl.concat([frames["VLP"], frames["VLP"]])}
+    with pytest.raises(ValueError, match="VLP"):
+        validate_multi_record(bad, "ro")
+
+
+def test_validate_multi_record_unknown_schema_raises(frames):
+    from mbo_bekostiging_bestanden.validate import validate_multi_record
+    with pytest.raises(FileNotFoundError):
+        validate_multi_record(frames, "bestaat_niet")
+
+
+# ---------------------------------------------------------------------------
 # Alle demo-bestanden
 # ---------------------------------------------------------------------------
 

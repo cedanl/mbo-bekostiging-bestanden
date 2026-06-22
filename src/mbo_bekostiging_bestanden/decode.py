@@ -1,4 +1,4 @@
-"""Decoderen van RO-velden: strings omzetten naar juiste types via schema-metadata."""
+"""Decoderen van velden: strings omzetten naar juiste types via schema-metadata."""
 
 import re
 
@@ -11,24 +11,32 @@ def _detect_date_format(sample: str) -> str:
     """Detecteer datumformaat uit een niet-lege voorbeeldwaarde.
 
     Returns:
-        "iso"   voor ccyy-mm-dd (bijv. 2026-03-25)
-        "dutch" voor d-m-yyyy   (bijv. 1-8-2025)
+        ``"iso"``     voor ``ccyy-mm-dd``  (bijv. ``2026-03-25``)
+        ``"compact"`` voor ``ccyymmdd``    (bijv. ``20251119``)
+        ``"dutch"``   voor ``d-m-yyyy``    (bijv. ``1-8-2025``)
     """
     if re.match(r"^\d{4}-\d{2}-\d{2}$", sample):
         return "iso"
+    if re.match(r"^\d{8}$", sample):
+        return "compact"
     return "dutch"
 
 
 def _to_iso_expr(col: pl.Expr) -> pl.Expr:
-    """Converteer een datumkolom in ISO-formaat naar pl.Date."""
     return col.str.to_date("%Y-%m-%d", strict=False)
 
 
-def _to_dutch_expr(col: pl.Expr) -> pl.Expr:
-    """Converteer een datumkolom in d-m-yyyy (zonder leading zeros) naar pl.Date.
+def _to_compact_expr(col: pl.Expr) -> pl.Expr:
+    """Converteer ``YYYYMMDD`` (geen scheidingstekens) naar ``pl.Date``."""
+    non_empty = pl.when(col == "").then(pl.lit(None, dtype=pl.Utf8)).otherwise(col)
+    return non_empty.str.to_date("%Y%m%d", strict=False)
 
-    Strategie: vervang lege strings door null, split op '-', zero-pad dag en
-    maand, recombineer als ISO yyyy-mm-dd, parse naar pl.Date.
+
+def _to_dutch_expr(col: pl.Expr) -> pl.Expr:
+    """Converteer ``d-m-yyyy`` (zonder leading zeros) naar ``pl.Date``.
+
+    Strategie: vervang lege strings door null, split op ``-``, zero-pad dag en
+    maand, recombineer als ISO ``yyyy-mm-dd``, parse naar ``pl.Date``.
     """
     non_empty = pl.when(col == "").then(pl.lit(None, dtype=pl.Utf8)).otherwise(col)
     parts = non_empty.str.split("-")
@@ -37,6 +45,13 @@ def _to_dutch_expr(col: pl.Expr) -> pl.Expr:
     year  = parts.list.get(2, null_on_oob=True)
     iso   = pl.concat_str([year, month, day], separator="-", ignore_nulls=False)
     return iso.str.to_date("%Y-%m-%d", strict=False)
+
+
+_DATE_EXPR = {
+    "iso":     _to_iso_expr,
+    "compact": _to_compact_expr,
+    "dutch":   _to_dutch_expr,
+}
 
 
 def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) -> str:
@@ -52,19 +67,28 @@ def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) 
     return ""
 
 
-def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Cast RO-velden naar het juiste type op basis van ro_schema.toml.
+def decode_multi_record_csv(
+    frames: dict[str, pl.DataFrame],
+    schema_name: str,
+) -> dict[str, pl.DataFrame]:
+    """Cast velden naar het juiste type op basis van het opgegeven schema-TOML.
 
-    - Datumvelden worden pl.Date (null bij lege waarde).
-    - Telwaarden (SLR) worden pl.Int64.
-    - Examenscores (GEO) worden nullable pl.Int64.
-    - Overige velden blijven pl.Utf8.
+    - Datumvelden worden ``pl.Date`` (null bij lege waarde).
+    - Integer-velden worden ``pl.Int64``.
+    - Overige velden blijven ``pl.Utf8``.
+
+    Args:
+        frames:      Dict van recordtype-code naar ruwe DataFrame.
+        schema_name: Naam van het schema (bijv. ``"ro"`` of ``"grondslag"``).
+
+    Returns:
+        Dict van recordtype-code naar getypeerde DataFrame.
     """
-    schema = load_schema()
+    schema = load_schema(schema_name)
 
     sample = _find_date_sample(frames, schema)
     date_fmt = _detect_date_format(sample) if sample else "iso"
-    to_date = _to_dutch_expr if date_fmt == "dutch" else _to_iso_expr
+    to_date = _DATE_EXPR[date_fmt]
 
     result: dict[str, pl.DataFrame] = {}
     for rt, df in frames.items():
@@ -94,3 +118,11 @@ def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
         result[rt] = df.with_columns(exprs)
 
     return result
+
+
+def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Decodeer een RO-pakket naar getypeerde DataFrames.
+
+    Dunne wrapper om :func:`decode_multi_record_csv` met schema ``"ro"``.
+    """
+    return decode_multi_record_csv(frames, "ro")

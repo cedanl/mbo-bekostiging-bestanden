@@ -4,6 +4,7 @@
 schema_version = "4.8.3"
 
 [VLP]
+single_row  = true
 fields      = ["Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 date_fields = ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 int_fields  = []
@@ -92,6 +93,7 @@ date_fields = ["DatumResultaat"]
 int_fields  = []
 
 [SLR]
+single_row  = true
 fields = [
     "Recordsoort", "AantalPER", "AantalISG", "AantalISP",
     "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO",
