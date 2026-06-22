@@ -5,7 +5,7 @@ from pathlib import Path
 import polars as pl
 
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro
-from mbo_bekostiging_bestanden.export import OutputFormat, export_grondslag, export_ro
+from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro
 from mbo_bekostiging_bestanden.validate import validate_grondslag, validate_ro
 
@@ -28,7 +28,7 @@ def run_pipeline(
     frames = read_ro(Path(source))
     frames = decode_ro(frames)
     validate_ro(frames)
-    export_ro(frames, Path(target), fmt=fmt)
+    export_frames(frames, Path(target), fmt=fmt)
     return frames
 
 
@@ -50,5 +50,5 @@ def run_grondslag_pipeline(
     frames = read_grondslag(Path(source))
     frames = decode_grondslag(frames)
     validate_grondslag(frames)
-    export_grondslag(frames, Path(target), fmt=fmt)
+    export_frames(frames, Path(target), fmt=fmt)
     return frames

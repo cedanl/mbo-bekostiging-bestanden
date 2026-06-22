@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import polars as pl
 import pytest
 
 from mbo_bekostiging_bestanden.ingest import read_grondslag
@@ -15,8 +16,12 @@ GRONDSLAG = DEMO_H17 / "GRONDSLAG_IP_MBO_27DV_20251119_2025.csv"
 # ---------------------------------------------------------------------------
 
 
-def test_read_grondslag_returns_dict():
-    assert isinstance(read_grondslag(GRONDSLAG), dict)
+def test_read_grondslag_all_values_are_dataframes():
+    """Alle waarden in het resultaat zijn Polars DataFrames — geen strings of None."""
+    result = read_grondslag(GRONDSLAG)
+    assert result
+    for rt, df in result.items():
+        assert isinstance(df, pl.DataFrame), f"{rt} is geen DataFrame"
 
 
 def test_read_grondslag_file_not_found():

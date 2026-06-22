@@ -42,21 +42,3 @@ def export_frames(
         written.append(path)
 
     return written
-
-
-def export_ro(
-    frames: dict[str, pl.DataFrame],
-    output_dir: str | Path,
-    fmt: OutputFormat = "parquet",
-) -> list[Path]:
-    """Schrijf een RO-pakket weg. Dunne wrapper om :func:`export_frames`."""
-    return export_frames(frames, output_dir, fmt=fmt)
-
-
-def export_grondslag(
-    frames: dict[str, pl.DataFrame],
-    output_dir: str | Path,
-    fmt: OutputFormat = "parquet",
-) -> list[Path]:
-    """Schrijf een GRONDSLAG-pakket weg. Dunne wrapper om :func:`export_frames`."""
-    return export_frames(frames, output_dir, fmt=fmt)

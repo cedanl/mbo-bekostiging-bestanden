@@ -17,9 +17,9 @@ GRONDSLAG = DEMO_H17 / "GRONDSLAG_IP_MBO_27DV_20251119_2025.csv"
 # ---------------------------------------------------------------------------
 
 
-def test_run_grondslag_pipeline_returns_dict(tmp_path):
+def test_run_grondslag_pipeline_contains_expected_recordtypes(tmp_path):
     result = run_grondslag_pipeline(GRONDSLAG, tmp_path)
-    assert isinstance(result, dict)
+    assert {"VLP", "PER", "ISG", "SLR"} <= result.keys()
 
 
 def test_run_grondslag_pipeline_file_not_found(tmp_path):
@@ -33,13 +33,15 @@ def test_run_grondslag_pipeline_file_not_found(tmp_path):
 
 
 def test_run_grondslag_pipeline_writes_parquet(tmp_path):
-    run_grondslag_pipeline(GRONDSLAG, tmp_path)
-    assert len(list(tmp_path.glob("*.parquet"))) > 0
+    frames = run_grondslag_pipeline(GRONDSLAG, tmp_path)
+    written = {f.stem for f in tmp_path.glob("*.parquet")}
+    assert written == set(frames.keys())
 
 
 def test_run_grondslag_pipeline_csv_format(tmp_path):
-    run_grondslag_pipeline(GRONDSLAG, tmp_path, fmt="csv")
-    assert len(list(tmp_path.glob("*.csv"))) > 0
+    frames = run_grondslag_pipeline(GRONDSLAG, tmp_path, fmt="csv")
+    written = {f.stem for f in tmp_path.glob("*.csv")}
+    assert written == set(frames.keys())
 
 
 # ---------------------------------------------------------------------------
