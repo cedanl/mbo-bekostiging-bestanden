@@ -150,10 +150,13 @@ uv run mbo stapel \
 uv run streamlit run app/main.py
 ```
 
-Open daarna `http://localhost:8501`. De app heeft twee tabbladen:
+Open daarna `http://localhost:8501`. De app werkt als een wizard met aparte pagina's:
 
-- **Verwerk bestand** — verwerk één ruw bestand naar Parquet in `data/02-prepared/`.
-- **Stapel leveringen** — selecteer meerdere prepared-mappen en voeg ze samen in `data/03-output/`.
+- **Home** — kies een flow: "Verwerk één bestand" of "Stapel leveringen".
+- **Bestand kiezen** (stap 1) — selecteer een ruw RO-, GRONDSLAG- of TBGI-bestand.
+- **Verwerken** (stap 2) — pipeline normaliseert het bestand; voortgang zichtbaar.
+- **Leveringen stapelen** — selecteer meerdere prepared-mappen en voeg ze samen.
+- **Resultaten** — bekijk tabellen per recordtype, download als CSV.
 
 ## Tests
 
