@@ -21,6 +21,7 @@ RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"
 # Compact datumformaat — detector
 # ---------------------------------------------------------------------------
 
+
 def test_detect_date_format_iso():
     assert _detect_date_format("2026-03-25") == "iso"
 
@@ -36,6 +37,7 @@ def test_detect_date_format_compact():
 # ---------------------------------------------------------------------------
 # Compact datumexpressie — gedrag
 # ---------------------------------------------------------------------------
+
 
 def test_to_compact_expr_parses_date():
     df = pl.DataFrame({"d": ["20251119"]})
@@ -58,6 +60,7 @@ def test_to_compact_expr_empty_becomes_null():
 # ---------------------------------------------------------------------------
 # Generieke decode — gedrag
 # ---------------------------------------------------------------------------
+
 
 def test_decode_multi_record_csv_dates_typed():
     """Datumvelden zijn pl.Date na decode via generieke functie."""

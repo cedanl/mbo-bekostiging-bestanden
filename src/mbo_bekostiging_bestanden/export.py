@@ -8,12 +8,12 @@ import polars as pl
 OutputFormat = Literal["parquet", "csv"]
 
 
-def export_ro(
+def export_frames(
     frames: dict[str, pl.DataFrame],
     output_dir: str | Path,
     fmt: OutputFormat = "parquet",
 ) -> list[Path]:
-    """Schrijf elk RO-recordtype als apart bestand naar output_dir.
+    """Schrijf elk recordtype als apart bestand naar output_dir.
 
     Args:
         frames:     Dict van recordtype-code naar getypeerde DataFrame.

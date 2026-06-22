@@ -22,6 +22,7 @@ def frames():
 # Basis
 # ---------------------------------------------------------------------------
 
+
 def test_validate_ro_returns_frames(frames):
     result = validate_ro(frames)
     assert result is frames
@@ -30,6 +31,7 @@ def test_validate_ro_returns_frames(frames):
 # ---------------------------------------------------------------------------
 # Kolomcontroles
 # ---------------------------------------------------------------------------
+
 
 def test_validate_ro_missing_column_raises(frames):
     bad = {**frames, "VLP": frames["VLP"].drop("BRIN")}
@@ -47,6 +49,7 @@ def test_validate_ro_missing_column_mentions_field(frames):
 # Structuurcontroles
 # ---------------------------------------------------------------------------
 
+
 def test_validate_ro_vlp_multiple_rows_raises(frames):
     bad = {**frames, "VLP": pl.concat([frames["VLP"], frames["VLP"]])}
     with pytest.raises(ValueError, match="VLP"):
@@ -63,8 +66,10 @@ def test_validate_ro_slr_multiple_rows_raises(frames):
 # Generieke validate_multi_record
 # ---------------------------------------------------------------------------
 
+
 def test_validate_multi_record_passes_ro_frames(frames):
     from mbo_bekostiging_bestanden.validate import validate_multi_record
+
     result = validate_multi_record(frames, "ro")
     assert result is frames
 
@@ -72,6 +77,7 @@ def test_validate_multi_record_passes_ro_frames(frames):
 def test_validate_multi_record_single_row_check_from_schema(frames):
     """single_row-check komt uit schema — dubbele VLP gooit ValueError."""
     from mbo_bekostiging_bestanden.validate import validate_multi_record
+
     bad = {**frames, "VLP": pl.concat([frames["VLP"], frames["VLP"]])}
     with pytest.raises(ValueError, match="VLP"):
         validate_multi_record(bad, "ro")
@@ -79,6 +85,7 @@ def test_validate_multi_record_single_row_check_from_schema(frames):
 
 def test_validate_multi_record_unknown_schema_raises(frames):
     from mbo_bekostiging_bestanden.validate import validate_multi_record
+
     with pytest.raises(FileNotFoundError):
         validate_multi_record(frames, "bestaat_niet")
 
@@ -86,6 +93,7 @@ def test_validate_multi_record_unknown_schema_raises(frames):
 # ---------------------------------------------------------------------------
 # Alle demo-bestanden
 # ---------------------------------------------------------------------------
+
 
 def test_validate_ro_all_demo_files_pass():
     for path in DEMO_H15.glob("RO_*.csv"):

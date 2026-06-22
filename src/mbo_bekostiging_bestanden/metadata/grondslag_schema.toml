@@ -1,0 +1,147 @@
+# Veldschema voor GRONDSLAG IP MBO
+# Gebaseerd op DUO PvE v4.8.3, Bijlage 8
+# Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
+schema_version = "4.8.3"
+
+[VLP]
+single_row  = true
+fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
+date_fields = ["DatumAanmaak"]
+int_fields  = ["Studiejaar"]
+
+[PER]
+# Posities 19-21 zijn niet in de PvE-spec maar aanwezig in alle bekende leveringen.
+# Waarden spiegelen respectievelijk Postcodecijfers, Verblijfstitel en Nationaliteit1.
+fields = [
+    "Recordsoort", "PseudoNummer",
+    "Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4",
+    "Geslacht", "Postcodecijfers",
+    "DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland",
+    "CodeGeboorteland", "CodeGeboortelandOuder1", "CodeGeboortelandOuder2",
+    "CodeLandWaarnaarVertrokken", "Verblijfstitel",
+    "Nationaliteit1", "Nationaliteit2",
+    "_onbekend19", "_onbekend20", "_onbekend21",
+]
+date_fields = ["DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland"]
+int_fields  = ["Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4"]
+
+[ISG]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Inschrijvingvolgnummer", "DatumInschrijving",
+    "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
+]
+date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
+int_fields  = []
+
+[ISP]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Inschrijvingvolgnummer", "DatumBegin", "DatumEind",
+    "Opleidingcode", "Niveau", "Leertraject", "LocatiecodeVSV",
+    "IndicatieBekostigbaar", "Onderwijsaanbieder", "Onderwijslocatie",
+    "Leerroute", "Leerroutefase",
+]
+date_fields = ["DatumBegin", "DatumEind"]
+int_fields  = []
+
+[ISE]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Inschrijvingvolgnummer", "DatumBeginExtraOndersteuning", "DatumEindExtraOndersteuning",
+]
+date_fields = ["DatumBeginExtraOndersteuning", "DatumEindExtraOndersteuning"]
+int_fields  = []
+
+[BPV]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Inschrijvingvolgnummer", "Volgnummer",
+    "Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk",
+    "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
+]
+date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
+int_fields  = []
+
+[BII]
+# Niet aanwezig in demo-data; aangemaakt na bekostigingsberekening door DUO.
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Inschrijvingvolgnummer", "Teldatum",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+    "Bekostigingsstatus", "InschrijvingVoorCorrectiefactor",
+    "BBLBOLFactor", "PrijsfactorMBO",
+    "AantalBekostigdeVerblijfsjaren", "Verblijfsjaarfactor",
+    "BijdrageDeelnemerswaarde",
+]
+date_fields = ["Teldatum"]
+int_fields  = []
+
+[DIP]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
+    "IndicatieBekostigbaar", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+date_fields = ["DatumResultaat"]
+int_fields  = []
+
+[BID]
+# Niet aanwezig in demo-data; aangemaakt na bekostigingsberekening door DUO.
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "Resultaatvolgnummer", "Niveau", "IndicatieSpecialistendiploma",
+    "NiveauHoogstBekostigdeDiploma", "IndicatieHoogstBekostigdeDiplomaIsSpecialist",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+    "Bekostigingsstatus", "BijdrageDiplomawaarde",
+]
+date_fields = []
+int_fields  = []
+
+[AMO]
+# Niet aanwezig in demo-data (subset); aanwezig in volledig bestand.
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "ResultaatvolgnummerDiploma", "OpleidingcodeDiploma",
+    "Resultaatvolgnummer", "CodeAMvBOnderdeel", "DatumResultaat",
+    "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+date_fields = ["DatumResultaat"]
+int_fields  = []
+
+[GEO]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "ResultaatvolgnummerDiploma", "Resultaatvolgnummer",
+    "CodeGeneriekExamenonderdeel", "Eindcijfer",
+    "VrijstellingGeneriekExamenonderdeel",
+    "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
+    "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+date_fields = ["DatumResultaat"]
+int_fields  = ["Eindcijfer", "CijferIE", "CijferCE"]
+
+[KZD]
+fields = [
+    "Recordsoort", "PseudoNummer", "BRIN",
+    "ResultaatvolgnummerDiploma", "Resultaatvolgnummer",
+    "CodeKeuzedeel", "Resultaat", "DatumResultaat",
+    "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+date_fields = ["DatumResultaat"]
+int_fields  = []
+
+[SLR]
+single_row = true
+fields = [
+    "Recordsoort",
+    "AantalPER", "AantalISG", "AantalISP", "AantalISE",
+    "AantalBPV", "AantalBII", "AantalDIP", "AantalBID",
+    "AantalAMO", "AantalGEO", "AantalKZD",
+]
+date_fields = []
+int_fields  = [
+    "AantalPER", "AantalISG", "AantalISP", "AantalISE",
+    "AantalBPV", "AantalBII", "AantalDIP", "AantalBID",
+    "AantalAMO", "AantalGEO", "AantalKZD",
+]

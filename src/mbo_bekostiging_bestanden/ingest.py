@@ -84,3 +84,11 @@ def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:
     Dunne wrapper om :func:`read_multi_record_csv` met schema ``"ro"``.
     """
     return read_multi_record_csv(path, "ro")
+
+
+def read_grondslag(path: str | Path) -> dict[str, pl.DataFrame]:
+    """Lees een GRONDSLAG IP MBO-bestand in en splits per recordtype.
+
+    Dunne wrapper om :func:`read_multi_record_csv` met schema ``"grondslag"``.
+    """
+    return read_multi_record_csv(path, "grondslag")

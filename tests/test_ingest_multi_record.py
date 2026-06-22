@@ -24,7 +24,11 @@ def test_read_multi_record_csv_column_names_from_schema():
     """Kolomnamen komen uit het schema, niet hardcoded in de parser."""
     result = read_multi_record_csv(RO_27DV, "ro")
     assert result["VLP"].columns == [
-        "Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"
+        "Recordsoort",
+        "BRIN",
+        "DatumBeginPeriode",
+        "DatumEindePeriode",
+        "DatumAanmaak",
     ]
 
 

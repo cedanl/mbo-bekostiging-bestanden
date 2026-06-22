@@ -46,3 +46,8 @@ def test_load_schema_slr_single_row():
 
 def test_load_schema_per_not_single_row():
     assert not load_schema("ro")["PER"].get("single_row", False)
+
+
+def test_load_schema_is_cached():
+    """Herhaalde aanroep geeft hetzelfde object terug (geen herhaalde schijflezing)."""
+    assert load_schema("ro") is load_schema("ro")
