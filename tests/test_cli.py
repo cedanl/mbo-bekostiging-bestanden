@@ -11,10 +11,6 @@ DEMO_H15 = Path("data/01-raw/demo/h15")
 RO = DEMO_H15 / "RO_21CY_20250730_20250731.csv"
 TBGI = Path("data/01-raw/demo/h16/TBGI_25LX_2027_20251124.XML")
 
-PREPARED = Path("data/02-prepared/demo")
-H15_21CY = PREPARED / "h15" / "21CY"
-H15_25LX = PREPARED / "h15" / "25LX"
-
 
 # ---------------------------------------------------------------------------
 # Parser
@@ -32,13 +28,13 @@ def test_parser_verwerk_subcommand():
     assert args.fmt == "parquet"
 
 
-def test_parser_stapel_subcommand():
+def test_parser_stapel_subcommand(prepared_dirs):
     parser = build_parser()
     args = parser.parse_args(
         [
             "stapel",
-            str(H15_21CY),
-            str(H15_25LX),
+            str(prepared_dirs["21CY"]),
+            str(prepared_dirs["25LX"]),
             "--output",
             "/tmp/gestapeld",
         ]
@@ -47,19 +43,19 @@ def test_parser_stapel_subcommand():
     assert len(args.sources) == 2
 
 
-def test_parser_stapel_relative_to():
+def test_parser_stapel_relative_to(prepared_dirs):
     parser = build_parser()
     args = parser.parse_args(
         [
             "stapel",
-            str(H15_21CY),
+            str(prepared_dirs["21CY"]),
             "--output",
             "/tmp/gestapeld",
             "--relative-to",
-            str(PREPARED),
+            str(prepared_dirs["base"]),
         ]
     )
-    assert args.relative_to == PREPARED
+    assert args.relative_to == prepared_dirs["base"]
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +80,9 @@ def test_verwerk_tbgi(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_stapel_writes_parquet(tmp_path):
+def test_stapel_writes_parquet(tmp_path, prepared_dirs):
     args = argparse.Namespace(
-        sources=[H15_21CY, H15_25LX],
+        sources=[prepared_dirs["21CY"], prepared_dirs["25LX"]],
         output=tmp_path,
         fmt="parquet",
         label_col="levering",
@@ -96,13 +92,13 @@ def test_stapel_writes_parquet(tmp_path):
     assert any(tmp_path.glob("*.parquet"))
 
 
-def test_stapel_relative_to_labels(tmp_path):
+def test_stapel_relative_to_labels(tmp_path, prepared_dirs):
     args = argparse.Namespace(
-        sources=[H15_21CY, H15_25LX],
+        sources=[prepared_dirs["21CY"], prepared_dirs["25LX"]],
         output=tmp_path,
         fmt="parquet",
         label_col="levering",
-        relative_to=PREPARED,
+        relative_to=prepared_dirs["base"],
     )
     _stapel(args)
     isg = pl.read_parquet(tmp_path / "ISG.parquet")

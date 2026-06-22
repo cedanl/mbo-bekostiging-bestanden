@@ -37,14 +37,14 @@ def stack_prepared(
     if not paths:
         return {}
 
-    for p in paths:
-        if not p.exists():
-            raise FileNotFoundError(f"Bronmap niet gevonden: {p}")
-
     if labels is not None and len(labels) != len(paths):
         raise ValueError(
             f"labels heeft {len(labels)} elementen, sources heeft {len(paths)}"
         )
+
+    for p in paths:
+        if not p.exists():
+            raise FileNotFoundError(f"Bronmap niet gevonden: {p}")
 
     if labels is None:
         root = Path(relative_to) if relative_to is not None else None
