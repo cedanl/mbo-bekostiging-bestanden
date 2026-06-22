@@ -101,3 +101,21 @@ def test_read_tbgi_diploma_resultaatvolgnummer():
 
 def test_read_tbgi_teldatum_opleidingcode():
     assert read_tbgi(TBGI)["Teldatum"]["Opleidingcode"][0] == "25748"
+
+
+def test_read_tbgi_signaal_row_count():
+    """Demo-bestand heeft 2 signalen (1 per teldatum, 1 per diploma)."""
+    assert read_tbgi(TBGI)["Signaal"].height == 2
+
+
+def test_read_tbgi_signaal_bron_values():
+    """Bron-kolom bevat uitsluitend 'Inschrijving' of 'Diploma'."""
+    bron = set(read_tbgi(TBGI)["Signaal"]["Bron"].to_list())
+    assert bron <= {"Inschrijving", "Diploma"}
+
+
+def test_read_tbgi_null_fields_are_utf8():
+    """xsi:nil-elementen (bijv. Onderwijsnummer) zijn Utf8, niet Null."""
+    df = read_tbgi(TBGI)["Inschrijving"]
+    null_typed = [c for c in df.columns if str(df[c].dtype) == "Null"]
+    assert null_typed == [], f"Kolommen met pl.Null dtype: {null_typed}"

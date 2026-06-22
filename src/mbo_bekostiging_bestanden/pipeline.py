@@ -1,5 +1,6 @@
 """Orkestratie van de ingestion-pipeline: ingest > decode > validate > export."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import polars as pl
@@ -62,6 +63,21 @@ def run_auto_pipeline(
     return _PIPELINES[bestandstype](source, target, fmt=fmt)
 
 
+def _run(
+    reader: Callable,
+    decoder: Callable,
+    validator: Callable,
+    source: str | Path,
+    target: str | Path,
+    fmt: OutputFormat,
+) -> dict[str, pl.DataFrame]:
+    frames = reader(Path(source))
+    frames = decoder(frames)
+    validator(frames)
+    export_frames(frames, Path(target), fmt=fmt)
+    return frames
+
+
 def run_pipeline(
     source: str | Path,
     target: str | Path,
@@ -77,11 +93,7 @@ def run_pipeline(
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
     """
-    frames = read_ro(Path(source))
-    frames = decode_ro(frames)
-    validate_ro(frames)
-    export_frames(frames, Path(target), fmt=fmt)
-    return frames
+    return _run(read_ro, decode_ro, validate_ro, source, target, fmt)
 
 
 def run_grondslag_pipeline(
@@ -99,11 +111,9 @@ def run_grondslag_pipeline(
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
     """
-    frames = read_grondslag(Path(source))
-    frames = decode_grondslag(frames)
-    validate_grondslag(frames)
-    export_frames(frames, Path(target), fmt=fmt)
-    return frames
+    return _run(
+        read_grondslag, decode_grondslag, validate_grondslag, source, target, fmt
+    )
 
 
 def run_tbgi_pipeline(
@@ -121,11 +131,7 @@ def run_tbgi_pipeline(
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
     """
-    frames = read_tbgi(Path(source))
-    frames = decode_tbgi(frames)
-    validate_tbgi(frames)
-    export_frames(frames, Path(target), fmt=fmt)
-    return frames
+    return _run(read_tbgi, decode_tbgi, validate_tbgi, source, target, fmt)
 
 
 # Registry van bestandstype-sleutel → pipeline-functie.

@@ -90,6 +90,19 @@ def test_run_tbgi_pipeline_bijdrage_is_float(tmp_path):
     assert col.dtype == pl.Float64
 
 
+def test_run_tbgi_pipeline_leeftijd_is_int(tmp_path):
+    """LeeftijdOpEenAugustusStudiejaar is int_field → Int64."""
+    frames = run_tbgi_pipeline(TBGI, tmp_path)
+    assert frames["Teldatum"]["LeeftijdOpEenAugustusStudiejaar"].dtype == pl.Int64
+
+
+def test_run_tbgi_pipeline_datumtijd_stays_string(tmp_path):
+    """DatumTijdBepalingBekostigingsgrondslagen bevat datetime-string en blijft Utf8."""
+    frames = run_tbgi_pipeline(TBGI, tmp_path)
+    col = frames["Teldatum"]["DatumTijdBepalingBekostigingsgrondslagen"]
+    assert col.dtype == pl.Utf8
+
+
 # ---------------------------------------------------------------------------
 # Parquet-output bewaart types
 # ---------------------------------------------------------------------------
