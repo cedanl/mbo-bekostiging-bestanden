@@ -1,6 +1,6 @@
 """Orkestratie van de ingestion-pipeline: ingest > decode > validate > export."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import polars as pl
@@ -8,6 +8,8 @@ import polars as pl
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
+from mbo_bekostiging_bestanden.obt import build_obt
+from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.validate import (
     validate_grondslag,
     validate_ro,
@@ -132,6 +134,28 @@ def run_tbgi_pipeline(
         Dict van tabelnaam naar getypeerde DataFrame.
     """
     return _run(read_tbgi, decode_tbgi, validate_tbgi, source, target, fmt)
+
+
+def run_obt(
+    sources: Sequence[Path | str],
+    target: str | Path,
+    relative_to: Path | str | None = None,
+) -> dict[str, pl.DataFrame]:
+    """Stapel prepared-mappen en bouw vijf OBT-output-tabellen.
+
+    Args:
+        sources:     Lijst van mappen met prepared Parquet-bestanden.
+        target:      Doelmap voor de vijf OBT-bestanden.
+        relative_to: Basispad voor automatische leveringslabels (optioneel).
+
+    Returns:
+        Dict met vijf sleutels: ``obt_inschrijvingen``, ``detail_bpv``,
+        ``detail_kzd_amo``, ``detail_bekostiging``, ``meta_leveringen``.
+    """
+    stacked = stack_prepared(sources, relative_to=relative_to)
+    obt = build_obt(stacked)
+    export_frames(obt, Path(target))
+    return obt
 
 
 # Registry van bestandstype-sleutel → pipeline-functie.

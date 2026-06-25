@@ -17,10 +17,6 @@ TBGI = Path("data/01-raw/demo/h16/TBGI_25LX_2027_20251124.XML")
 # ---------------------------------------------------------------------------
 
 
-def test_build_parser_returns_parser():
-    assert isinstance(build_parser(), argparse.ArgumentParser)
-
-
 def test_parser_verwerk_subcommand():
     parser = build_parser()
     args = parser.parse_args(["verwerk", str(RO), "/tmp/out"])

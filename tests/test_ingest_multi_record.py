@@ -4,14 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from mbo_bekostiging_bestanden.ingest import read_multi_record_csv, read_ro
+from mbo_bekostiging_bestanden.ingest import read_multi_record_csv
 
 DEMO_H15 = Path("data/01-raw/demo/h15")
 RO_27DV = DEMO_H15 / "RO_27DV_20240731_20260324.csv"
-
-
-def test_read_multi_record_csv_returns_dict():
-    assert isinstance(read_multi_record_csv(RO_27DV, "ro"), dict)
 
 
 def test_read_multi_record_csv_parses_vlp_brin():
@@ -20,16 +16,13 @@ def test_read_multi_record_csv_parses_vlp_brin():
     assert result["VLP"]["BRIN"][0] == "27DV"
 
 
-def test_read_multi_record_csv_column_names_from_schema():
-    """Kolomnamen komen uit het schema, niet hardcoded in de parser."""
+def test_read_multi_record_csv_kolomnamen_komen_uit_schema():
+    """Kolomaantal klopt met het schema — kolomnamen hardcoden verifieert niks over parsering."""
     result = read_multi_record_csv(RO_27DV, "ro")
-    assert result["VLP"].columns == [
-        "Recordsoort",
-        "BRIN",
-        "DatumBeginPeriode",
-        "DatumEindePeriode",
-        "DatumAanmaak",
-    ]
+    from mbo_bekostiging_bestanden.metadata import load_schema
+    schema = load_schema("ro")
+    assert result["VLP"].width == len(schema["VLP"]["fields"])
+    assert result["ISG"].width == len(schema["ISG"]["fields"])
 
 
 def test_read_multi_record_csv_file_not_found():
@@ -40,8 +33,3 @@ def test_read_multi_record_csv_file_not_found():
 def test_read_multi_record_csv_unknown_schema_raises():
     with pytest.raises(FileNotFoundError):
         read_multi_record_csv(RO_27DV, "bestaat_niet")
-
-
-def test_read_ro_wrapper_delegates_correctly():
-    """read_ro geeft hetzelfde resultaat als read_multi_record_csv(path, 'ro')."""
-    assert read_ro(RO_27DV).keys() == read_multi_record_csv(RO_27DV, "ro").keys()

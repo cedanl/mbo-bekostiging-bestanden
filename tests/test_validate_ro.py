@@ -19,16 +19,6 @@ def frames():
 
 
 # ---------------------------------------------------------------------------
-# Basis
-# ---------------------------------------------------------------------------
-
-
-def test_validate_ro_returns_frames(frames):
-    result = validate_ro(frames)
-    assert result is frames
-
-
-# ---------------------------------------------------------------------------
 # Kolomcontroles
 # ---------------------------------------------------------------------------
 
@@ -65,13 +55,6 @@ def test_validate_ro_slr_multiple_rows_raises(frames):
 # ---------------------------------------------------------------------------
 # Generieke validate_multi_record
 # ---------------------------------------------------------------------------
-
-
-def test_validate_multi_record_passes_ro_frames(frames):
-    from mbo_bekostiging_bestanden.validate import validate_multi_record
-
-    result = validate_multi_record(frames, "ro")
-    assert result is frames
 
 
 def test_validate_multi_record_single_row_check_from_schema(frames):

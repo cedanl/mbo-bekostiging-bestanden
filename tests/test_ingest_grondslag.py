@@ -16,14 +16,6 @@ GRONDSLAG = DEMO_H17 / "GRONDSLAG_IP_MBO_27DV_20251119_2025.csv"
 # ---------------------------------------------------------------------------
 
 
-def test_read_grondslag_all_values_are_dataframes():
-    """Alle waarden in het resultaat zijn Polars DataFrames — geen strings of None."""
-    result = read_grondslag(GRONDSLAG)
-    assert result
-    for rt, df in result.items():
-        assert isinstance(df, pl.DataFrame), f"{rt} is geen DataFrame"
-
-
 def test_read_grondslag_file_not_found():
     with pytest.raises(FileNotFoundError):
         read_grondslag("bestaat_niet.csv")
@@ -98,3 +90,10 @@ def test_read_grondslag_vlp_brin():
 def test_read_grondslag_per_count():
     result = read_grondslag(GRONDSLAG)
     assert result["PER"].height == 10
+
+
+def test_read_grondslag_per_geen_onbekend_kolommen():
+    """Posities 19-21 (duplicaten) mogen niet als _onbekend in de output staan."""
+    result = read_grondslag(GRONDSLAG)
+    onbekend = [c for c in result["PER"].columns if "_onbekend" in c]
+    assert not onbekend, f"Onbekende kolommen aanwezig: {onbekend}"

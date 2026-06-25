@@ -1,4 +1,4 @@
-"""Streamlit-app entrypoint — registreert pagina's en verbergt de sidebar."""
+"""Streamlit-app entrypoint."""
 
 import streamlit as st
 
@@ -11,11 +11,8 @@ st.set_page_config(
 pg = st.navigation(
     [
         st.Page("pages/home.py", title="Home", default=True),
-        st.Page("pages/kiezen.py", title="Stap 1 – Bestand kiezen"),
-        st.Page("pages/verwerken.py", title="Stap 2 – Verwerken"),
-        st.Page("pages/stapelen.py", title="Stap 1 – Leveringen stapelen"),
         st.Page("pages/resultaten.py", title="Resultaten"),
     ],
-    position="hidden",
+    position="sidebar",
 )
 pg.run()

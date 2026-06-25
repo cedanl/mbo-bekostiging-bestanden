@@ -6,57 +6,87 @@ Leest DUO MBO-bekostigingsbestanden in en zet ze om naar schone, onderzoeksklare
 
 MBO-instellingen worden bekostigd op basis van bestanden die DUO publiceert. Die
 bestanden zijn ruw en lastig direct te gebruiken. Deze repo leest ze in,
-decodeert de velden, controleert de kwaliteit en levert schone tabellen op
-waarop andere CEDA-projecten kunnen voortbouwen.
+decodeert de velden, controleert de kwaliteit en bouwt er één platte tabel van
+(OBT) waarop andere CEDA-projecten kunnen voortbouwen.
 
 Doelgroep: analisten en onderzoekers bij mbo-instellingen die met
 bekostigingsdata werken.
 
 ## Quick start
 
-1. Installeer de dependencies:
+```bash
+uv sync
+```
 
-   ```
-   uv sync
-   ```
+**Interactieve app** — zet bestanden in `data/01-raw/` en klik op *Verwerk alles*:
 
-2. Start de interactieve app:
+```bash
+uv run streamlit run app/main.py
+```
 
-   ```
-   uv run streamlit run app/main.py
-   ```
+**CLI**:
 
-3. Of draai de pipeline in Python (zodra het inlezen/decoderen geïmplementeerd is):
+```bash
+# Verwerk één ruw bestand naar prepared
+uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
+    data/02-prepared/demo/h15/RO_27DV_20240731_20260324
 
-   ```python
-   from mbo_bekostiging_bestanden.pipeline import run_pipeline
-   run_pipeline("data/01-raw/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025.csv", "data/03-output/demo/grondslag.parquet")
-   ```
+# Bouw OBT vanuit meerdere prepared-mappen
+uv run mbo obt \
+    data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
+    data/02-prepared/demo/h16/TBGI_25LX_2027_20251124 \
+    data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
+    --output data/03-output/demo/obt \
+    --relative-to data/02-prepared/demo
+```
+
+**Python API**:
+
+```python
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_obt
+
+run_auto_pipeline("data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv",
+                  "data/02-prepared/demo/h15/RO_27DV_20240731_20260324")
+
+obt = run_obt(
+    sources=["data/02-prepared/demo/h15/RO_27DV_20240731_20260324",
+             "data/02-prepared/demo/h16/TBGI_25LX_2027_20251124",
+             "data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025"],
+    target="data/03-output/demo/obt",
+    relative_to="data/02-prepared/demo",
+)
+# obt["obt_inschrijvingen"]  — één rij per inschrijvingsperiode (ISP)
+```
 
 De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 ## Data
 
-- **Input**: ruwe bekostigingsbestanden in `data/01-raw/`. Het zijn multi-record
-  bestanden van DUO: regels beginnen met een recordtype (`VLP`, `PER`, `ISG`, …),
-  `;`-gescheiden, plus XML-bestanden (TBGI). Het inlezen en decoderen per
-  recordtype volgt in aparte issues.
-- **Output**: schone Parquet-tabellen in `data/02-prepared/` of `data/03-output/`.
-- Echte data staat niet in git; alleen demo-data in `data/*/demo/` (overgenomen
-  uit [`cedanl/duo-mbo-datafiles`](https://github.com/cedanl/duo-mbo-datafiles)).
+- **Input**: ruwe bekostigingsbestanden in `data/01-raw/`. Drie typen:
+  `RO_*.csv` (h15), `TBGI_*.XML` (h16), `GRONDSLAG_IP_MBO_*.csv` (h17).
+- **Prepared**: genormaliseerde Parquet per recordtype in `data/02-prepared/`,
+  één submap per leveringsbestand (`groep/bestandsstam/`).
+- **Output**: vijf OBT-bestanden in `data/03-output/obt/`:
+  - `obt_inschrijvingen` — grain = inschrijvingsperiode (ISP), joins naar ISG/PER/BPV/KZD/GEO ingebakken
+  - `detail_bpv` — alle BPV-overeenkomsten (één rij per overeenkomst)
+  - `detail_kzd_amo` — keuzedelen en AMvB-onderdelen
+  - `detail_bekostiging` — bekostigingsdetail (BII-records / TBGI Teldatum)
+  - `meta_leveringen` — metadata per leveringsbestand
+- Echte data staat niet in git; alleen demo-data in `data/*/demo/`.
 
 ## Ontwikkeling
 
-Open de repo in de devcontainer (VS Code / GitHub Codespaces) voor een werkende
-omgeving. Tests draaien met:
+```bash
+uv run pytest       # tests
+uv run ruff check   # lint
+```
 
-```
-uv run pytest
-```
+Open de repo in de devcontainer (VS Code / GitHub Codespaces) voor een kant-en-klare omgeving.
 
 ## Referenties
 
-- Technische context en projectstructuur: [`CLAUDE.md`](CLAUDE.md)
+- Uitgebreide documentatie: [`docs/`](docs/index.md)
+- Technische context: [`CLAUDE.md`](CLAUDE.md)
 - CEDA-standaarden: https://github.com/cedanl/.github/tree/main/standards/README.md
 
 ## Contact

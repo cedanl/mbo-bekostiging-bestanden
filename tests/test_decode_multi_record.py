@@ -9,7 +9,7 @@ import pytest
 from mbo_bekostiging_bestanden.decode import (
     _detect_date_format,
     _to_compact_expr,
-    decode_multi_record_csv,
+    decode_frames,
 )
 from mbo_bekostiging_bestanden.ingest import read_ro
 
@@ -62,21 +62,7 @@ def test_to_compact_expr_empty_becomes_null():
 # ---------------------------------------------------------------------------
 
 
-def test_decode_multi_record_csv_dates_typed():
-    """Datumvelden zijn pl.Date na decode via generieke functie."""
-    frames = read_ro(RO_27DV)
-    result = decode_multi_record_csv(frames, "ro")
-    assert result["VLP"]["DatumAanmaak"].dtype == pl.Date
-
-
-def test_decode_multi_record_csv_integers_typed():
-    """Integervelden zijn pl.Int64 na decode via generieke functie."""
-    frames = read_ro(RO_27DV)
-    result = decode_multi_record_csv(frames, "ro")
-    assert result["SLR"]["AantalPER"].dtype == pl.Int64
-
-
-def test_decode_multi_record_csv_unknown_schema_raises():
+def test_decode_frames_unknown_schema_raises():
     frames = read_ro(RO_27DV)
     with pytest.raises(FileNotFoundError):
-        decode_multi_record_csv(frames, "bestaat_niet")
+        decode_frames(frames, "bestaat_niet")

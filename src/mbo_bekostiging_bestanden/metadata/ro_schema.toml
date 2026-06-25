@@ -47,7 +47,7 @@ fields = [
     "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
 ]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
-int_fields  = []
+int_fields  = ["Omvang"]
 
 [DIP]
 # Positie 7 ontbreekt in PvE v4.8.3 maar is aanwezig in alle bekende leveringen (altijd leeg).

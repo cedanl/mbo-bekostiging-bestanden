@@ -5,10 +5,6 @@ import pytest
 from mbo_bekostiging_bestanden.metadata import load_schema
 
 
-def test_load_schema_returns_dict():
-    assert isinstance(load_schema("ro"), dict)
-
-
 def test_load_schema_default_is_ro():
     assert load_schema() == load_schema("ro")
 
@@ -18,10 +14,6 @@ def test_load_schema_filters_scalar_entries():
     schema = load_schema("ro")
     for key, value in schema.items():
         assert isinstance(value, dict), f"{key!r} is geen recordtype-dict"
-
-
-def test_load_schema_contains_vlp():
-    assert "VLP" in load_schema("ro")
 
 
 def test_load_schema_vlp_has_required_keys():
@@ -36,16 +28,12 @@ def test_load_schema_unknown_raises():
         load_schema("bestaat_niet")
 
 
-def test_load_schema_vlp_single_row():
-    assert load_schema("ro")["VLP"].get("single_row") is True
-
-
-def test_load_schema_slr_single_row():
-    assert load_schema("ro")["SLR"].get("single_row") is True
-
-
-def test_load_schema_per_not_single_row():
-    assert not load_schema("ro")["PER"].get("single_row", False)
+def test_load_schema_single_row_vlag_aanwezig_in_schema():
+    """De single_row-vlag wordt gebruikt door validate; controleer dat ze in het schema zitten."""
+    ro = load_schema("ro")
+    assert ro["VLP"].get("single_row") is True
+    assert ro["SLR"].get("single_row") is True
+    assert not ro["PER"].get("single_row", False)
 
 
 def test_load_schema_is_cached():

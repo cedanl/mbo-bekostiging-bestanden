@@ -4,13 +4,14 @@ Gebruik:
     mbo verwerk <source> <target> [--fmt parquet|csv]
     mbo stapel <dir...> --output <dir> [--fmt parquet|csv]
               [--label-col <naam>] [--relative-to <pad>]
+    mbo obt <dir...> --output <dir> [--relative-to <pad>]
 """
 
 import argparse
 from pathlib import Path
 
 from mbo_bekostiging_bestanden.export import export_frames
-from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_obt
 from mbo_bekostiging_bestanden.stack import stack_prepared
 
 
@@ -29,6 +30,12 @@ def _stapel(args: argparse.Namespace) -> None:
     export_frames(frames, args.output, fmt=args.fmt)
     total = sum(df.height for df in frames.values())
     print(f"Gestapeld: {len(frames)} tabellen, {total} rijen → {args.output}")
+
+
+def _obt(args: argparse.Namespace) -> None:
+    obt = run_obt(args.sources, args.output, relative_to=args.relative_to)
+    total = sum(df.height for df in obt.values())
+    print(f"OBT gebouwd: {len(obt)} tabellen, {total} rijen → {args.output}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -82,6 +89,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Basispad voor relatieve leveringslabels",
     )
     p_stapel.set_defaults(func=_stapel)
+
+    p_obt = sub.add_parser("obt", help="Bouw OBT vanuit prepared-mappen")
+    p_obt.add_argument(
+        "sources",
+        nargs="+",
+        type=Path,
+        help="Mappen met Parquet-bestanden (één per levering)",
+    )
+    p_obt.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Doelmap voor de vijf OBT-bestanden",
+    )
+    p_obt.add_argument(
+        "--relative-to",
+        type=Path,
+        default=None,
+        dest="relative_to",
+        help="Basispad voor relatieve leveringslabels",
+    )
+    p_obt.set_defaults(func=_obt)
 
     return parser
 
