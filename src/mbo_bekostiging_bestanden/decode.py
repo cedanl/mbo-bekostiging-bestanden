@@ -122,19 +122,13 @@ def decode_frames(
             elif col in float_fields:
                 exprs.append(_to_float_expr(pl.col(col)).alias(col))
             else:
-                exprs.append(pl.col(col))
+                exprs.append(
+                    pl.when(pl.col(col) == "").then(None).otherwise(pl.col(col)).alias(col)
+                )
 
         result[rt] = df.with_columns(exprs)
 
     return result
-
-
-def decode_multi_record_csv(
-    frames: dict[str, pl.DataFrame],
-    schema_name: str,
-) -> dict[str, pl.DataFrame]:
-    """Alias voor :func:`decode_frames` voor achterwaartse compatibiliteit."""
-    return decode_frames(frames, schema_name)
 
 
 def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:

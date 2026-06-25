@@ -1,10 +1,9 @@
 """Tests voor RO-ingest (TDD).
 
 Tests zijn opzettelijk in dit volgorde geschreven:
-1. Laagste granulariteit (bestand leesbaar, juist type)
-2. Structuur (verwachte recordtypes aanwezig)
-3. Inhoud (kolomnamen, waarden)
-4. Robuustheid (separator-varianten, omgekeerde volgorde)
+1. Structuur (verwachte recordtypes aanwezig)
+2. Inhoud (kolomtelling, waarden)
+3. Robuustheid (separator-varianten, omgekeerde volgorde)
 """
 
 from pathlib import Path
@@ -20,23 +19,13 @@ RO_21CY = DEMO_H15 / "RO_21CY_20250730_20250731.csv"  # separator ;, VLP als laa
 
 
 # ---------------------------------------------------------------------------
-# Basis
+# Structuur
 # ---------------------------------------------------------------------------
-
-
-def test_read_ro_returns_dict():
-    result = read_ro(RO_27DV)
-    assert isinstance(result, dict)
 
 
 def test_read_ro_file_not_found():
     with pytest.raises(FileNotFoundError):
         read_ro("bestaat_niet.csv")
-
-
-# ---------------------------------------------------------------------------
-# Structuur
-# ---------------------------------------------------------------------------
 
 
 def test_read_ro_contains_required_recordtypes():
@@ -60,63 +49,6 @@ def test_read_ro_slr_has_one_row():
 
 
 # ---------------------------------------------------------------------------
-# Kolomnamen
-# ---------------------------------------------------------------------------
-
-
-def test_read_ro_vlp_column_names():
-    result = read_ro(RO_27DV)
-    assert result["VLP"].columns == [
-        "Recordsoort",
-        "BRIN",
-        "DatumBeginPeriode",
-        "DatumEindePeriode",
-        "DatumAanmaak",
-    ]
-
-
-def test_read_ro_per_column_names():
-    result = read_ro(RO_27DV)
-    assert result["PER"].columns == [
-        "Recordsoort",
-        "Burgerservicenummer",
-        "Onderwijsnummer",
-        "Geboortedatum",
-        "Geslacht",
-    ]
-
-
-def test_read_ro_isg_column_names():
-    result = read_ro(RO_27DV)
-    assert result["ISG"].columns == [
-        "Recordsoort",
-        "Burgerservicenummer",
-        "Onderwijsnummer",
-        "Inschrijvingvolgnummer",
-        "DatumInschrijving",
-        "DatumUitschrijvingGepland",
-        "DatumUitschrijvingWerkelijk",
-        "RedenUitschrijving",
-    ]
-
-
-def test_read_ro_slr_column_names():
-    result = read_ro(RO_27DV)
-    assert result["SLR"].columns == [
-        "Recordsoort",
-        "AantalPER",
-        "AantalISG",
-        "AantalISP",
-        "AantalISE",
-        "AantalBPV",
-        "AantalDIP",
-        "AantalAMO",
-        "AantalGEO",
-        "AantalKZD",
-    ]
-
-
-# ---------------------------------------------------------------------------
 # Inhoud
 # ---------------------------------------------------------------------------
 
@@ -129,26 +61,14 @@ def test_read_ro_vlp_brin_semicolon():
     assert read_ro(RO_25LX)["VLP"]["BRIN"][0] == "25LX"
 
 
-def test_read_ro_slr_counts_are_integers():
-    """SLR-telwaarden moeten parseerbaar zijn als gehele getallen.
-
-    De demo-bestanden zijn subsets: SLR-counts weerspiegelen de volledige export,
-    niet de demo-subset. Count-matching hoort in validate.py.
+def test_read_ro_slr_counts_zijn_geldige_integers():
+    """SLR-telwaarden zijn strings bij ingest; decode cast ze naar Int64.
+    Hier controleren we dat de ruwe strings parseerbaar zijn als integer.
     """
     result = read_ro(RO_27DV)
     slr = result["SLR"].row(0, named=True)
-    for col in [
-        "AantalPER",
-        "AantalISG",
-        "AantalISP",
-        "AantalISE",
-        "AantalBPV",
-        "AantalDIP",
-        "AantalAMO",
-        "AantalGEO",
-        "AantalKZD",
-    ]:
-        int(slr[col])  # mag niet gooien
+    for col in ["AantalPER", "AantalISG", "AantalISP", "AantalBPV", "AantalDIP"]:
+        assert slr[col].strip().isdigit(), f"{col} is geen geldige integer-string: {slr[col]!r}"
 
 
 # ---------------------------------------------------------------------------

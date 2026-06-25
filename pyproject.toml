@@ -11,6 +11,9 @@ dependencies = [
     "streamlit>=1.40",
 ]
 
+[project.scripts]
+mbo = "mbo_bekostiging_bestanden.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",

@@ -10,8 +10,8 @@ date_fields = ["DatumAanmaak"]
 int_fields  = ["Studiejaar"]
 
 [PER]
-# Posities 19-21 zijn niet in de PvE-spec maar aanwezig in alle bekende leveringen.
-# Waarden spiegelen respectievelijk Postcodecijfers, Verblijfstitel en Nationaliteit1.
+# Posities 19-21 zijn niet in de PvE-spec en spiegelen Postcodecijfers/Verblijfstitel/Nationaliteit1.
+# Ze worden genegeerd (geclippt) bij het inlezen.
 fields = [
     "Recordsoort", "PseudoNummer",
     "Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4",
@@ -20,7 +20,6 @@ fields = [
     "CodeGeboorteland", "CodeGeboortelandOuder1", "CodeGeboortelandOuder2",
     "CodeLandWaarnaarVertrokken", "Verblijfstitel",
     "Nationaliteit1", "Nationaliteit2",
-    "_onbekend19", "_onbekend20", "_onbekend21",
 ]
 date_fields = ["DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland"]
 int_fields  = ["Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4"]
@@ -61,7 +60,7 @@ fields = [
     "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
 ]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
-int_fields  = []
+int_fields  = ["Omvang"]
 
 [BII]
 # Niet aanwezig in demo-data; aangemaakt na bekostigingsberekening door DUO.

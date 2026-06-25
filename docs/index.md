@@ -2,7 +2,7 @@
 
 DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan controleren of haar studenten bekostigd worden en op welke grondslag. Deze bestanden zijn technisch van opzet: meerdere recordtypes per bestand, gecodeerde velden, geen kolomkoppen.
 
-**Deze tool leest die ruwe bestanden in en zet ze om naar schone, getypeerde Parquet-bestanden** — klaar voor analyse in Python, R, Power BI of een ander tool naar keuze.
+**Deze tool leest die ruwe bestanden in, normaliseert ze en bouwt er één platte analysetabel (OBT) van** — direct bruikbaar in Excel, Python, R of Power BI.
 
 ---
 
@@ -18,10 +18,14 @@ DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan co
 
 ## Wat levert de tool op?
 
-Na het verwerken van een RO-bestand staat er in `data/02-prepared/` één Parquet-bestand per recordtype:
+De verwerking bestaat uit twee stappen.
+
+### Stap 1 — Prepared (per leveringsbestand)
+
+Elk ruw bestand wordt genormaliseerd naar één Parquet-bestand per recordtype:
 
 ```
-data/02-prepared/demo/h15/27DV/
+data/02-prepared/demo/h15/RO_27DV_20240731_20260324/
 ├── VLP.parquet    ← bestandskop (1 rij)
 ├── PER.parquet    ← personen
 ├── ISG.parquet    ← inschrijvingen
@@ -33,18 +37,21 @@ data/02-prepared/demo/h15/27DV/
 └── SLR.parquet    ← sluitrecord (tellingen)
 ```
 
-De bestanden zijn direct bruikbaar:
+Datumvelden zijn `Date`, telvelden zijn `Int64`, lege velden zijn `null` (geen lege strings).
 
-```python
-import polars as pl
+### Stap 2 — OBT (gecombineerd over alle leveringen)
 
-isg = pl.read_parquet("data/02-prepared/demo/h15/27DV/ISG.parquet")
-print(isg.dtypes)
-# DatumInschrijving: Date  ← echte datum, geen string
-# AantalPER: Int64         ← integer, geen tekst
-```
+Alle prepared-mappen worden gecombineerd tot vijf bestanden in `data/03-output/obt/`:
 
-Datumvelden zijn `Date`, telvelden zijn `Int64`. Nullwaarden zijn `null`, geen lege strings.
+| Bestand | Grain | Inhoud |
+|---|---|---|
+| `obt_inschrijvingen.parquet` | inschrijvingsperiode (ISP) | kern van de OBT; ISG/PER/BPV-aggregaat/KZD-aggregaat/GEO-pivot ingebakken |
+| `detail_bpv.parquet` | BPV-overeenkomst | alle afzonderlijke BPV-records |
+| `detail_kzd_amo.parquet` | keuzedeel / AMvB-onderdeel | alle KZD- en AMO-records |
+| `detail_bekostiging.parquet` | teldatum | bekostigingsdetail (BII-records / TBGI Teldatum) |
+| `meta_leveringen.parquet` | leveringsbestand | VLP-metadata per bron |
+
+Een `levering`-kolom in elke tabel geeft aan uit welk bronbestand een rij afkomstig is (bijv. `h15/RO_27DV_20240731_20260324`).
 
 ---
 

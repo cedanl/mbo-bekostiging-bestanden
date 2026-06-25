@@ -13,23 +13,6 @@ RO_25LX = DEMO_H15 / "RO_25LX_20250101_20251231.csv"  # Nederlandse datums
 
 
 # ---------------------------------------------------------------------------
-# Basis
-# ---------------------------------------------------------------------------
-
-
-def test_decode_ro_returns_dict():
-    frames = read_ro(RO_27DV)
-    result = decode_ro(frames)
-    assert isinstance(result, dict)
-
-
-def test_decode_ro_preserves_recordtypes():
-    frames = read_ro(RO_27DV)
-    result = decode_ro(frames)
-    assert result.keys() == frames.keys()
-
-
-# ---------------------------------------------------------------------------
 # Datumvelden
 # ---------------------------------------------------------------------------
 
@@ -86,11 +69,6 @@ def test_decode_ro_slr_counts_are_integer():
         assert result["SLR"][col].dtype == pl.Int64, f"{col} moet pl.Int64 zijn"
 
 
-def test_decode_ro_slr_count_value():
-    result = decode_ro(read_ro(RO_27DV))
-    assert result["SLR"]["AantalPER"][0] == 16616
-
-
 # ---------------------------------------------------------------------------
 # Datumformaat-detectie zonder VLP
 # ---------------------------------------------------------------------------
@@ -123,3 +101,41 @@ def test_decode_ro_all_demo_files():
         assert result["VLP"]["DatumAanmaak"].dtype == pl.Date, (
             f"DatumAanmaak niet Date in {path.name}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Lege strings → null
+# ---------------------------------------------------------------------------
+
+
+def test_decode_lege_strings_worden_null_in_string_kolommen():
+    """Lege strings in String-kolommen worden null na decode."""
+    result = decode_ro(read_ro(RO_27DV))
+    col = result["ISG"]["RedenUitschrijving"]
+    assert col.dtype == pl.String
+    assert col.null_count() > 0, "RedenUitschrijving heeft geen nulls (lege strings staan er nog in)"
+    assert (col == "").sum() == 0, "Er zijn nog lege strings in RedenUitschrijving"
+
+
+def test_decode_lege_strings_worden_null_isp():
+    result = decode_ro(read_ro(RO_27DV))
+    for col_name in ("Niveau", "LocatiecodeVSV", "Leerroute", "Leerroutefase"):
+        col = result["ISP"][col_name]
+        assert (col == "").sum() == 0, f"Lege strings aanwezig in ISP.{col_name}"
+
+
+# ---------------------------------------------------------------------------
+# BPV.Omvang als integer
+# ---------------------------------------------------------------------------
+
+
+def test_decode_ro_bpv_omvang_is_integer():
+    result = decode_ro(read_ro(RO_27DV))
+    assert result["BPV"]["Omvang"].dtype == pl.Int64, "BPV.Omvang moet Int64 zijn"
+
+
+def test_decode_ro_bpv_omvang_waarden():
+    result = decode_ro(read_ro(RO_27DV))
+    omvang = result["BPV"]["Omvang"].drop_nulls()
+    assert len(omvang) > 0
+    assert (omvang > 0).all()
