@@ -10,9 +10,10 @@ from mbo_bekostiging_bestanden.obt import (
     _resolve_inschrijving,
     build_obt,
 )
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
 
-DEMO = Path("data/02-prepared/demo")
+RAW = Path("data/01-raw/demo")
 
 
 # ---------------------------------------------------------------------------
@@ -21,9 +22,15 @@ DEMO = Path("data/02-prepared/demo")
 
 
 @pytest.fixture(scope="session")
-def demo_stacked():
-    dirs = sorted(DEMO.glob("*/*"))
-    return stack_prepared(dirs, relative_to=DEMO)
+def demo_stacked(tmp_path_factory):
+    prepared = tmp_path_factory.mktemp("prepared")
+    for raw_file in sorted(RAW.rglob("*")):
+        if raw_file.suffix.lower() not in {".csv", ".xml"}:
+            continue
+        subdir = raw_file.parent.relative_to(RAW)
+        run_auto_pipeline(raw_file, prepared / subdir / raw_file.stem)
+    dirs = [d for d in sorted(prepared.glob("*/*")) if d.is_dir()]
+    return stack_prepared(dirs, relative_to=prepared)
 
 
 @pytest.fixture(scope="session")
