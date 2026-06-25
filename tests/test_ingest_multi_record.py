@@ -17,7 +17,10 @@ def test_read_multi_record_csv_parses_vlp_brin():
 
 
 def test_read_multi_record_csv_kolomnamen_komen_uit_schema():
-    """Kolomaantal klopt met het schema — kolomnamen hardcoden verifieert niks over parsering."""
+    """Kolomaantal klopt met het schema.
+
+    Kolomnamen hardcoden verifieert niks over parsering.
+    """
     result = read_multi_record_csv(RO_27DV, "ro")
     from mbo_bekostiging_bestanden.metadata import load_schema
     schema = load_schema("ro")

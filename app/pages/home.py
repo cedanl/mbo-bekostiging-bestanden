@@ -14,7 +14,6 @@ from mbo_bekostiging_bestanden.obt import build_obt
 from mbo_bekostiging_bestanden.pipeline import detect_bestandstype, run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
 
-
 # ---------------------------------------------------------------------------
 # Hulpfuncties
 # ---------------------------------------------------------------------------
@@ -110,7 +109,9 @@ if not done:
                 except Exception as exc:
                     fouten.append(f"{raw_file.name}: {exc}")
                 stap += 1
-                voortgang.progress(stap / totaal_stappen, text=f"{stap}/{totaal_stappen}")
+                voortgang.progress(
+                    stap / totaal_stappen, text=f"{stap}/{totaal_stappen}"
+                )
 
         # Stap 2: alle prepared dirs samen stapelen en één gecombineerde OBT bouwen
         status.info("Stapel alle leveringen en bouw gecombineerde OBT…")
@@ -172,7 +173,9 @@ if done:
         st.write("")
         col_bekijk, col_opnieuw = st.columns(2)
         with col_bekijk:
-            if st.button("Bekijk resultaten →", type="primary", use_container_width=True):
+            if st.button(
+                "Bekijk resultaten →", type="primary", use_container_width=True
+            ):
                 st.session_state["resultaten_dir"] = obt_pad
                 st.switch_page("pages/resultaten.py")
         with col_opnieuw:

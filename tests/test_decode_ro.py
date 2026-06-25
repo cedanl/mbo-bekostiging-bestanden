@@ -113,7 +113,9 @@ def test_decode_lege_strings_worden_null_in_string_kolommen():
     result = decode_ro(read_ro(RO_27DV))
     col = result["ISG"]["RedenUitschrijving"]
     assert col.dtype == pl.String
-    assert col.null_count() > 0, "RedenUitschrijving heeft geen nulls (lege strings staan er nog in)"
+    assert col.null_count() > 0, (
+        "RedenUitschrijving heeft geen nulls (lege strings staan er nog in)"
+    )
     assert (col == "").sum() == 0, "Er zijn nog lege strings in RedenUitschrijving"
 
 

@@ -29,7 +29,10 @@ def test_load_schema_unknown_raises():
 
 
 def test_load_schema_single_row_vlag_aanwezig_in_schema():
-    """De single_row-vlag wordt gebruikt door validate; controleer dat ze in het schema zitten."""
+    """De single_row-vlag wordt gebruikt door validate.
+
+    Controleer dat ze in het schema zitten.
+    """
     ro = load_schema("ro")
     assert ro["VLP"].get("single_row") is True
     assert ro["SLR"].get("single_row") is True

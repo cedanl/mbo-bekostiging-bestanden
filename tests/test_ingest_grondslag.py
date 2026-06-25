@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import polars as pl
 import pytest
 
 from mbo_bekostiging_bestanden.ingest import read_grondslag

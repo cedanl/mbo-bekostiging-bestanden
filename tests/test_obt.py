@@ -132,7 +132,8 @@ def test_kzd_behaald_bsn1_ingevuld(demo_obt):
 
 
 def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_obt):
-    """Na DIP-fallback mag geen enkel KZD/AMO-record een leeg Inschrijvingvolgnummer hebben."""
+    """Na DIP-fallback: geen enkel KZD/AMO-record heeft een leeg Inschrijvingvolgnummer.
+    """
     detail = demo_obt["detail_kzd_amo"]
     assert detail["Inschrijvingvolgnummer"].null_count() == 0
     leeg = (detail["Inschrijvingvolgnummer"] == "").sum()
@@ -191,7 +192,8 @@ def test_detail_kzd_amo_bron_waarden(demo_obt):
 
 
 def test_detail_kzd_amo_alle_records(demo_obt, demo_stacked):
-    verwacht = demo_stacked["KZD"].height + demo_stacked.get("AMO", pl.DataFrame()).height
+    amo = demo_stacked.get("AMO", pl.DataFrame())
+    verwacht = demo_stacked["KZD"].height + amo.height
     assert demo_obt["detail_kzd_amo"].height == verwacht
 
 

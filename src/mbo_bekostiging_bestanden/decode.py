@@ -123,7 +123,10 @@ def decode_frames(
                 exprs.append(_to_float_expr(pl.col(col)).alias(col))
             else:
                 exprs.append(
-                    pl.when(pl.col(col) == "").then(None).otherwise(pl.col(col)).alias(col)
+                    pl.when(pl.col(col) == "")
+                    .then(None)
+                    .otherwise(pl.col(col))
+                    .alias(col)
                 )
 
         result[rt] = df.with_columns(exprs)

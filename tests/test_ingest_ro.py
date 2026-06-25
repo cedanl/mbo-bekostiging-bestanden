@@ -68,7 +68,9 @@ def test_read_ro_slr_counts_zijn_geldige_integers():
     result = read_ro(RO_27DV)
     slr = result["SLR"].row(0, named=True)
     for col in ["AantalPER", "AantalISG", "AantalISP", "AantalBPV", "AantalDIP"]:
-        assert slr[col].strip().isdigit(), f"{col} is geen geldige integer-string: {slr[col]!r}"
+        assert slr[col].strip().isdigit(), (
+            f"{col} is geen geldige integer-string: {slr[col]!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -90,7 +90,8 @@ def _resolve_inschrijving(
         how="left",
     )
     return df.with_columns(
-        pl.coalesce(["Inschrijvingvolgnummer", "_isg_via_dip"]).alias("Inschrijvingvolgnummer")
+        pl.coalesce(["Inschrijvingvolgnummer", "_isg_via_dip"])
+        .alias("Inschrijvingvolgnummer")
     ).drop("_isg_via_dip")
 
 
@@ -112,7 +113,12 @@ def _geo_pivot(
 
     # Neem per (levering, persoon, inschrijving, code) de laatste/hoogste waarde.
     agg = geo.group_by(
-        ["levering", "_persoon_id", "Inschrijvingvolgnummer", "CodeGeneriekExamenonderdeel"]
+        [
+            "levering",
+            "_persoon_id",
+            "Inschrijvingvolgnummer",
+            "CodeGeneriekExamenonderdeel",
+        ]
     ).agg(
         pl.col("Eindcijfer").max(),
         pl.col("CijferIE").max(),
@@ -123,18 +129,27 @@ def _geo_pivot(
     pivot = agg.pivot(
         on="CodeGeneriekExamenonderdeel",
         index=["levering", "_persoon_id", "Inschrijvingvolgnummer"],
-        values=["Eindcijfer", "CijferIE", "CijferCE", "VrijstellingGeneriekExamenonderdeel"],
+        values=[
+            "Eindcijfer",
+            "CijferIE",
+            "CijferCE",
+            "VrijstellingGeneriekExamenonderdeel",
+        ],
         aggregate_function="first",
     )
 
     # Hernoem: "Eindcijfer_3005" → "GEO_3005_Eindcijfer"
     hernoem: dict[str, str] = {}
     for col in pivot.columns:
-        for veld in ["Eindcijfer", "CijferIE", "CijferCE", "VrijstellingGeneriekExamenonderdeel"]:
+        for veld in [
+            "Eindcijfer", "CijferIE", "CijferCE",
+            "VrijstellingGeneriekExamenonderdeel",
+        ]:
             prefix = f"{veld}_"
             if col.startswith(prefix):
                 code = col[len(prefix):]
-                kort_veld = "Vrijstelling" if veld == "VrijstellingGeneriekExamenonderdeel" else veld
+                is_vrijstelling = veld == "VrijstellingGeneriekExamenonderdeel"
+                kort_veld = "Vrijstelling" if is_vrijstelling else veld
                 hernoem[col] = f"GEO_{code}_{kort_veld}"
     return pivot.rename(hernoem)
 
@@ -207,7 +222,12 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     # ── VLP: bestandsmetadata; BRIN invullen voor RO-rijen ───────────────────
     vlp = _drop(stacked["VLP"], "Recordsoort")
     vlp_extra = [c for c in vlp.columns if c not in ["levering", "BRIN"]]
-    obt = _join_left(obt, vlp.select(["levering", "BRIN", *vlp_extra]), on=["levering"], suffix="_vlp")
+    obt = _join_left(
+        obt,
+        vlp.select(["levering", "BRIN", *vlp_extra]),
+        on=["levering"],
+        suffix="_vlp",
+    )
     # RO-ISP heeft geen BRIN: vul op uit VLP
     if "BRIN_vlp" in obt.columns:
         obt = obt.with_columns(
@@ -250,17 +270,24 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
     # ── KZD aggregaat ─────────────────────────────────────────────────────────
     if "KZD" in stacked and not stacked["KZD"].is_empty():
-        obt = _join_left(obt, _kzd_aggregaat(stacked["KZD"], dip=dip_raw), on=_JOIN_INSCHRIJVING)
+        obt = _join_left(
+            obt, _kzd_aggregaat(stacked["KZD"], dip=dip_raw), on=_JOIN_INSCHRIJVING
+        )
 
     # ── AMO aggregaat ─────────────────────────────────────────────────────────
     if "AMO" in stacked and not stacked["AMO"].is_empty():
-        obt = _join_left(obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING)
+        obt = _join_left(
+            obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
+        )
 
     return obt
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """BPV volledig uitgesplitst; joinbaar via (levering, _persoon_id, Inschrijvingvolgnummer)."""
+    """BPV volledig uitgesplitst.
+
+    Joinbaar via (levering, _persoon_id, Inschrijvingvolgnummer).
+    """
     if "BPV" not in stacked or stacked["BPV"].is_empty():
         return pl.DataFrame()
     df = _add_persoon_id(stacked["BPV"])
@@ -358,7 +385,9 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
         ``detail_bekostiging``, ``meta_leveringen``.
     """
     heeft_isp = "ISP" in stacked and not stacked["ISP"].is_empty()
-    heeft_inschrijving = "Inschrijving" in stacked and not stacked["Inschrijving"].is_empty()
+    heeft_inschrijving = (
+        "Inschrijving" in stacked and not stacked["Inschrijving"].is_empty()
+    )
 
     if not heeft_isp and not heeft_inschrijving:
         raise ValueError(
