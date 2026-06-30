@@ -18,7 +18,8 @@ bekostigingsdata werken.
 uv sync
 ```
 
-**Interactieve app** — zet bestanden in `data/01-raw/` en klik op *Verwerk alles*:
+**Interactieve app** — de app verwerkt de bestanden in de invoermap uit
+`app/config.toml` (standaard `data/01-raw/demo`). Klik op *Verwerk alles*:
 
 ```bash
 uv run streamlit run app/main.py
@@ -59,6 +60,21 @@ obt = run_obt(
 ```
 
 De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
+
+### Eigen data verwerken
+
+Wijs `app/config.toml` naar je eigen mappen en draai dezelfde stappen:
+
+```toml
+[data]
+raw = "data/01-raw/eigen"
+prepared = "data/02-prepared/eigen"
+output = "data/03-output/eigen"
+```
+
+Zet je ruwe DUO-bestanden (`RO_*.csv`, `TBGI_*.XML`, `GRONDSLAG_IP_MBO_*.csv`) in
+de `raw`-map. De app ontdekt en verwerkt ze automatisch. Echte data staat niet in
+git.
 
 ## Data
 
