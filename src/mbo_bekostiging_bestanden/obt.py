@@ -13,6 +13,8 @@ Vijf output-tabellen (nul informatieverlies):
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.enrich import enrich_obt
+
 # Kolommen die een persoonsidentificatie bevatten (prioriteitsvolgorde).
 _PERSOON_COLS = ["PseudoNummer", "Burgerservicenummer", "Onderwijsnummer"]
 
@@ -521,7 +523,7 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
         )
 
     return {
-        "obt_inschrijvingen": (
+        "obt_inschrijvingen": enrich_obt(
             _bouw_obt_inschrijvingen(stacked)
             if heeft_isp
             else _bouw_tbgi_inschrijvingen(stacked)
