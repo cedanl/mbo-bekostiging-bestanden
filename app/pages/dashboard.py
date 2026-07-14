@@ -251,7 +251,14 @@ with tab_opleidingen:
             .head(10)
         )
         if not top10.is_empty():
-            st.bar_chart(top10, x="Opleidingcode", y="Inschrijvingen")
+            top10 = top10.with_columns(
+                ("CREBO " + pl.col("Opleidingcode")).alias("Opleiding")
+            )
+            st.bar_chart(top10, x="Opleiding", y="Inschrijvingen")
+            st.caption(
+                "CREBO-namen zijn niet beschikbaar in de huidige decodeertabellen. "
+                "Zie het SBB CREBO-register voor volledige namen."
+            )
         else:
             st.info("Geen data beschikbaar voor deze grafiek.")
     else:
@@ -353,12 +360,16 @@ with tab_opleidingen:
 with tab_studenten:
     st.subheader("Geslachtsverdeling per Leertraject")
     if "Geslacht" in df.columns and "Leertraject" in df.columns:
+        _GESLACHT = {"M": "Man", "V": "Vrouw", "O": "Onbekend"}
         geslacht = (
             df.filter(
                 pl.col("Geslacht").is_not_null()
                 & (pl.col("Geslacht") != "")
                 & pl.col("Leertraject").is_not_null()
                 & (pl.col("Leertraject") != "")
+            )
+            .with_columns(
+                pl.col("Geslacht").replace(_GESLACHT).alias("Geslacht")
             )
             .group_by(["Geslacht", "Leertraject"])
             .agg(pl.len().alias("Inschrijvingen"))
