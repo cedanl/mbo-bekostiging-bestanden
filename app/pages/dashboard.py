@@ -1,6 +1,7 @@
 """Dashboard — visueel overzicht van de gecombineerde OBT-data."""
 
 import sys
+import tomllib
 from pathlib import Path
 
 import polars as pl
@@ -8,6 +9,11 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _utils import output_dir
+
+_GEO_META = (
+    Path(__file__).parent.parent.parent
+    / "src/mbo_bekostiging_bestanden/metadata/geo_codes.toml"
+)
 
 REDEN_LABELS = {
     "01": "Diploma BOL",
@@ -326,6 +332,20 @@ with tab_opleidingen:
     else:
         st.info("Kolommen `KZD_Aantal` of `KZD_AantalBehaald` niet beschikbaar.")
 
+    if "Instelling_naam" in df.columns:
+        instelling_cols = ["Instelling_naam"]
+        if "Instelling_plaats" in df.columns:
+            instelling_cols.append("Instelling_plaats")
+        instelling_info = (
+            df.select(instelling_cols)
+            .filter(pl.col("Instelling_naam").is_not_null())
+            .unique()
+            .sort("Instelling_naam")
+        )
+        if not instelling_info.is_empty():
+            st.subheader("Instelling")
+            st.dataframe(instelling_info, use_container_width=True, hide_index=True)
+
 # ---------------------------------------------------------------------------
 # Tab 4 — Studenten
 # ---------------------------------------------------------------------------
@@ -352,6 +372,56 @@ with tab_studenten:
             st.info("Geen data beschikbaar voor deze grafiek.")
     else:
         st.info("Kolommen `Geslacht` of `Leertraject` niet beschikbaar.")
+
+    if "Nationaliteit1_migratieachtergrond" in df.columns:
+        st.subheader("Herkomst (migratieachtergrond)")
+        herkomst = (
+            df.filter(pl.col("Nationaliteit1_migratieachtergrond").is_not_null())
+            .group_by("Nationaliteit1_migratieachtergrond")
+            .agg(pl.len().alias("Inschrijvingen"))
+            .sort("Inschrijvingen", descending=True)
+            .rename({"Nationaliteit1_migratieachtergrond": "Migratieachtergrond"})
+        )
+        if not herkomst.is_empty():
+            st.bar_chart(herkomst, x="Migratieachtergrond", y="Inschrijvingen")
+        else:
+            st.info("Geen herkomstdata beschikbaar.")
+
+    if "Gemeente" in df.columns:
+        st.subheader("Top 10 gemeenten")
+        top10_gem = (
+            df.filter(
+                pl.col("Gemeente").is_not_null() & (pl.col("Gemeente") != "")
+            )
+            .group_by("Gemeente")
+            .agg(pl.len().alias("Studenten"))
+            .sort("Studenten", descending=True)
+            .head(10)
+        )
+        if not top10_gem.is_empty():
+            st.dataframe(top10_gem, use_container_width=True, hide_index=True)
+        else:
+            st.info("Geen gemeentedata beschikbaar.")
+
+    if "CodeGeboorteland_naam" in df.columns:
+        st.subheader("Top 10 geboorteland")
+        top10_land = (
+            df.filter(
+                pl.col("CodeGeboorteland_naam").is_not_null()
+                & (pl.col("CodeGeboorteland_naam") != "")
+                & (pl.col("CodeGeboorteland_naam") != "Onbekend")
+                & (pl.col("CodeGeboorteland_naam") != "NULL")
+            )
+            .group_by("CodeGeboorteland_naam")
+            .agg(pl.len().alias("Studenten"))
+            .sort("Studenten", descending=True)
+            .head(10)
+            .rename({"CodeGeboorteland_naam": "Geboorteland"})
+        )
+        if not top10_land.is_empty():
+            st.dataframe(top10_land, use_container_width=True, hide_index=True)
+        else:
+            st.info("Geen geboortelanddata beschikbaar.")
 
     st.subheader("Uitstroomredenen")
     if "RedenUitschrijving" in df.columns:
@@ -440,6 +510,13 @@ with tab_studenten:
 # ---------------------------------------------------------------------------
 
 with tab_examens:
+    _geo_labels: dict[str, str] = {}
+    if _GEO_META.exists():
+        with _GEO_META.open("rb") as _f:
+            _geo_toml = tomllib.load(_f)
+        for _code, _meta in _geo_toml.get("codes", {}).items():
+            _geo_labels[_code] = _meta.get("label", _code)
+
     geo_eindcijfer_cols = [
         c for c in df.columns if c.startswith("GEO_") and c.endswith("_Eindcijfer")
     ]
@@ -454,7 +531,7 @@ with tab_examens:
                 continue
             geo_rows.append(
                 {
-                    "GEO-code": code,
+                    "Onderdeel": _geo_labels.get(code, f"GEO {code}"),
                     "Gemiddeld eindcijfer": round(serie.mean(), 1),
                     "N": len(serie),
                 }
@@ -462,7 +539,6 @@ with tab_examens:
         if geo_rows:
             geo_tbl = pl.DataFrame(geo_rows)
             st.dataframe(geo_tbl, use_container_width=True, hide_index=True)
-            st.caption("GEO-codes: 3001=Nederlands, 3002=Rekenen")
         else:
             st.info("Geen GEO-eindcijfers gevuld in de data.")
     else:
