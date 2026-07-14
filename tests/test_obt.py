@@ -1,5 +1,6 @@
 """Tests voor obt.py (OBT-bouwfuncties)."""
 
+from datetime import date
 from pathlib import Path
 
 import polars as pl
@@ -8,6 +9,7 @@ import pytest
 from mbo_bekostiging_bestanden.obt import (
     _bouw_detail_bekostiging,
     _resolve_inschrijving,
+    _voeg_bekostigingsvlaggen_toe,
     build_obt,
 )
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
@@ -305,3 +307,176 @@ def test_resolve_inschrijving_zonder_resultaatvolgnummer_kolom():
     })
     result = _resolve_inschrijving(df, dip)
     assert result["Inschrijvingvolgnummer"].to_list() == ["A1"]
+
+
+# ---------------------------------------------------------------------------
+# _voeg_bekostigingsvlaggen_toe – unit
+# ---------------------------------------------------------------------------
+
+
+def _obt_rij(**kwargs) -> pl.DataFrame:
+    return pl.DataFrame({"Studiejaar": [2025], **kwargs})
+
+
+def test_actief_1_oktober_true():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_actief_1_oktober"][0] is True
+
+
+def test_actief_1_oktober_false_na_1okt_ingeschreven():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_actief_1_oktober"][0] is False
+
+
+def test_actief_1_oktober_false_uitgeschreven_voor_1okt():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 8, 15)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([date(2025, 9, 15)], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_actief_1_oktober"][0] is False
+
+
+def test_actief_1_oktober_true_uitgeschreven_na_1okt():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 8, 1)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([date(2025, 11, 1)], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_actief_1_oktober"][0] is True
+
+
+def test_bekostigd_eerste_1okt_true():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_bekostigd_eerste_1okt"][0] is True
+
+
+def test_bekostigd_eerste_1okt_false_niet_bekostigbaar():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["N"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_bekostigd_eerste_1okt"][0] is False
+
+
+def test_bekostigd_eerste_1okt_false_niet_actief():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_bekostigd_eerste_1okt"][0] is False
+
+
+def test_gediplomeerd_in_jaar_true():
+    obt = _obt_rij(
+        DIP_DatumResultaat=pl.Series([date(2025, 6, 15)], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_gediplomeerd_in_jaar"][0] is True
+
+
+def test_gediplomeerd_in_jaar_true_grenswaarden():
+    obt = pl.DataFrame({
+        "Studiejaar": [2025, 2025],
+        "DIP_DatumResultaat": pl.Series(
+            [date(2024, 8, 1), date(2025, 7, 31)], dtype=pl.Date
+        ),
+    })
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_gediplomeerd_in_jaar"].to_list() == [True, True]
+
+
+def test_gediplomeerd_in_jaar_false_buiten_jaar():
+    obt = _obt_rij(
+        DIP_DatumResultaat=pl.Series([date(2025, 8, 1)], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_gediplomeerd_in_jaar"][0] is False
+
+
+def test_gediplomeerd_in_jaar_false_null_datum():
+    obt = _obt_rij(
+        DIP_DatumResultaat=pl.Series([None], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_gediplomeerd_in_jaar"][0] is False
+
+
+def test_gediplomeerd_in_jaar_false_kolom_ontbreekt():
+    obt = _obt_rij()
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_gediplomeerd_in_jaar"][0] is False
+
+
+def test_ingeschreven_jaar_later_true():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_ingeschreven_jaar_later"][0] is True
+
+
+def test_ingeschreven_jaar_later_false():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_ingeschreven_jaar_later"][0] is False
+
+
+def test_ingeschreven_jaar_later_false_op_1okt():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 10, 1)], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_ingeschreven_jaar_later"][0] is False
+
+
+def test_ingeschreven_jaar_later_false_bij_null_datum():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([None], dtype=pl.Date),
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_ingeschreven_jaar_later"][0] is False
+
+
+def test_ontbrekend_studiejaar_geeft_none_vlaggen():
+    obt = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_actief_1_oktober"][0] is None
+    assert result["_bekostigd_eerste_1okt"][0] is None
+    assert result["_ingeschreven_jaar_later"][0] is None
+
+
+def test_ontbrekend_studiejaar_gediplomeerd_false():
+    obt = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_gediplomeerd_in_jaar"][0] is False
+
+
+def test_ontbrekende_datuminschrijving_geeft_none():
+    obt = _obt_rij(IndicatieBekostigbaar=["J"])
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_actief_1_oktober"][0] is None
+    assert result["_ingeschreven_jaar_later"][0] is None

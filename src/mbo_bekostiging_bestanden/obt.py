@@ -154,6 +154,60 @@ def _geo_pivot(
     return pivot.rename(hernoem)
 
 
+def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    if "Studiejaar" not in obt.columns:
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober"),
+            pl.lit(None, dtype=pl.Boolean).alias("_bekostigd_eerste_1okt"),
+            pl.lit(False, dtype=pl.Boolean).alias("_gediplomeerd_in_jaar"),
+            pl.lit(None, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
+        )
+
+    studiejaar = pl.col("Studiejaar").cast(pl.Int32)
+    oct_1 = pl.date(studiejaar, 10, 1)
+
+    if "DatumInschrijving" in obt.columns:
+        datum_in = pl.col("DatumInschrijving")
+        datum_uit = (
+            pl.col("DatumUitschrijvingWerkelijk")
+            if "DatumUitschrijvingWerkelijk" in obt.columns
+            else pl.lit(None, dtype=pl.Date)
+        )
+        actief = (
+            (datum_in <= oct_1) & (datum_uit.is_null() | (datum_uit > oct_1))
+        ).alias("_actief_1_oktober")
+        ingeschreven_later = (
+            (datum_in > oct_1).fill_null(False).alias("_ingeschreven_jaar_later")
+        )
+    else:
+        actief = pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober")
+        ingeschreven_later = (
+            pl.lit(None, dtype=pl.Boolean).alias("_ingeschreven_jaar_later")
+        )
+
+    obt = obt.with_columns(actief, ingeschreven_later)
+
+    bekostigd = (
+        pl.col("_actief_1_oktober") & (pl.col("IndicatieBekostigbaar") == "J")
+        if "IndicatieBekostigbaar" in obt.columns
+        else pl.col("_actief_1_oktober") & pl.lit(False)
+    ).alias("_bekostigd_eerste_1okt")
+
+    if "DIP_DatumResultaat" in obt.columns:
+        jaar_begin = pl.date(studiejaar - 1, 8, 1)
+        jaar_eind = pl.date(studiejaar, 7, 31)
+        dip_datum = pl.col("DIP_DatumResultaat")
+        gediplomeerd = (
+            dip_datum.is_not_null()
+            & (dip_datum >= jaar_begin)
+            & (dip_datum <= jaar_eind)
+        ).fill_null(False).alias("_gediplomeerd_in_jaar")
+    else:
+        gediplomeerd = pl.lit(False, dtype=pl.Boolean).alias("_gediplomeerd_in_jaar")
+
+    return obt.with_columns(bekostigd, gediplomeerd)
+
+
 def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
     """Aggregeer BPV per inschrijving: tellers en datumbereik."""
     bpv = _add_persoon_id(bpv)
@@ -280,7 +334,7 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
             obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
         )
 
-    return obt
+    return _voeg_bekostigingsvlaggen_toe(obt)
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
