@@ -25,3 +25,7 @@ data/03-output/**
 .DS_Store
 .idea/
 .vscode/
+
+# Ruwe .asc bronbestanden decodeertabellen (te groot; CSV-versies staan in metadata/)
+src/mbo_bekostiging_bestanden/metadata/*.asc
+src/mbo_bekostiging_bestanden/metadata/Bestandsbeschrijving_Dec-bestanden.txt
