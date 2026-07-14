@@ -10,6 +10,7 @@ from mbo_bekostiging_bestanden.obt import (
     _bouw_detail_bekostiging,
     _resolve_inschrijving,
     _voeg_bekostigingsvlaggen_toe,
+    _voeg_sr_vlaggen_toe,
     build_obt,
 )
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
@@ -480,3 +481,164 @@ def test_ontbrekende_datuminschrijving_geeft_none():
     result = _voeg_bekostigingsvlaggen_toe(obt)
     assert result["_actief_1_oktober"][0] is None
     assert result["_ingeschreven_jaar_later"][0] is None
+
+
+# ---------------------------------------------------------------------------
+# _voeg_bekostigingsvlaggen_toe – opbrengstjaar-logica
+# ---------------------------------------------------------------------------
+
+
+def test_opbrengstjaar_uitsplitsing_gelijk_aan_studiejaar():
+    obt = _obt_rij()
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["Opbrengstjaar_uitsplitsing"][0] == 2025
+
+
+def test_driejaars_teljaar_true_binnen_periode():
+    obt = pl.DataFrame({"Studiejaar": [2023, 2024, 2025]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_driejaars_teljaar"].to_list() == [True, True, True]
+
+
+def test_driejaars_teljaar_false_buiten_periode():
+    obt = pl.DataFrame({"Studiejaar": [2021, 2022, 2023, 2024, 2025]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_driejaars_teljaar"].to_list() == [False, False, True, True, True]
+
+
+def test_opbrengstjaar_3jaars_voortschrijdend_label():
+    obt = pl.DataFrame({"Studiejaar": [2023, 2024, 2025]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["Opbrengstjaar_3jaars_voortschrijdend"][0] == "2023-2025"
+
+
+def test_num_opbrengstjaar_3jr_rang():
+    obt = pl.DataFrame({"Studiejaar": [2025, 2023, 2024]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    rang = dict(zip(
+        result["Studiejaar"].to_list(),
+        result["_num_opbrengstjaar_3jr"].to_list(),
+        strict=True,
+    ))
+    assert rang[2023] == 1
+    assert rang[2024] == 2
+    assert rang[2025] == 3
+
+
+def test_opbrengstjaar_ontbreekt_studiejaar_geeft_none():
+    obt = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["Opbrengstjaar_uitsplitsing"][0] is None
+    assert result["_driejaars_teljaar"][0] is None
+    assert result["Opbrengstjaar_3jaars_voortschrijdend"][0] is None
+    assert result["_num_opbrengstjaar_3jr"][0] is None
+
+
+# ---------------------------------------------------------------------------
+# _voeg_bekostigingsvlaggen_toe – _deelnemer_niet_bekostigd_eerste_1okt
+# ---------------------------------------------------------------------------
+
+
+def test_deelnemer_niet_bekostigd_eerste_1okt_true():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["N"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_deelnemer_niet_bekostigd_eerste_1okt"][0] is True
+
+
+def test_deelnemer_niet_bekostigd_eerste_1okt_false_als_bekostigd():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["J"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_deelnemer_niet_bekostigd_eerste_1okt"][0] is False
+
+
+def test_deelnemer_niet_bekostigd_eerste_1okt_false_niet_actief():
+    obt = _obt_rij(
+        DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
+        DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
+        IndicatieBekostigbaar=["N"],
+    )
+    result = _voeg_bekostigingsvlaggen_toe(obt)
+    assert result["_deelnemer_niet_bekostigd_eerste_1okt"][0] is False
+
+
+# ---------------------------------------------------------------------------
+# _voeg_sr_vlaggen_toe – unit
+# ---------------------------------------------------------------------------
+
+
+def test_sr_hoogste_niveau():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1", "P1"],
+        "Studiejaar": [2025, 2025],
+        "Niveau": ["4", "3"],
+        "Opleidingcode": ["A", "B"],
+    })
+    result = _voeg_sr_vlaggen_toe(obt)
+    hoofd = dict(zip(
+        result["Niveau"].to_list(),
+        result["_hoogste_niveau_SR"].to_list(),
+        strict=True,
+    ))
+    assert hoofd["4"] is True
+    assert hoofd["3"] is False
+
+
+def test_sr_laagste_crebo():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1", "P1"],
+        "Studiejaar": [2025, 2025],
+        "Niveau": ["4", "4"],
+        "Opleidingcode": ["A", "B"],
+    })
+    result = _voeg_sr_vlaggen_toe(obt)
+    crebo = dict(zip(
+        result["Opleidingcode"].to_list(),
+        result["_laagste_CREBO_SR"].to_list(),
+        strict=True,
+    ))
+    assert crebo["A"] is True
+    assert crebo["B"] is False
+
+
+def test_sr_hoofdinschrijving_selecteert_juiste_rij():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1", "P1", "P2"],
+        "Studiejaar": [2025, 2025, 2025],
+        "Niveau": ["4", "3", "2"],
+        "Opleidingcode": ["X", "Y", "Z"],
+    })
+    result = _voeg_sr_vlaggen_toe(obt)
+    hoofd = result.filter(pl.col("_hoofdinschrijving_SR")).to_dicts()
+    assert len(hoofd) == 2
+    p1 = [r for r in hoofd if r["_persoon_id"] == "P1"]
+    assert len(p1) == 1
+    assert p1[0]["Opleidingcode"] == "X"
+
+
+def test_sr_hoofdinschrijving_gelijke_niveaus_kiest_laagste_crebo():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1", "P1"],
+        "Studiejaar": [2025, 2025],
+        "Niveau": ["4", "4"],
+        "Opleidingcode": ["C002", "C001"],
+    })
+    result = _voeg_sr_vlaggen_toe(obt)
+    hoofd = result.filter(pl.col("_hoofdinschrijving_SR")).to_dicts()
+    assert len(hoofd) == 1
+    assert hoofd[0]["Opleidingcode"] == "C001"
+
+
+def test_sr_vlaggen_ontbrekende_kolommen_geeft_none():
+    obt = pl.DataFrame({"Studiejaar": [2025], "Niveau": ["4"]})
+    result = _voeg_sr_vlaggen_toe(obt)
+    assert result["_hoogste_niveau_SR"][0] is None
+    assert result["_laagste_CREBO_SR"][0] is None
+    assert result["_hoofdinschrijving_SR"][0] is None

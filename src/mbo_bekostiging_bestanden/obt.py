@@ -161,6 +161,13 @@ def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Boolean).alias("_bekostigd_eerste_1okt"),
             pl.lit(False, dtype=pl.Boolean).alias("_gediplomeerd_in_jaar"),
             pl.lit(None, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
+            pl.lit(None, dtype=pl.Boolean).alias(
+                "_deelnemer_niet_bekostigd_eerste_1okt"
+            ),
+            pl.lit(None, dtype=pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
+            pl.lit(None, dtype=pl.Boolean).alias("_driejaars_teljaar"),
+            pl.lit(None, dtype=pl.Utf8).alias("Opbrengstjaar_3jaars_voortschrijdend"),
+            pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
         )
 
     studiejaar = pl.col("Studiejaar").cast(pl.Int32)
@@ -205,7 +212,70 @@ def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
     else:
         gediplomeerd = pl.lit(False, dtype=pl.Boolean).alias("_gediplomeerd_in_jaar")
 
-    return obt.with_columns(bekostigd, gediplomeerd)
+    obt = obt.with_columns(bekostigd, gediplomeerd)
+
+    obt = obt.with_columns(
+        (pl.col("_actief_1_oktober") & ~pl.col("_bekostigd_eerste_1okt"))
+        .alias("_deelnemer_niet_bekostigd_eerste_1okt")
+    )
+
+    max_jaar = obt["Studiejaar"].max()
+    if max_jaar is None:
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
+            pl.lit(None, dtype=pl.Boolean).alias("_driejaars_teljaar"),
+            pl.lit(None, dtype=pl.Utf8).alias("Opbrengstjaar_3jaars_voortschrijdend"),
+            pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
+        )
+
+    opbrengstjaar_label = f"{max_jaar - 2}-{max_jaar}"
+    return obt.with_columns(
+        pl.col("Studiejaar").cast(pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
+        (pl.col("Studiejaar") >= (max_jaar - 2)).alias("_driejaars_teljaar"),
+        pl.lit(opbrengstjaar_label, dtype=pl.Utf8).alias(
+            "Opbrengstjaar_3jaars_voortschrijdend"
+        ),
+        pl.col("Studiejaar")
+        .rank("dense", descending=False)
+        .cast(pl.Int64)
+        .alias("_num_opbrengstjaar_3jr"),
+    )
+
+
+def _voeg_sr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
+    if not vereist.issubset(obt.columns):
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_hoogste_niveau_SR"),
+            pl.lit(None, dtype=pl.Boolean).alias("_laagste_CREBO_SR"),
+            pl.lit(None, dtype=pl.Boolean).alias("_hoofdinschrijving_SR"),
+        )
+
+    max_niveau = obt.group_by(["_persoon_id", "Studiejaar"]).agg(
+        pl.col("Niveau").max().alias("_max_niveau")
+    )
+    obt = obt.join(max_niveau, on=["_persoon_id", "Studiejaar"], how="left")
+    obt = obt.with_columns(
+        (pl.col("Niveau") == pl.col("_max_niveau")).alias("_hoogste_niveau_SR")
+    ).drop("_max_niveau")
+
+    min_crebo = (
+        obt.filter(pl.col("_hoogste_niveau_SR"))
+        .group_by(["_persoon_id", "Studiejaar"])
+        .agg(pl.col("Opleidingcode").min().alias("_min_crebo"))
+    )
+    obt = obt.join(min_crebo, on=["_persoon_id", "Studiejaar"], how="left")
+    obt = obt.with_columns(
+        (
+            pl.col("_hoogste_niveau_SR")
+            & (pl.col("Opleidingcode") == pl.col("_min_crebo"))
+        ).alias("_laagste_CREBO_SR")
+    ).drop("_min_crebo")
+
+    return obt.with_columns(
+        (pl.col("_hoogste_niveau_SR") & pl.col("_laagste_CREBO_SR"))
+        .alias("_hoofdinschrijving_SR")
+    )
 
 
 def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
@@ -334,7 +404,8 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
             obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
         )
 
-    return _voeg_bekostigingsvlaggen_toe(obt)
+    obt = _voeg_bekostigingsvlaggen_toe(obt)
+    return _voeg_sr_vlaggen_toe(obt)
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
