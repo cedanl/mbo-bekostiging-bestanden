@@ -9,6 +9,15 @@ Vijf output-tabellen (nul informatieverlies):
   detail_bekostiging  BII (GRONDSLAG) + TBGI-Teldatum per
                       inschrijving × teldatum
   meta_leveringen     VLP + SLR per bronbestand
+
+Berekende vlaggen op obt_inschrijvingen:
+  Bekostiging   _actief_1_oktober, _bekostigd_eerste_1okt,
+                _gediplomeerd_in_jaar, _ingeschreven_jaar_later,
+                _deelnemer_niet_bekostigd_eerste_1okt
+  Selectie      _hoogste_niveau, _laagste_CREBO, _hoofdinschrijving
+  Tellingen     _telling (= actief_1_okt ∧ hoofdinschrijving)
+  Rendement     _jr_noemer, _jr_teller (bouwstenen voor Jaarresultaat)
+  Entree        _entree_uitstroom, _entree_doorstroom (MBO-1 specifiek)
 """
 
 import polars as pl
@@ -244,40 +253,137 @@ def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _niveau_numeriek(col: pl.Expr) -> pl.Expr:
+    """Extraheer het numerieke deel uit Niveau (bijv. ``"MBO-4"`` → ``4``)."""
+    return col.str.extract(r"(\d+)$").cast(pl.Int32, strict=False)
+
+
 def _voeg_sr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
     vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
     if not vereist.issubset(obt.columns):
         return obt.with_columns(
-            pl.lit(None, dtype=pl.Boolean).alias("_hoogste_niveau_SR"),
-            pl.lit(None, dtype=pl.Boolean).alias("_laagste_CREBO_SR"),
-            pl.lit(None, dtype=pl.Boolean).alias("_hoofdinschrijving_SR"),
+            pl.lit(None, dtype=pl.Boolean).alias("_hoogste_niveau"),
+            pl.lit(None, dtype=pl.Boolean).alias("_laagste_CREBO"),
+            pl.lit(None, dtype=pl.Boolean).alias("_hoofdinschrijving"),
         )
 
+    obt = obt.with_columns(_niveau_numeriek(pl.col("Niveau")).alias("_niveau_num"))
+
     max_niveau = obt.group_by(["_persoon_id", "Studiejaar"]).agg(
-        pl.col("Niveau").max().alias("_max_niveau")
+        pl.col("_niveau_num").max().alias("_max_niveau_num")
     )
     obt = obt.join(max_niveau, on=["_persoon_id", "Studiejaar"], how="left")
     obt = obt.with_columns(
-        (pl.col("Niveau") == pl.col("_max_niveau")).alias("_hoogste_niveau_SR")
-    ).drop("_max_niveau")
+        (pl.col("_niveau_num") == pl.col("_max_niveau_num")).alias("_hoogste_niveau")
+    ).drop("_max_niveau_num")
 
     min_crebo = (
-        obt.filter(pl.col("_hoogste_niveau_SR"))
+        obt.filter(pl.col("_hoogste_niveau"))
         .group_by(["_persoon_id", "Studiejaar"])
         .agg(pl.col("Opleidingcode").min().alias("_min_crebo"))
     )
     obt = obt.join(min_crebo, on=["_persoon_id", "Studiejaar"], how="left")
     obt = obt.with_columns(
         (
-            pl.col("_hoogste_niveau_SR")
+            pl.col("_hoogste_niveau")
             & (pl.col("Opleidingcode") == pl.col("_min_crebo"))
-        ).alias("_laagste_CREBO_SR")
+        ).alias("_laagste_CREBO")
     ).drop("_min_crebo")
 
     return obt.with_columns(
-        (pl.col("_hoogste_niveau_SR") & pl.col("_laagste_CREBO_SR"))
-        .alias("_hoofdinschrijving_SR")
+        (pl.col("_hoogste_niveau") & pl.col("_laagste_CREBO"))
+        .alias("_hoofdinschrijving")
+    ).drop("_niveau_num")
+
+
+def _voeg_telling_en_jr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_telling`` en JR-bouwstenen toe.
+
+    ``_telling``: deduplicatievlag voor tellingen — actief op 1 oktober én
+    hoofdinschrijving.  ``_jr_noemer``/``_jr_teller``: bouwstenen voor het
+    Jaarresultaat (sum/sum door downstream).
+    """
+    heeft_actief = "_actief_1_oktober" in obt.columns
+    heeft_hoofd = "_hoofdinschrijving" in obt.columns
+
+    if heeft_actief and heeft_hoofd:
+        obt = obt.with_columns(
+            (
+                pl.col("_actief_1_oktober").fill_null(False)
+                & pl.col("_hoofdinschrijving").fill_null(False)
+            ).alias("_telling")
+        )
+    else:
+        obt = obt.with_columns(pl.lit(False).alias("_telling"))
+
+    heeft_gediplomeerd = "_gediplomeerd_in_jaar" in obt.columns
+    heeft_ingeschreven = "_ingeschreven_jaar_later" in obt.columns
+
+    obt = obt.with_columns(pl.col("_telling").alias("_jr_noemer"))
+
+    if heeft_gediplomeerd and heeft_ingeschreven:
+        obt = obt.with_columns(
+            (
+                pl.col("_jr_noemer")
+                & (
+                    pl.col("_gediplomeerd_in_jaar").fill_null(False)
+                    | pl.col("_ingeschreven_jaar_later").fill_null(False)
+                )
+            ).alias("_jr_teller")
+        )
+    else:
+        obt = obt.with_columns(pl.lit(False).alias("_jr_teller"))
+
+    return obt
+
+
+def _voeg_entree_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_entree_uitstroom`` en ``_entree_doorstroom`` toe.
+
+    Alleen relevant voor MBO-1 (Entree) inschrijvingen.
+    Doorstroom = dezelfde persoon heeft een ISP op MBO-2+ niveau.
+    """
+    vereist = {"Niveau", "_persoon_id"}
+    if not vereist.issubset(obt.columns):
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_entree_uitstroom"),
+            pl.lit(None, dtype=pl.Boolean).alias("_entree_doorstroom"),
+        )
+
+    is_entree = _niveau_numeriek(pl.col("Niveau")) == 1
+
+    heeft_uitschrijving = (
+        "DatumUitschrijvingWerkelijk" in obt.columns
+        and "DatumUitschrijvingGepland" in obt.columns
     )
+    if heeft_uitschrijving:
+        obt = obt.with_columns(
+            (
+                is_entree
+                & pl.col("DatumUitschrijvingWerkelijk").is_not_null()
+            )
+            .fill_null(False)
+            .alias("_entree_uitstroom")
+        )
+    else:
+        obt = obt.with_columns(
+            pl.lit(False).alias("_entree_uitstroom")
+        )
+
+    hoger_niveau = (
+        obt.filter(_niveau_numeriek(pl.col("Niveau")) >= 2)
+        .select("_persoon_id")
+        .unique()
+        .with_columns(pl.lit(True).alias("_heeft_hoger"))
+    )
+    obt = obt.join(hoger_niveau, on="_persoon_id", how="left")
+    obt = obt.with_columns(
+        (is_entree & pl.col("_heeft_hoger").fill_null(False))
+        .fill_null(False)
+        .alias("_entree_doorstroom")
+    ).drop("_heeft_hoger")
+
+    return obt
 
 
 def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
@@ -407,7 +513,9 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
         )
 
     obt = _voeg_bekostigingsvlaggen_toe(obt)
-    return _voeg_sr_vlaggen_toe(obt)
+    obt = _voeg_sr_vlaggen_toe(obt)
+    obt = _voeg_telling_en_jr_vlaggen_toe(obt)
+    return _voeg_entree_vlaggen_toe(obt)
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:

@@ -72,6 +72,27 @@ def _to_float_expr(col: pl.Expr) -> pl.Expr:
     return pl.when(col == "").then(None).otherwise(col).cast(pl.Float64)
 
 
+_BEKOSTIGBAAR_JA = frozenset({"J", "j", "1", "true", "True", "TRUE"})
+_BEKOSTIGBAAR_NEE = frozenset({"N", "n", "0", "false", "False", "FALSE"})
+
+
+def _normaliseer_indicatie_bekostigbaar(df: pl.DataFrame) -> pl.DataFrame:
+    """Normaliseer ``IndicatieBekostigbaar`` naar ``"J"``/``"N"``.
+
+    RO gebruikt ``"J"``/``"N"``, GRONDSLAG ``"1"``/``"0"``, TBGI ``"true"``/``"false"``.
+    """
+    if "IndicatieBekostigbaar" not in df.columns:
+        return df
+    return df.with_columns(
+        pl.when(pl.col("IndicatieBekostigbaar").is_in(list(_BEKOSTIGBAAR_JA)))
+        .then(pl.lit("J"))
+        .when(pl.col("IndicatieBekostigbaar").is_in(list(_BEKOSTIGBAAR_NEE)))
+        .then(pl.lit("N"))
+        .otherwise(pl.col("IndicatieBekostigbaar"))
+        .alias("IndicatieBekostigbaar")
+    )
+
+
 def decode_frames(
     frames: dict[str, pl.DataFrame],
     schema_name: str,
@@ -81,6 +102,7 @@ def decode_frames(
     - Datumvelden worden ``pl.Date`` (null bij lege waarde).
     - Integer-velden worden ``pl.Int64``.
     - Float-velden worden ``pl.Float64``.
+    - ``IndicatieBekostigbaar`` wordt genormaliseerd naar ``"J"``/``"N"``.
     - Overige velden blijven ``pl.Utf8``.
 
     Args:
@@ -129,7 +151,7 @@ def decode_frames(
                     .alias(col)
                 )
 
-        result[rt] = df.with_columns(exprs)
+        result[rt] = _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs))
 
     return result
 

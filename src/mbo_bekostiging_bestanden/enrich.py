@@ -55,6 +55,17 @@ def _laad_brinnummer() -> pl.DataFrame:
     ).select(["brin", "naam", "plaats"])
 
 
+@functools.cache
+def _laad_crebo() -> pl.DataFrame:
+    return pl.read_csv(
+        _METADATA / "crebo.csv",
+        infer_schema_length=0,
+    ).select([
+        "code", "naam", "hoofdgroep_naam",
+        "dossier_naam", "sectorkamer_naam",
+    ])
+
+
 # ---------------------------------------------------------------------------
 # Interne join-helpers
 # ---------------------------------------------------------------------------
@@ -112,6 +123,10 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
     Postcode → gemeente:
         ``Gemeente``, ``Gemeentecode``
 
+    Opleidingcode → CREBO (DUO erkende-opleidingstabel):
+        ``Opleiding_naam``, ``Opleiding_hoofdgroep``,
+        ``Opleiding_dossier``, ``Opleiding_sectorkamer``
+
     BRIN → instelling:
         ``Instelling_naam``, ``Instelling_plaats``
 
@@ -143,6 +158,25 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
             .unique(subset=["Postcodecijfers"], keep="first", maintain_order=True)
         )
         df = df.join(postcode_lookup, on="Postcodecijfers", how="left")
+
+    # ── Opleidingcode → CREBO-verrijking ────────────────────────────────────
+    if "Opleidingcode" in df.columns:
+        crebo_lookup = (
+            _laad_crebo()
+            .rename({
+                "code": "Opleidingcode",
+                "naam": "Opleiding_naam",
+                "hoofdgroep_naam": "Opleiding_hoofdgroep",
+                "dossier_naam": "Opleiding_dossier",
+                "sectorkamer_naam": "Opleiding_sectorkamer",
+            })
+            .unique(
+                subset=["Opleidingcode"],
+                keep="first",
+                maintain_order=True,
+            )
+        )
+        df = df.join(crebo_lookup, on="Opleidingcode", how="left")
 
     # ── BRIN → instelling ────────────────────────────────────────────────────
     if "BRIN" in df.columns:

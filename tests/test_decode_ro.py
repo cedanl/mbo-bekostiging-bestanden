@@ -141,3 +141,32 @@ def test_decode_ro_bpv_omvang_waarden():
     omvang = result["BPV"]["Omvang"].drop_nulls()
     assert len(omvang) > 0
     assert (omvang > 0).all()
+
+
+# ---------------------------------------------------------------------------
+# IndicatieBekostigbaar normalisatie
+# ---------------------------------------------------------------------------
+
+
+def test_decode_ro_indicatie_bekostigbaar_genormaliseerd():
+    """RO IndicatieBekostigbaar bevat alleen 'J' of 'N' na decode."""
+    result = decode_ro(read_ro(RO_27DV))
+    if "ISP" in result and "IndicatieBekostigbaar" in result["ISP"].columns:
+        col = result["ISP"]["IndicatieBekostigbaar"]
+        waarden = set(col.drop_nulls().unique().to_list())
+        assert waarden <= {"J", "N"}, f"Onverwachte waarden: {waarden}"
+
+
+def test_decode_normaliseer_indicatie_bekostigbaar_alle_varianten():
+    """Normalisatie '1'/'0'/'true'/'false' → 'J'/'N' via decode_frames."""
+    from mbo_bekostiging_bestanden.decode import decode_frames
+
+    frames = {
+        "ISP": pl.DataFrame({
+            "IndicatieBekostigbaar": ["J", "N", "1", "0", "true", "false"],
+            "DatumBegin": [""] * 6,
+        })
+    }
+    result = decode_frames(frames, "ro")
+    waarden = result["ISP"]["IndicatieBekostigbaar"].to_list()
+    assert waarden == ["J", "N", "J", "N", "J", "N"]

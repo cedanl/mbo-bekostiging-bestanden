@@ -49,13 +49,23 @@ def _brin_lookup() -> pl.DataFrame:
     })
 
 
+def _crebo_lookup() -> pl.DataFrame:
+    return pl.DataFrame({
+        "code": ["25655", "23301"],
+        "naam": ["Applicatieontwikkelaar", "Entree"],
+        "hoofdgroep_naam": ["ICT", "Entree"],
+        "dossier_naam": ["Software development", "Entree"],
+        "sectorkamer_naam": ["Techniek en gebouwde omgeving", "Entree"],
+    })
+
+
 # ---------------------------------------------------------------------------
 # Context-manager: patch alle vier lookups tegelijk
 # ---------------------------------------------------------------------------
 
 
 def _patch_lookups():
-    """Patch alle vier laad-functies met in-memory tabellen."""
+    """Patch alle vijf laad-functies met in-memory tabellen."""
     return (
         patch(
             "mbo_bekostiging_bestanden.enrich._laad_nationaliteitscode",
@@ -73,6 +83,10 @@ def _patch_lookups():
             "mbo_bekostiging_bestanden.enrich._laad_brinnummer",
             return_value=_brin_lookup(),
         ),
+        patch(
+            "mbo_bekostiging_bestanden.enrich._laad_crebo",
+            return_value=_crebo_lookup(),
+        ),
     )
 
 
@@ -85,8 +99,8 @@ def test_nationaliteit1_naam_en_migratieachtergrond():
     """Nationaliteit1 krijgt naam en migratieachtergrond na join."""
     df = pl.DataFrame({"Nationaliteit1": ["0001", "1234"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert "Nationaliteit1_naam" in result.columns
@@ -104,8 +118,8 @@ def test_nationaliteit2_naam_en_migratieachtergrond():
         "Nationaliteit2": ["0002"],
     })
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert "Nationaliteit2_naam" in result.columns
@@ -117,8 +131,8 @@ def test_codegeboorteland_naam():
     """CodeGeboorteland krijgt naam_land en migratieachtergrond na join."""
     df = pl.DataFrame({"CodeGeboorteland": ["5002"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert "CodeGeboorteland_naam" in result.columns
@@ -130,8 +144,8 @@ def test_postcodecijfers_naar_gemeente():
     """Postcodecijfers levert Gemeente en Gemeentecode op."""
     df = pl.DataFrame({"Postcodecijfers": ["1234", "5678"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert "Gemeente" in result.columns
@@ -144,8 +158,8 @@ def test_brin_naar_instelling():
     """BRIN levert Instelling_naam en Instelling_plaats op."""
     df = pl.DataFrame({"BRIN": ["01AA", "02BB"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert "Instelling_naam" in result.columns
@@ -161,8 +175,8 @@ def test_ontbrekende_bronkolommen_geen_crash():
     # Helemaal leeg DataFrame
     df = pl.DataFrame({"irrelevant": ["x"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     # Geen verrijkingskolommen toegevoegd (bronkolommen ontbreken)
@@ -178,8 +192,8 @@ def test_ontbrekende_kolom_per_type():
     """Elke join sla je apart over als de bronkolom ontbreekt."""
     df = pl.DataFrame({"Nationaliteit1": ["0001"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     # Nationaliteit1 wel verrijkt
@@ -195,8 +209,8 @@ def test_onbekende_code_geeft_null():
     """Code die niet in de lookup staat → null, geen crash."""
     df = pl.DataFrame({"Nationaliteit1": ["9999"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert result["Nationaliteit1_naam"][0] is None
@@ -207,8 +221,8 @@ def test_onbekende_brin_geeft_null():
     """BRIN die niet in de lookup staat → null voor naam en plaats."""
     df = pl.DataFrame({"BRIN": ["ZZZZ"]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert result["Instelling_naam"][0] is None
@@ -219,8 +233,8 @@ def test_lege_string_code_geeft_null():
     """Lege-string code → join levert null, geen crash."""
     df = pl.DataFrame({"CodeGeboorteland": [""]})
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert result["CodeGeboorteland_naam"][0] is None
@@ -234,10 +248,49 @@ def test_originele_kolommen_ongewijzigd():
         "extra": ["waarde"],
     })
 
-    nat_mock, land_mock, pc_mock, brin_mock = _patch_lookups()
-    with nat_mock, land_mock, pc_mock, brin_mock:
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
         result = enrich_obt(df)
 
     assert result["BRIN"][0] == "01AA"
     assert result["Nationaliteit1"][0] == "0001"
     assert result["extra"][0] == "waarde"
+
+
+def test_crebo_verrijking_naam_en_hoofdgroep():
+    """Opleidingcode krijgt naam en hoofdgroep na join."""
+    df = pl.DataFrame({"Opleidingcode": ["25655", "23301"]})
+
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
+        result = enrich_obt(df)
+
+    assert "Opleiding_naam" in result.columns
+    assert "Opleiding_hoofdgroep" in result.columns
+    assert result["Opleiding_naam"].to_list() == [
+        "Applicatieontwikkelaar", "Entree"
+    ]
+    assert result["Opleiding_hoofdgroep"].to_list() == ["ICT", "Entree"]
+
+
+def test_crebo_onbekende_code_geeft_null():
+    """CREBO-code niet in lookup → null."""
+    df = pl.DataFrame({"Opleidingcode": ["99999"]})
+
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
+        result = enrich_obt(df)
+
+    assert result["Opleiding_naam"][0] is None
+    assert result["Opleiding_hoofdgroep"][0] is None
+
+
+def test_crebo_ontbrekende_kolom_geen_crash():
+    """Zonder Opleidingcode → geen CREBO-kolommen, geen crash."""
+    df = pl.DataFrame({"irrelevant": ["x"]})
+
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4]:
+        result = enrich_obt(df)
+
+    assert "Opleiding_naam" not in result.columns
