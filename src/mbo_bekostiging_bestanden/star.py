@@ -115,10 +115,20 @@ def _build_dim(
     cols: list[str],
     key: str,
 ) -> pl.DataFrame:
-    """Bouw een dimensietabel: selecteer kolommen, dedupliceer op key."""
+    """Bouw een dimensietabel: selecteer kolommen, houd de meest complete rij."""
     beschikbaar = [c for c in cols if c in obt.columns]
     if key not in beschikbaar:
         return pl.DataFrame()
-    return obt.select(beschikbaar).unique(
-        subset=[key], keep="first", maintain_order=True
-    )
+    subset = obt.select(beschikbaar)
+    non_key = [c for c in beschikbaar if c != key]
+    if non_key:
+        subset = subset.with_columns(
+            pl.sum_horizontal([pl.col(c).is_not_null() for c in non_key])
+            .alias("_vulling"),
+        )
+        subset = subset.sort("_vulling", descending=True)
+        subset = subset.unique(subset=[key], keep="first", maintain_order=False)
+        subset = subset.drop("_vulling").sort(key)
+    else:
+        subset = subset.unique(subset=[key], keep="first", maintain_order=True)
+    return subset
