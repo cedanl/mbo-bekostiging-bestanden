@@ -14,6 +14,7 @@ from mbo_bekostiging_bestanden.obt import (
     _voeg_entree_vlaggen_toe,
     _voeg_sr_vlaggen_toe,
     _voeg_telling_en_jr_vlaggen_toe,
+    _vul_niveau_aan,
     build_obt,
 )
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
@@ -926,3 +927,46 @@ def test_afgeleide_velden_in_demo_obt(demo_obt):
     obt = demo_obt["obt_inschrijvingen"]
     assert "Niveau_gecombineerd" in obt.columns
     assert "_tellingen_aanwezig" in obt.columns
+
+
+# ---------------------------------------------------------------------------
+# Niveau aanvullen vanuit CREBO
+# ---------------------------------------------------------------------------
+
+
+def test_vul_niveau_aan_vanuit_crebo():
+    """Null Niveau wordt aangevuld via Opleidingcode → CREBO-tabel."""
+    df = pl.DataFrame({
+        "Opleidingcode": ["25655", "23301"],
+        "Niveau": [None, "MBO-1"],
+    })
+    result = _vul_niveau_aan(df)
+    assert result["Niveau"][0] == "MBO-4"
+    assert result["Niveau"][1] == "MBO-1"
+
+
+def test_vul_niveau_aan_behoudt_bestaand():
+    """Bestaand Niveau wordt niet overschreven door CREBO."""
+    df = pl.DataFrame({
+        "Opleidingcode": ["25655"],
+        "Niveau": ["MBO-3"],
+    })
+    result = _vul_niveau_aan(df)
+    assert result["Niveau"][0] == "MBO-3"
+
+
+def test_vul_niveau_aan_onbekende_code():
+    """Onbekende Opleidingcode laat Niveau op null."""
+    df = pl.DataFrame({
+        "Opleidingcode": ["99999"],
+        "Niveau": [None],
+    })
+    result = _vul_niveau_aan(df)
+    assert result["Niveau"][0] is None
+
+
+def test_vul_niveau_in_demo_obt(demo_obt):
+    """Na Niveau-aanvulling hebben de meeste rijen een Niveau."""
+    obt = demo_obt["obt_inschrijvingen"]
+    filled = obt["Niveau"].drop_nulls().len()
+    assert filled > 2

@@ -21,9 +21,31 @@ Berekende vlaggen op obt_inschrijvingen:
   Afgeleid      Niveau_gecombineerd, _tellingen_aanwezig
 """
 
+import functools
+
 import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import enrich_obt
+
+_METADATA = __import__("pathlib").Path(__file__).parent / "metadata"
+
+
+@functools.cache
+def _laad_crebo_niveau() -> pl.DataFrame:
+    """Laad CREBO-tabel en geef mapping Opleidingcode → Niveau (MBO-n)."""
+    return (
+        pl.read_csv(_METADATA / "crebo.csv", infer_schema_length=0)
+        .select(["code", "niveau"])
+        .filter(pl.col("niveau").is_not_null())
+        .with_columns(
+            ("MBO-" + pl.col("niveau")).alias("_crebo_niveau"),
+        )
+        .select(
+            pl.col("code").alias("Opleidingcode"),
+            pl.col("_crebo_niveau"),
+        )
+        .unique(subset=["Opleidingcode"], keep="first", maintain_order=True)
+    )
 
 # Kolommen die een persoonsidentificatie bevatten (prioriteitsvolgorde).
 _PERSOON_COLS = ["PseudoNummer", "Burgerservicenummer", "Onderwijsnummer"]
@@ -164,6 +186,20 @@ def _geo_pivot(
                 kort_veld = "Vrijstelling" if is_vrijstelling else veld
                 hernoem[col] = f"GEO_{code}_{kort_veld}"
     return pivot.rename(hernoem)
+
+
+def _vul_niveau_aan(obt: pl.DataFrame) -> pl.DataFrame:
+    """Vul ontbrekend Niveau aan via de CREBO-tabel (Opleidingcode → MBO-n)."""
+    if "Niveau" not in obt.columns or "Opleidingcode" not in obt.columns:
+        return obt
+    if obt["Niveau"].null_count() == 0:
+        return obt
+    crebo = _laad_crebo_niveau()
+    obt = obt.join(crebo, on="Opleidingcode", how="left")
+    obt = obt.with_columns(
+        pl.coalesce(["Niveau", "_crebo_niveau"]).alias("Niveau"),
+    )
+    return obt.drop("_crebo_niveau")
 
 
 def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
@@ -543,6 +579,7 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
             obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
         )
 
+    obt = _vul_niveau_aan(obt)
     obt = _voeg_bekostigingsvlaggen_toe(obt)
     obt = _voeg_sr_vlaggen_toe(obt)
     obt = _voeg_telling_en_jr_vlaggen_toe(obt)
