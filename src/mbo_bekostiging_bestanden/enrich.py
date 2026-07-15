@@ -61,7 +61,8 @@ def _laad_crebo() -> pl.DataFrame:
         _METADATA / "crebo.csv",
         infer_schema_length=0,
     ).select([
-        "code", "naam", "hoofdgroep_naam",
+        "code", "naam", "leerweg",
+        "hoofdgroep_naam", "subgroep_naam",
         "dossier_naam", "sectorkamer_naam",
     ])
 
@@ -124,7 +125,8 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
         ``Gemeente``, ``Gemeentecode``
 
     Opleidingcode → CREBO (DUO erkende-opleidingstabel):
-        ``Opleiding_naam``, ``Opleiding_hoofdgroep``,
+        ``Opleiding_naam``, ``Opleiding_leerweg``,
+        ``Opleiding_domein``, ``Opleiding_subgroep``,
         ``Opleiding_dossier``, ``Opleiding_sectorkamer``
 
     BRIN → instelling:
@@ -166,7 +168,9 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
             .rename({
                 "code": "Opleidingcode",
                 "naam": "Opleiding_naam",
-                "hoofdgroep_naam": "Opleiding_hoofdgroep",
+                "leerweg": "Opleiding_leerweg",
+                "hoofdgroep_naam": "Opleiding_domein",
+                "subgroep_naam": "Opleiding_subgroep",
                 "dossier_naam": "Opleiding_dossier",
                 "sectorkamer_naam": "Opleiding_sectorkamer",
             })

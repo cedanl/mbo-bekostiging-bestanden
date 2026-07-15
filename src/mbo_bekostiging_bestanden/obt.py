@@ -18,6 +18,7 @@ Berekende vlaggen op obt_inschrijvingen:
   Tellingen     _telling (= actief_1_okt ∧ hoofdinschrijving)
   Rendement     _jr_noemer, _jr_teller (bouwstenen voor Jaarresultaat)
   Entree        _entree_uitstroom, _entree_doorstroom (MBO-1 specifiek)
+  Afgeleid      Niveau_gecombineerd, _tellingen_aanwezig
 """
 
 import polars as pl
@@ -387,6 +388,35 @@ def _voeg_entree_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
     return obt
 
 
+def _voeg_afgeleide_velden_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Voeg afgeleide gemaksvelden toe.
+
+    ``Niveau_gecombineerd``: ``"MBO-4 BOL"`` — concat van Niveau en Leertraject.
+    ``_tellingen_aanwezig``: hoe vaak deze persoon × inschrijving voorkomt
+    over leveringen (datakwaliteit / deduplicatie).
+    """
+    if "Niveau" in obt.columns and "Leertraject" in obt.columns:
+        obt = obt.with_columns(
+            pl.concat_str(
+                [pl.col("Niveau"), pl.col("Leertraject")],
+                separator=" ",
+                ignore_nulls=False,
+            ).alias("Niveau_gecombineerd")
+        )
+
+    if "_persoon_id" in obt.columns and "Inschrijvingvolgnummer" in obt.columns:
+        tellingen = obt.group_by(
+            ["_persoon_id", "Inschrijvingvolgnummer"]
+        ).agg(pl.len().alias("_tellingen_aanwezig"))
+        obt = obt.join(
+            tellingen,
+            on=["_persoon_id", "Inschrijvingvolgnummer"],
+            how="left",
+        )
+
+    return obt
+
+
 def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
     """Aggregeer BPV per inschrijving: tellers en datumbereik."""
     bpv = _add_persoon_id(bpv)
@@ -516,7 +546,8 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     obt = _voeg_bekostigingsvlaggen_toe(obt)
     obt = _voeg_sr_vlaggen_toe(obt)
     obt = _voeg_telling_en_jr_vlaggen_toe(obt)
-    return _voeg_entree_vlaggen_toe(obt)
+    obt = _voeg_entree_vlaggen_toe(obt)
+    return _voeg_afgeleide_velden_toe(obt)
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:

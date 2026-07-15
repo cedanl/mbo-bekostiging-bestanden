@@ -9,6 +9,7 @@ import pytest
 from mbo_bekostiging_bestanden.obt import (
     _bouw_detail_bekostiging,
     _resolve_inschrijving,
+    _voeg_afgeleide_velden_toe,
     _voeg_bekostigingsvlaggen_toe,
     _voeg_entree_vlaggen_toe,
     _voeg_sr_vlaggen_toe,
@@ -878,3 +879,50 @@ def test_entree_vlaggen_ontbrekende_kolommen():
     result = _voeg_entree_vlaggen_toe(obt)
     assert result["_entree_uitstroom"][0] is None
     assert result["_entree_doorstroom"][0] is None
+
+
+# ---------------------------------------------------------------------------
+# _voeg_afgeleide_velden_toe – unit
+# ---------------------------------------------------------------------------
+
+
+def test_niveau_gecombineerd():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1"],
+        "Inschrijvingvolgnummer": ["1"],
+        "Niveau": ["MBO-4"],
+        "Leertraject": ["BOL"],
+    })
+    result = _voeg_afgeleide_velden_toe(obt)
+    assert result["Niveau_gecombineerd"][0] == "MBO-4 BOL"
+
+
+def test_niveau_gecombineerd_null_leertraject():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1"],
+        "Inschrijvingvolgnummer": ["1"],
+        "Niveau": ["MBO-4"],
+        "Leertraject": pl.Series([None], dtype=pl.Utf8),
+    })
+    result = _voeg_afgeleide_velden_toe(obt)
+    assert result["Niveau_gecombineerd"][0] is None
+
+
+def test_tellingen_aanwezig():
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1", "P1", "P2"],
+        "Inschrijvingvolgnummer": ["1", "1", "1"],
+        "levering": ["L1", "L2", "L1"],
+    })
+    result = _voeg_afgeleide_velden_toe(obt)
+    p1 = result.filter(pl.col("_persoon_id") == "P1")
+    assert p1["_tellingen_aanwezig"][0] == 2
+    p2 = result.filter(pl.col("_persoon_id") == "P2")
+    assert p2["_tellingen_aanwezig"][0] == 1
+
+
+def test_afgeleide_velden_in_demo_obt(demo_obt):
+    """Afgeleide velden zijn aanwezig in de OBT."""
+    obt = demo_obt["obt_inschrijvingen"]
+    assert "Niveau_gecombineerd" in obt.columns
+    assert "_tellingen_aanwezig" in obt.columns

@@ -53,6 +53,42 @@ Alle prepared-mappen worden gecombineerd tot vijf bestanden in `data/03-output/o
 
 Een `levering`-kolom in elke tabel geeft aan uit welk bronbestand een rij afkomstig is (bijv. `h15/RO_27DV_20240731_20260324`).
 
+#### Berekende vlaggen op obt_inschrijvingen
+
+De OBT voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
+
+| Groep | Kolom | Type | Betekenis |
+|---|---|---|---|
+| Bekostiging | `_actief_1_oktober` | `Boolean` | ISP omvat 1 oktober van het studiejaar |
+| | `_bekostigd_eerste_1okt` | `Boolean` | Eerste 1-okt-inschrijving ooit (niet eerder op dezelfde opleiding) |
+| | `_gediplomeerd_in_jaar` | `Boolean` | DIP-record aanwezig in het studiejaar |
+| | `_ingeschreven_jaar_later` | `Boolean` | Nog ingeschreven in het volgende studiejaar |
+| | `_deelnemer_niet_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 okt maar niet bekostigd als eerste inschrijving |
+| Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × studiejaar |
+| | `_laagste_CREBO` | `Boolean` | Laagste CREBO-code bij gelijk niveau |
+| | `_hoofdinschrijving` | `Boolean` | Eén rij per persoon × studiejaar (combinatie van _hoogste_niveau + _laagste_CREBO) |
+| Tellingen | `_telling` | `Boolean` | `_actief_1_oktober AND _hoofdinschrijving` — telt de deelnemer mee voor bekostiging |
+| Rendement | `_jr_noemer` | `Boolean` | = `_telling`; noemer van het Jaarresultaat |
+| | `_jr_teller` | `Boolean` | Noemer AND (gediplomeerd OR ingeschreven_jaar_later) |
+| Entree | `_entree_uitstroom` | `Boolean` | MBO-1 + uitgeschreven (geen actieve ISP meer) |
+| | `_entree_doorstroom` | `Boolean` | MBO-1 + een hogere inschrijving bij dezelfde instelling |
+| Afgeleid | `Niveau_gecombineerd` | `Utf8` | Niveau + spatie + Leertraject (bijv. `MBO-4 BOL`) |
+| | `_tellingen_aanwezig` | `UInt32` | Aantal ISP-rijen per persoon × inschrijving (duplicaatdetectie) |
+
+#### Verrijking via decodeertabellen
+
+Na het berekenen van de vlaggen worden leesbare labels toegevoegd via LEFT JOINs op de
+decodeertabellen in `metadata/`:
+
+| Bronkolom | Toegevoegde kolommen | Decodeertabel |
+|---|---|---|
+| `Nationaliteit1` | `Nationaliteit1_naam`, `Nationaliteit1_migratieachtergrond` | `nationaliteitscode.csv` |
+| `Nationaliteit2` | `Nationaliteit2_naam`, `Nationaliteit2_migratieachtergrond` | `nationaliteitscode.csv` |
+| `CodeGeboorteland` | `CodeGeboorteland_naam`, `CodeGeboorteland_migratieachtergrond` | `landcode.csv` |
+| `Postcodecijfers` | `Gemeente`, `Gemeentecode` | `postcodecijfers.csv` |
+| `Opleidingcode` | `Opleiding_naam`, `Opleiding_leerweg`, `Opleiding_domein`, `Opleiding_subgroep`, `Opleiding_dossier`, `Opleiding_sectorkamer` | `crebo.csv` |
+| `BRIN` | `Instelling_naam`, `Instelling_plaats` | `brinnummer.csv` |
+
 ---
 
 ## Ruwe opbouw

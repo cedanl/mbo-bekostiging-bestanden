@@ -53,7 +53,9 @@ def _crebo_lookup() -> pl.DataFrame:
     return pl.DataFrame({
         "code": ["25655", "23301"],
         "naam": ["Applicatieontwikkelaar", "Entree"],
+        "leerweg": ["BOL", "BOL"],
         "hoofdgroep_naam": ["ICT", "Entree"],
+        "subgroep_naam": ["Software development", "Entree"],
         "dossier_naam": ["Software development", "Entree"],
         "sectorkamer_naam": ["Techniek en gebouwde omgeving", "Entree"],
     })
@@ -257,8 +259,8 @@ def test_originele_kolommen_ongewijzigd():
     assert result["extra"][0] == "waarde"
 
 
-def test_crebo_verrijking_naam_en_hoofdgroep():
-    """Opleidingcode krijgt naam en hoofdgroep na join."""
+def test_crebo_verrijking_naam_en_domein():
+    """Opleidingcode krijgt naam, domein, subgroep na join."""
     df = pl.DataFrame({"Opleidingcode": ["25655", "23301"]})
 
     mocks = _patch_lookups()
@@ -266,11 +268,13 @@ def test_crebo_verrijking_naam_en_hoofdgroep():
         result = enrich_obt(df)
 
     assert "Opleiding_naam" in result.columns
-    assert "Opleiding_hoofdgroep" in result.columns
+    assert "Opleiding_domein" in result.columns
+    assert "Opleiding_subgroep" in result.columns
+    assert "Opleiding_leerweg" in result.columns
     assert result["Opleiding_naam"].to_list() == [
         "Applicatieontwikkelaar", "Entree"
     ]
-    assert result["Opleiding_hoofdgroep"].to_list() == ["ICT", "Entree"]
+    assert result["Opleiding_domein"].to_list() == ["ICT", "Entree"]
 
 
 def test_crebo_onbekende_code_geeft_null():
@@ -282,7 +286,7 @@ def test_crebo_onbekende_code_geeft_null():
         result = enrich_obt(df)
 
     assert result["Opleiding_naam"][0] is None
-    assert result["Opleiding_hoofdgroep"][0] is None
+    assert result["Opleiding_domein"][0] is None
 
 
 def test_crebo_ontbrekende_kolom_geen_crash():
