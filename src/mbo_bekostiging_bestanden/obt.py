@@ -230,8 +230,8 @@ def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
         .alias("_deelnemer_niet_bekostigd_eerste_1okt")
     )
 
-    max_jaar = obt["Studiejaar"].max()
-    if max_jaar is None:
+    studiejaar_serie = obt["Studiejaar"].cast(pl.Int32).drop_nulls()
+    if studiejaar_serie.is_empty():
         return obt.with_columns(
             pl.lit(None, dtype=pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
             pl.lit(None, dtype=pl.Boolean).alias("_driejaars_teljaar"),
@@ -239,6 +239,7 @@ def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
         )
 
+    max_jaar = studiejaar_serie.sort(descending=True).item(0)
     opbrengstjaar_label = f"{max_jaar - 2}-{max_jaar}"
     return obt.with_columns(
         pl.col("Studiejaar").cast(pl.Int64).alias("Opbrengstjaar_uitsplitsing"),

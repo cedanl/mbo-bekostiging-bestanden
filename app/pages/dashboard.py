@@ -543,7 +543,9 @@ with tab_examens:
             geo_rows.append(
                 {
                     "Onderdeel": _geo_labels.get(code, f"GEO {code}"),
-                    "Gemiddeld eindcijfer": round(serie.mean(), 1),
+                    "Gemiddeld eindcijfer": serie.to_frame().select(
+                        pl.col(col).cast(pl.Float64).mean().round(1)
+                    ).item(),
                     "N": len(serie),
                 }
             )
