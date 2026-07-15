@@ -8,6 +8,7 @@ import pytest
 
 from mbo_bekostiging_bestanden.obt import (
     _bouw_detail_bekostiging,
+    _leid_studiejaar_af,
     _resolve_inschrijving,
     _voeg_afgeleide_velden_toe,
     _voeg_bekostigingsvlaggen_toe,
@@ -994,3 +995,77 @@ def test_vul_niveau_in_demo_obt(demo_obt):
     obt = demo_obt["obt_inschrijvingen"]
     filled = obt["Niveau"].drop_nulls().len()
     assert filled > 2
+
+
+# ---------------------------------------------------------------------------
+# Studiejaar afleiding
+# ---------------------------------------------------------------------------
+
+
+def test_studiejaar_afgeleid_uit_datumbegin_augustus():
+    """DatumBegin in augustus → studiejaar = jaar van DatumBegin."""
+    obt = pl.DataFrame({
+        "DatumBegin": pl.Series([date(2025, 8, 1)], dtype=pl.Date),
+    })
+    result = _leid_studiejaar_af(obt)
+    assert result["Studiejaar"][0] == 2025
+
+
+def test_studiejaar_afgeleid_uit_datumbegin_januari():
+    """DatumBegin in januari → studiejaar = jaar - 1."""
+    obt = pl.DataFrame({
+        "DatumBegin": pl.Series([date(2026, 1, 15)], dtype=pl.Date),
+    })
+    result = _leid_studiejaar_af(obt)
+    assert result["Studiejaar"][0] == 2025
+
+
+def test_studiejaar_afgeleid_uit_datumbegin_juli():
+    """DatumBegin in juli → studiejaar = jaar - 1 (nog vorig studiejaar)."""
+    obt = pl.DataFrame({
+        "DatumBegin": pl.Series([date(2026, 7, 31)], dtype=pl.Date),
+    })
+    result = _leid_studiejaar_af(obt)
+    assert result["Studiejaar"][0] == 2025
+
+
+def test_studiejaar_behoudt_bestaande_waarde():
+    """Bestaand Studiejaar wordt niet overschreven."""
+    obt = pl.DataFrame({
+        "DatumBegin": pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+        "Studiejaar": pl.Series([2024], dtype=pl.Int64),
+    })
+    result = _leid_studiejaar_af(obt)
+    assert result["Studiejaar"][0] == 2024
+
+
+def test_studiejaar_vult_null_aan():
+    """Null Studiejaar wordt aangevuld, bestaande waarden blijven."""
+    obt = pl.DataFrame({
+        "DatumBegin": pl.Series([date(2025, 9, 1), date(2024, 10, 1)], dtype=pl.Date),
+        "Studiejaar": pl.Series([None, 2024], dtype=pl.Int64),
+    })
+    result = _leid_studiejaar_af(obt)
+    assert result["Studiejaar"].to_list() == [2025, 2024]
+
+
+def test_studiejaar_uit_datuminschrijving():
+    """Zonder DatumBegin wordt DatumInschrijving gebruikt (TBGI-pad)."""
+    obt = pl.DataFrame({
+        "DatumInschrijving": pl.Series([date(2024, 2, 1)], dtype=pl.Date),
+    })
+    result = _leid_studiejaar_af(obt)
+    assert result["Studiejaar"][0] == 2023
+
+
+def test_studiejaar_geen_datum_geen_crash():
+    """Zonder datumvelden en zonder Studiejaar → geen crash, geen kolom."""
+    obt = pl.DataFrame({"_persoon_id": ["P1"]})
+    result = _leid_studiejaar_af(obt)
+    assert "Studiejaar" not in result.columns
+
+
+def test_studiejaar_afgeleid_in_demo_obt(demo_obt):
+    """Na afleiding heeft elke rij een Studiejaar (geen nulls meer)."""
+    obt = demo_obt["obt_inschrijvingen"]
+    assert obt["Studiejaar"].null_count() == 0

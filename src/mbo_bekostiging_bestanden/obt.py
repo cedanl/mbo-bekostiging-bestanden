@@ -203,6 +203,50 @@ def _vul_niveau_aan(obt: pl.DataFrame) -> pl.DataFrame:
     return obt.drop("_crebo_niveau")
 
 
+def _leid_studiejaar_af(obt: pl.DataFrame) -> pl.DataFrame:
+    """Vul ontbrekend Studiejaar af uit beschikbare datumvelden.
+
+    Studiejaar loopt van 1 augustus t/m 31 juli:
+    maand >= 8 → studiejaar = jaar; maand < 8 → studiejaar = jaar - 1.
+
+    Bronspecifiek:
+    - GRONDSLAG levert Studiejaar expliciet via VLP.
+    - RO: afgeleid uit DatumBegin (ISP-periode).
+    - TBGI: afgeleid uit DatumInschrijving als DatumBegin ontbreekt.
+
+    Bestaande (niet-null) waarden worden niet overschreven.
+    """
+    datum_col = next(
+        (c for c in ("DatumBegin", "DatumInschrijving") if c in obt.columns),
+        None,
+    )
+
+    def _studiejaar_expr(col_naam: str) -> pl.Expr:
+        return (
+            pl.when(pl.col(col_naam).dt.month() >= 8)
+            .then(pl.col(col_naam).dt.year())
+            .otherwise(pl.col(col_naam).dt.year() - 1)
+            .cast(pl.Int64)
+        )
+
+    if "Studiejaar" not in obt.columns:
+        if datum_col is None:
+            return obt
+        return obt.with_columns(
+            _studiejaar_expr(datum_col).alias("Studiejaar")
+        )
+
+    if obt["Studiejaar"].null_count() == 0:
+        return obt
+    if datum_col is None:
+        return obt
+
+    return obt.with_columns(
+        pl.coalesce([pl.col("Studiejaar"), _studiejaar_expr(datum_col)])
+        .alias("Studiejaar")
+    )
+
+
 def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
     if "Studiejaar" not in obt.columns:
         return obt.with_columns(
@@ -611,6 +655,7 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
             obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
         )
 
+    obt = _leid_studiejaar_af(obt)
     obt = _vul_niveau_aan(obt)
     obt = _voeg_bekostigingsvlaggen_toe(obt)
     obt = _voeg_sr_vlaggen_toe(obt)
@@ -687,6 +732,7 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """
     obt = _add_persoon_id(stacked["Inschrijving"])
     obt = _drop(obt, "Recordsoort")
+    obt = _leid_studiejaar_af(obt)
     obt = _vul_niveau_aan(obt)
     obt = _voeg_bekostigingsvlaggen_toe(obt)
     obt = _voeg_sr_vlaggen_toe(obt)

@@ -56,6 +56,20 @@ Een `levering`-kolom in elke tabel geeft aan uit welk bronbestand een rij afkoms
 
 > **Niveau-aanvulling**: Wanneer het veld `Niveau` leeg is (komt voor in RO-bestanden), wordt het automatisch afgeleid uit de CREBO-tabel (`metadata/crebo.csv`) op basis van `Opleidingcode`.
 
+> **Studiejaar-afleiding**: GRONDSLAG levert `Studiejaar` expliciet; voor RO- en TBGI-leveringen wordt het afgeleid uit `DatumBegin` resp. `DatumInschrijving` (maand ≥ 8 → studiejaar = jaar, maand < 8 → studiejaar = jaar − 1). Hierdoor zijn alle bekostigingsvlaggen ook voor RO-data gevuld.
+
+#### Jaarbegrippen
+
+DUO werkt met drie jaarbegrippen die in de data voorkomen:
+
+| Concept | Definitie | In de OBT |
+|---|---|---|
+| **Studiejaar** | 1 aug jaar *S* – 31 jul jaar *S+1* | Kolom `Studiejaar` (int); expliciet uit GRONDSLAG, afgeleid voor RO/TBGI |
+| **Bekostigingsjaar** | Kalenderjaar *T*; refereert aan studiejaar *T−2* voor inschrijvingen | Niet als aparte kolom; `Bekostigingsjaar = Studiejaar + 2` |
+| **Kalenderjaar** | Gebruikt door DUO voor diplomaselectie (diploma's in jaar *T−2* voor bekostigingsjaar *T*) | Af te leiden uit `DIP_DatumResultaat` |
+
+"Boekjaar" (fiscaal jaar) is geen DUO-concept en wordt niet gebruikt.
+
 #### Berekende vlaggen op obt_inschrijvingen
 
 De OBT voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
