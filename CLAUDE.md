@@ -3,7 +3,7 @@
 ## Overview
 Ingestion-repo (Type 1). Leest ruwe DUO MBO-bekostigingsbestanden in en zet ze
 om naar schone, onderzoeksklare data. Andere repos bouwen voort op de output.
-Pipeline-fase: `ingest > decode > validate > export`.
+Pipeline-fase: `ingest > decode > validate > export > stack > OBT > enrich > (optioneel) star schema`.
 
 ## Standards
 Volg de CEDA technische standaarden: https://github.com/cedanl/.github/tree/main/standards/README.md
@@ -23,12 +23,18 @@ mbo-bekostiging-bestanden/
 │   ├── 01-raw/demo/               # Synthetische demo-bron (in git)
 │   ├── 02-prepared/demo/
 │   └── 03-output/demo/
+│       └── obt/                   # OBT + datamodel/ (star schema)
 ├── src/mbo_bekostiging_bestanden/
 │   ├── ingest.py                  # Ruwe bestanden inlezen
 │   ├── decode.py                  # Codes omzetten via metadata
 │   ├── validate.py                # Kwaliteitscontroles
 │   ├── export.py                  # Schone data wegschrijven
 │   ├── pipeline.py                # Orkestratie van de fasen
+│   ├── stack.py                   # Leveringen stapelen
+│   ├── obt.py                     # OBT bouwen (vlaggen, verrijking)
+│   ├── enrich.py                  # Decodeertabellen joinen
+│   ├── star.py                    # Dimensionaal model (star schema)
+│   ├── cli.py                     # CLI entry point
 │   └── metadata/                  # Veldindelingen / codeboeken
 ├── app/
 │   ├── main.py                    # Streamlit-app (geen bedrijfslogica)

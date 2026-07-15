@@ -2,7 +2,7 @@
 
 DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan controleren of haar studenten bekostigd worden en op welke grondslag. Deze bestanden zijn technisch van opzet: meerdere recordtypes per bestand, gecodeerde velden, geen kolomkoppen.
 
-**Deze tool leest die ruwe bestanden in, normaliseert ze en bouwt er één platte analysetabel (OBT) van** — direct bruikbaar in Excel, Python, R of Power BI.
+**Deze tool leest die ruwe bestanden in, normaliseert ze en bouwt er één platte analysetabel (OBT) van** — direct bruikbaar in Excel, Python, R of Power BI. Optioneel wordt ook een dimensionaal model (star schema) geëxporteerd; zie [Datamodel](datamodel.md).
 
 ---
 
@@ -50,8 +50,11 @@ Alle prepared-mappen worden gecombineerd tot vijf bestanden in `data/03-output/o
 | `detail_kzd_amo.parquet` | keuzedeel / AMvB-onderdeel | alle KZD- en AMO-records |
 | `detail_bekostiging.parquet` | teldatum | bekostigingsdetail (BII-records / TBGI Teldatum) |
 | `meta_leveringen.parquet` | leveringsbestand | VLP-metadata per bron |
+| `datamodel/*.parquet` | (star schema) | Dimensie- en feitstabellen — zie [Datamodel](datamodel.md) |
 
 Een `levering`-kolom in elke tabel geeft aan uit welk bronbestand een rij afkomstig is (bijv. `h15/RO_27DV_20240731_20260324`).
+
+> **Niveau-aanvulling**: Wanneer het veld `Niveau` leeg is (komt voor in RO-bestanden), wordt het automatisch afgeleid uit de CREBO-tabel (`metadata/crebo.csv`) op basis van `Opleidingcode`.
 
 #### Berekende vlaggen op obt_inschrijvingen
 
