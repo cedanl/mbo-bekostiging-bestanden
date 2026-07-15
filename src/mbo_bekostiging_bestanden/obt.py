@@ -328,10 +328,32 @@ def _voeg_sr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
         ).alias("_laagste_CREBO")
     ).drop("_min_crebo")
 
-    return obt.with_columns(
-        (pl.col("_hoogste_niveau") & pl.col("_laagste_CREBO"))
-        .alias("_hoofdinschrijving")
-    ).drop("_niveau_num")
+    hoofd_expr = pl.col("_hoogste_niveau") & pl.col("_laagste_CREBO")
+
+    # Tiebreak: bij meerdere ISP-rijen met zelfde Niveau+CREBO,
+    # kies de meest recente periode (DatumBegin desc).
+    partition = [c for c in ("levering", "_persoon_id", "Studiejaar")
+                 if c in obt.columns]
+    if "DatumBegin" in obt.columns and partition:
+        obt = obt.with_columns(hoofd_expr.alias("_kandidaat_hoofd"))
+        obt = obt.with_columns(
+            pl.when(pl.col("_kandidaat_hoofd"))
+            .then(
+                pl.col("DatumBegin")
+                .rank("ordinal", descending=True)
+                .over(partition)
+            )
+            .otherwise(None)
+            .alias("_hoofd_rank")
+        )
+        obt = obt.with_columns(
+            (pl.col("_kandidaat_hoofd") & (pl.col("_hoofd_rank") == 1))
+            .alias("_hoofdinschrijving")
+        ).drop("_kandidaat_hoofd", "_hoofd_rank")
+    else:
+        obt = obt.with_columns(hoofd_expr.alias("_hoofdinschrijving"))
+
+    return obt.drop("_niveau_num")
 
 
 def _voeg_telling_en_jr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
