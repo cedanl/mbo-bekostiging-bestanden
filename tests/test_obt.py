@@ -838,9 +838,10 @@ def test_entree_uitstroom_false_niet_uitgeschreven():
 
 
 def test_entree_doorstroom_true():
-    """MBO-1 student met ook een MBO-4 inschrijving → doorstroom."""
+    """MBO-1 student met ook een MBO-4 inschrijving bij dezelfde instelling."""
     obt = pl.DataFrame({
         "_persoon_id": ["P1", "P1"],
+        "BRIN": ["01AA", "01AA"],
         "Niveau": ["MBO-1", "MBO-4"],
         "DatumUitschrijvingWerkelijk": pl.Series(
             [date(2025, 6, 1), None], dtype=pl.Date
@@ -859,10 +860,33 @@ def test_entree_doorstroom_true():
     assert doorstroom["MBO-4"] is False
 
 
+def test_entree_doorstroom_false_andere_instelling():
+    """MBO-1 bij instelling A, MBO-4 bij instelling B → geen doorstroom."""
+    obt = pl.DataFrame({
+        "_persoon_id": ["P1", "P1"],
+        "BRIN": ["01AA", "02BB"],
+        "Niveau": ["MBO-1", "MBO-4"],
+        "DatumUitschrijvingWerkelijk": pl.Series(
+            [date(2025, 6, 1), None], dtype=pl.Date
+        ),
+        "DatumUitschrijvingGepland": pl.Series(
+            [date(2025, 7, 31), date(2026, 7, 31)], dtype=pl.Date
+        ),
+    })
+    result = _voeg_entree_vlaggen_toe(obt)
+    doorstroom = dict(zip(
+        result["Niveau"].to_list(),
+        result["_entree_doorstroom"].to_list(),
+        strict=True,
+    ))
+    assert doorstroom["MBO-1"] is False
+
+
 def test_entree_doorstroom_false_geen_vervolg():
     """MBO-1 student zonder hoger niveau → geen doorstroom."""
     obt = pl.DataFrame({
         "_persoon_id": ["P1"],
+        "BRIN": ["01AA"],
         "Niveau": ["MBO-1"],
         "DatumUitschrijvingWerkelijk": pl.Series(
             [date(2025, 6, 1)], dtype=pl.Date

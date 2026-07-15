@@ -22,12 +22,13 @@ Berekende vlaggen op obt_inschrijvingen:
 """
 
 import functools
+from pathlib import Path
 
 import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import enrich_obt
 
-_METADATA = __import__("pathlib").Path(__file__).parent / "metadata"
+_METADATA = Path(__file__).parent / "metadata"
 
 
 @functools.cache
@@ -297,6 +298,12 @@ def _niveau_numeriek(col: pl.Expr) -> pl.Expr:
 
 
 def _voeg_sr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Selectie/rendement-vlaggen: hoogste niveau, laagste CREBO, hoofdinschrijving.
+
+    De tiebreak voor ``_hoofdinschrijving`` partitioneert op ``levering`` zodat
+    elke levering onafhankelijk precies één hoofdinschrijving per persoon × studiejaar
+    krijgt.  Bij gestapelde analyses filtert de afnemer doorgaans op één levering.
+    """
     vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
     if not vereist.issubset(obt.columns):
         return obt.with_columns(
@@ -430,13 +437,16 @@ def _voeg_entree_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
             pl.lit(False).alias("_entree_uitstroom")
         )
 
+    join_cols = ["_persoon_id"]
+    if "BRIN" in obt.columns:
+        join_cols.append("BRIN")
     hoger_niveau = (
         obt.filter(_niveau_numeriek(pl.col("Niveau")) >= 2)
-        .select("_persoon_id")
+        .select(join_cols)
         .unique()
         .with_columns(pl.lit(True).alias("_heeft_hoger"))
     )
-    obt = obt.join(hoger_niveau, on="_persoon_id", how="left")
+    obt = obt.join(hoger_niveau, on=join_cols, how="left")
     obt = obt.with_columns(
         (is_entree & pl.col("_heeft_hoger").fill_null(False))
         .fill_null(False)
@@ -675,8 +685,14 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     Gebruikt TBGI Inschrijving als vervanging voor ISP; verrijkt met Teldatum
     aggregaat zodat de grain bruikbaar is voor analyse.
     """
-    inschrijving = _add_persoon_id(stacked["Inschrijving"])
-    return _drop(inschrijving, "Recordsoort")
+    obt = _add_persoon_id(stacked["Inschrijving"])
+    obt = _drop(obt, "Recordsoort")
+    obt = _vul_niveau_aan(obt)
+    obt = _voeg_bekostigingsvlaggen_toe(obt)
+    obt = _voeg_sr_vlaggen_toe(obt)
+    obt = _voeg_telling_en_jr_vlaggen_toe(obt)
+    obt = _voeg_entree_vlaggen_toe(obt)
+    return _voeg_afgeleide_velden_toe(obt)
 
 
 def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
