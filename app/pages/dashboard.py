@@ -251,14 +251,21 @@ with tab_opleidingen:
             .head(10)
         )
         if not top10.is_empty():
-            top10 = top10.with_columns(
-                ("CREBO " + pl.col("Opleidingcode")).alias("Opleiding")
-            )
+            if "Opleiding_naam" in df.columns:
+                naam_lookup = (
+                    df.select("Opleidingcode", "Opleiding_naam")
+                    .filter(pl.col("Opleiding_naam").is_not_null())
+                    .unique(subset=["Opleidingcode"], keep="first")
+                )
+                top10 = top10.join(naam_lookup, on="Opleidingcode", how="left")
+                top10 = top10.with_columns(
+                    pl.coalesce("Opleiding_naam", "Opleidingcode").alias("Opleiding")
+                )
+            else:
+                top10 = top10.with_columns(
+                    ("CREBO " + pl.col("Opleidingcode")).alias("Opleiding")
+                )
             st.bar_chart(top10, x="Opleiding", y="Inschrijvingen")
-            st.caption(
-                "CREBO-namen zijn niet beschikbaar in de huidige decodeertabellen. "
-                "Zie het SBB CREBO-register voor volledige namen."
-            )
         else:
             st.info("Geen data beschikbaar voor deze grafiek.")
     else:
