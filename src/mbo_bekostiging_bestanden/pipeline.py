@@ -10,6 +10,7 @@ from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
 from mbo_bekostiging_bestanden.obt import build_obt
 from mbo_bekostiging_bestanden.stack import stack_prepared
+from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
     validate_grondslag,
     validate_ro,
@@ -140,6 +141,7 @@ def run_obt(
     sources: Sequence[Path | str],
     target: str | Path,
     relative_to: Path | str | None = None,
+    star: bool = False,
 ) -> dict[str, pl.DataFrame]:
     """Stapel prepared-mappen en bouw vijf OBT-output-tabellen.
 
@@ -147,6 +149,8 @@ def run_obt(
         sources:     Lijst van mappen met prepared Parquet-bestanden.
         target:      Doelmap voor de vijf OBT-bestanden.
         relative_to: Basispad voor automatische leveringslabels (optioneel).
+        star:        Exporteer ook een dimensionaal model (star schema)
+                     naar ``<target>/datamodel/``.
 
     Returns:
         Dict met vijf sleutels: ``obt_inschrijvingen``, ``detail_bpv``,
@@ -155,6 +159,9 @@ def run_obt(
     stacked = stack_prepared(sources, relative_to=relative_to)
     obt = build_obt(stacked)
     export_frames(obt, Path(target))
+    if star:
+        star_tables = build_star(obt)
+        export_frames(star_tables, Path(target) / "datamodel")
     return obt
 
 
