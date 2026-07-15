@@ -26,24 +26,34 @@ if not resultaten_dir:
 
 result_path = Path(resultaten_dir)
 parquets = sorted(result_path.glob("*.parquet"))
-if not parquets:
+datamodel_path = result_path / "datamodel"
+dm_parquets = (
+    sorted(datamodel_path.glob("*.parquet"))
+    if datamodel_path.exists()
+    else []
+)
+
+if not parquets and not dm_parquets:
     st.error(f"Geen Parquet-bestanden gevonden in `{result_path}`.")
     if st.button("← Home"):
         st.switch_page("pages/home.py")
     st.stop()
 
-tabel_namen = [p.stem for p in parquets]
+obt_namen = [p.stem for p in parquets]
+dm_namen = [f"datamodel/{p.stem}" for p in dm_parquets]
+tabel_namen = obt_namen + (["---"] + dm_namen if dm_namen else [])
 
-# key= houdt selectie vast bij rerun
 gekozen = st.selectbox(
     "Kies tabel",
     tabel_namen,
     key="resultaten_tabel",
+    format_func=lambda x: x if x != "---" else "── Star schema ──",
 )
 
-if gekozen:
+if gekozen and gekozen != "---":
     parquet_pad = result_path / f"{gekozen}.parquet"
     df = pl.read_parquet(parquet_pad)
+    tabel_label = gekozen.split("/")[-1]
 
     col_info1, col_info2 = st.columns(2)
     col_info1.metric("Rijen", f"{df.height:,}")
@@ -56,9 +66,9 @@ if gekozen:
 
     csv = df.write_csv()
     st.download_button(
-        label=f"Download `{gekozen}.csv`",
+        label=f"Download `{tabel_label}.csv`",
         data=csv,
-        file_name=f"{gekozen}.csv",
+        file_name=f"{tabel_label}.csv",
         mime="text/csv",
         use_container_width=True,
     )
