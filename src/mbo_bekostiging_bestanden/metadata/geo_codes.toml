@@ -1,0 +1,77 @@
+# Generieke Examenonderdelen (GEO) — MBO
+# Bron: DUO Regeling generieke examenonderdelen MBO
+# Structuur: code → { vak, niveau, deelcompetentie }
+
+[codes]
+
+[codes."3001"]
+vak = "Nederlands"
+niveau = "2F"
+deelcompetentie = "Lezen"
+label = "Nederlands 2F – Lezen"
+
+[codes."3002"]
+vak = "Nederlands"
+niveau = "2F"
+deelcompetentie = "Luisteren"
+label = "Nederlands 2F – Luisteren"
+
+[codes."3003"]
+vak = "Nederlands"
+niveau = "2F"
+deelcompetentie = "Spreken en gesprekken voeren"
+label = "Nederlands 2F – Spreken"
+
+[codes."3004"]
+vak = "Nederlands"
+niveau = "2F"
+deelcompetentie = "Schrijven"
+label = "Nederlands 2F – Schrijven"
+
+[codes."3005"]
+vak = "Nederlands"
+niveau = "3F"
+deelcompetentie = "Lezen"
+label = "Nederlands 3F – Lezen"
+
+[codes."3006"]
+vak = "Nederlands"
+niveau = "3F"
+deelcompetentie = "Schrijven"
+label = "Nederlands 3F – Schrijven"
+
+[codes."3007"]
+vak = "Nederlands"
+niveau = "3F"
+deelcompetentie = "Luisteren"
+label = "Nederlands 3F – Luisteren"
+
+[codes."3008"]
+vak = "Nederlands"
+niveau = "3F"
+deelcompetentie = "Spreken en gesprekken voeren"
+label = "Nederlands 3F – Spreken"
+
+[codes."3013"]
+vak = "Rekenen"
+niveau = "2F"
+deelcompetentie = ""
+label = "Rekenen 2F"
+
+[codes."3014"]
+vak = "Rekenen"
+niveau = "3F"
+deelcompetentie = ""
+label = "Rekenen 3F"
+
+[codes."3028"]
+vak = "Engels"
+niveau = "B1"
+deelcompetentie = "Lezen"
+label = "Engels B1 – Lezen"
+
+[codes."3029"]
+vak = "Engels"
+niveau = "B1"
+deelcompetentie = "Luisteren"
+label = "Engels B1 – Luisteren"

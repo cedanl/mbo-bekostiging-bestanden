@@ -9,9 +9,44 @@ Vijf output-tabellen (nul informatieverlies):
   detail_bekostiging  BII (GRONDSLAG) + TBGI-Teldatum per
                       inschrijving × teldatum
   meta_leveringen     VLP + SLR per bronbestand
+
+Berekende vlaggen op obt_inschrijvingen:
+  Bekostiging   _actief_1_oktober, _bekostigd_eerste_1okt,
+                _gediplomeerd_in_jaar, _ingeschreven_jaar_later,
+                _deelnemer_niet_bekostigd_eerste_1okt
+  Selectie      _hoogste_niveau, _laagste_CREBO, _hoofdinschrijving
+  Tellingen     _telling (= actief_1_okt ∧ hoofdinschrijving)
+  Rendement     _jr_noemer, _jr_teller (bouwstenen voor Jaarresultaat)
+  Entree        _entree_uitstroom, _entree_doorstroom (MBO-1 specifiek)
+  Afgeleid      Niveau_gecombineerd, _tellingen_aanwezig
 """
 
+import functools
+from pathlib import Path
+
 import polars as pl
+
+from mbo_bekostiging_bestanden.enrich import enrich_obt
+
+_METADATA = Path(__file__).parent / "metadata"
+
+
+@functools.cache
+def _laad_crebo_niveau() -> pl.DataFrame:
+    """Laad CREBO-tabel en geef mapping Opleidingcode → Niveau (MBO-n)."""
+    return (
+        pl.read_csv(_METADATA / "crebo.csv", infer_schema_length=0)
+        .select(["code", "niveau"])
+        .filter(pl.col("niveau").is_not_null())
+        .with_columns(
+            ("MBO-" + pl.col("niveau")).alias("_crebo_niveau"),
+        )
+        .select(
+            pl.col("code").alias("Opleidingcode"),
+            pl.col("_crebo_niveau"),
+        )
+        .unique(subset=["Opleidingcode"], keep="first", maintain_order=True)
+    )
 
 # Kolommen die een persoonsidentificatie bevatten (prioriteitsvolgorde).
 _PERSOON_COLS = ["PseudoNummer", "Burgerservicenummer", "Onderwijsnummer"]
@@ -154,6 +189,346 @@ def _geo_pivot(
     return pivot.rename(hernoem)
 
 
+def _vul_niveau_aan(obt: pl.DataFrame) -> pl.DataFrame:
+    """Vul ontbrekend Niveau aan via de CREBO-tabel (Opleidingcode → MBO-n)."""
+    if "Niveau" not in obt.columns or "Opleidingcode" not in obt.columns:
+        return obt
+    if obt["Niveau"].null_count() == 0:
+        return obt
+    crebo = _laad_crebo_niveau()
+    obt = obt.join(crebo, on="Opleidingcode", how="left")
+    obt = obt.with_columns(
+        pl.coalesce(["Niveau", "_crebo_niveau"]).alias("Niveau"),
+    )
+    return obt.drop("_crebo_niveau")
+
+
+def _leid_studiejaar_af(obt: pl.DataFrame) -> pl.DataFrame:
+    """Vul ontbrekend Studiejaar af uit beschikbare datumvelden.
+
+    Studiejaar loopt van 1 augustus t/m 31 juli:
+    maand >= 8 → studiejaar = jaar; maand < 8 → studiejaar = jaar - 1.
+
+    Bronspecifiek:
+    - GRONDSLAG levert Studiejaar expliciet via VLP.
+    - RO: afgeleid uit DatumBegin (ISP-periode).
+    - TBGI: afgeleid uit DatumInschrijving als DatumBegin ontbreekt.
+
+    Bestaande (niet-null) waarden worden niet overschreven.
+    """
+    datum_col = next(
+        (c for c in ("DatumBegin", "DatumInschrijving") if c in obt.columns),
+        None,
+    )
+
+    def _studiejaar_expr(col_naam: str) -> pl.Expr:
+        return (
+            pl.when(pl.col(col_naam).dt.month() >= 8)
+            .then(pl.col(col_naam).dt.year())
+            .otherwise(pl.col(col_naam).dt.year() - 1)
+            .cast(pl.Int64)
+        )
+
+    if "Studiejaar" not in obt.columns:
+        if datum_col is None:
+            return obt
+        return obt.with_columns(
+            _studiejaar_expr(datum_col).alias("Studiejaar")
+        )
+
+    if obt["Studiejaar"].null_count() == 0:
+        return obt
+    if datum_col is None:
+        return obt
+
+    return obt.with_columns(
+        pl.coalesce([pl.col("Studiejaar"), _studiejaar_expr(datum_col)])
+        .alias("Studiejaar")
+    )
+
+
+def _voeg_bekostigingsvlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    if "Studiejaar" not in obt.columns:
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober"),
+            pl.lit(None, dtype=pl.Boolean).alias("_bekostigd_eerste_1okt"),
+            pl.lit(False, dtype=pl.Boolean).alias("_gediplomeerd_in_jaar"),
+            pl.lit(None, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
+            pl.lit(None, dtype=pl.Boolean).alias(
+                "_deelnemer_niet_bekostigd_eerste_1okt"
+            ),
+            pl.lit(None, dtype=pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
+            pl.lit(None, dtype=pl.Boolean).alias("_driejaars_teljaar"),
+            pl.lit(None, dtype=pl.Utf8).alias("Opbrengstjaar_3jaars_voortschrijdend"),
+            pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
+        )
+
+    studiejaar = pl.col("Studiejaar").cast(pl.Int32)
+    oct_1 = pl.date(studiejaar, 10, 1)
+
+    if "DatumInschrijving" in obt.columns:
+        datum_in = pl.col("DatumInschrijving")
+        datum_uit = (
+            pl.col("DatumUitschrijvingWerkelijk")
+            if "DatumUitschrijvingWerkelijk" in obt.columns
+            else pl.lit(None, dtype=pl.Date)
+        )
+        actief = (
+            (datum_in <= oct_1) & (datum_uit.is_null() | (datum_uit > oct_1))
+        ).alias("_actief_1_oktober")
+        ingeschreven_later = (
+            (datum_in > oct_1).fill_null(False).alias("_ingeschreven_jaar_later")
+        )
+    else:
+        actief = pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober")
+        ingeschreven_later = (
+            pl.lit(None, dtype=pl.Boolean).alias("_ingeschreven_jaar_later")
+        )
+
+    obt = obt.with_columns(actief, ingeschreven_later)
+
+    bekostigd = (
+        pl.col("_actief_1_oktober") & (pl.col("IndicatieBekostigbaar") == "J")
+        if "IndicatieBekostigbaar" in obt.columns
+        else pl.col("_actief_1_oktober") & pl.lit(False)
+    ).alias("_bekostigd_eerste_1okt")
+
+    if "DIP_DatumResultaat" in obt.columns:
+        jaar_begin = pl.date(studiejaar - 1, 8, 1)
+        jaar_eind = pl.date(studiejaar, 7, 31)
+        dip_datum = pl.col("DIP_DatumResultaat")
+        gediplomeerd = (
+            dip_datum.is_not_null()
+            & (dip_datum >= jaar_begin)
+            & (dip_datum <= jaar_eind)
+        ).fill_null(False).alias("_gediplomeerd_in_jaar")
+    else:
+        gediplomeerd = pl.lit(False, dtype=pl.Boolean).alias("_gediplomeerd_in_jaar")
+
+    obt = obt.with_columns(bekostigd, gediplomeerd)
+
+    obt = obt.with_columns(
+        (pl.col("_actief_1_oktober") & ~pl.col("_bekostigd_eerste_1okt"))
+        .alias("_deelnemer_niet_bekostigd_eerste_1okt")
+    )
+
+    studiejaar_serie = obt["Studiejaar"].cast(pl.Int32).drop_nulls()
+    if studiejaar_serie.is_empty():
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
+            pl.lit(None, dtype=pl.Boolean).alias("_driejaars_teljaar"),
+            pl.lit(None, dtype=pl.Utf8).alias("Opbrengstjaar_3jaars_voortschrijdend"),
+            pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
+        )
+
+    max_jaar = studiejaar_serie.sort(descending=True).item(0)
+    opbrengstjaar_label = f"{max_jaar - 2}-{max_jaar}"
+    return obt.with_columns(
+        pl.col("Studiejaar").cast(pl.Int64).alias("Opbrengstjaar_uitsplitsing"),
+        (pl.col("Studiejaar") >= (max_jaar - 2)).alias("_driejaars_teljaar"),
+        pl.lit(opbrengstjaar_label, dtype=pl.Utf8).alias(
+            "Opbrengstjaar_3jaars_voortschrijdend"
+        ),
+        pl.col("Studiejaar")
+        .rank("dense", descending=False)
+        .cast(pl.Int64)
+        .alias("_num_opbrengstjaar_3jr"),
+    )
+
+
+def _niveau_numeriek(col: pl.Expr) -> pl.Expr:
+    """Extraheer het numerieke deel uit Niveau (bijv. ``"MBO-4"`` → ``4``)."""
+    return col.str.extract(r"(\d+)$").cast(pl.Int32, strict=False)
+
+
+def _voeg_sr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Selectie/rendement-vlaggen: hoogste niveau, laagste CREBO, hoofdinschrijving.
+
+    De tiebreak voor ``_hoofdinschrijving`` partitioneert op ``levering`` zodat
+    elke levering onafhankelijk precies één hoofdinschrijving per persoon × studiejaar
+    krijgt.  Bij gestapelde analyses filtert de afnemer doorgaans op één levering.
+    """
+    vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
+    if not vereist.issubset(obt.columns):
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_hoogste_niveau"),
+            pl.lit(None, dtype=pl.Boolean).alias("_laagste_CREBO"),
+            pl.lit(None, dtype=pl.Boolean).alias("_hoofdinschrijving"),
+        )
+
+    obt = obt.with_columns(_niveau_numeriek(pl.col("Niveau")).alias("_niveau_num"))
+
+    max_niveau = obt.group_by(["_persoon_id", "Studiejaar"]).agg(
+        pl.col("_niveau_num").max().alias("_max_niveau_num")
+    )
+    obt = obt.join(max_niveau, on=["_persoon_id", "Studiejaar"], how="left")
+    obt = obt.with_columns(
+        (pl.col("_niveau_num") == pl.col("_max_niveau_num")).alias("_hoogste_niveau")
+    ).drop("_max_niveau_num")
+
+    min_crebo = (
+        obt.filter(pl.col("_hoogste_niveau"))
+        .group_by(["_persoon_id", "Studiejaar"])
+        .agg(pl.col("Opleidingcode").min().alias("_min_crebo"))
+    )
+    obt = obt.join(min_crebo, on=["_persoon_id", "Studiejaar"], how="left")
+    obt = obt.with_columns(
+        (
+            pl.col("_hoogste_niveau")
+            & (pl.col("Opleidingcode") == pl.col("_min_crebo"))
+        ).alias("_laagste_CREBO")
+    ).drop("_min_crebo")
+
+    hoofd_expr = pl.col("_hoogste_niveau") & pl.col("_laagste_CREBO")
+
+    # Tiebreak: bij meerdere ISP-rijen met zelfde Niveau+CREBO,
+    # kies de meest recente periode (DatumBegin desc).
+    partition = [c for c in ("levering", "_persoon_id", "Studiejaar")
+                 if c in obt.columns]
+    if "DatumBegin" in obt.columns and partition:
+        obt = obt.with_columns(hoofd_expr.alias("_kandidaat_hoofd"))
+        obt = obt.with_columns(
+            pl.when(pl.col("_kandidaat_hoofd"))
+            .then(
+                pl.col("DatumBegin")
+                .rank("ordinal", descending=True)
+                .over(partition)
+            )
+            .otherwise(None)
+            .alias("_hoofd_rank")
+        )
+        obt = obt.with_columns(
+            (pl.col("_kandidaat_hoofd") & (pl.col("_hoofd_rank") == 1))
+            .alias("_hoofdinschrijving")
+        ).drop("_kandidaat_hoofd", "_hoofd_rank")
+    else:
+        obt = obt.with_columns(hoofd_expr.alias("_hoofdinschrijving"))
+
+    return obt.drop("_niveau_num")
+
+
+def _voeg_telling_en_jr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_telling`` en JR-bouwstenen toe.
+
+    ``_telling``: deduplicatievlag voor tellingen — actief op 1 oktober én
+    hoofdinschrijving.  ``_jr_noemer``/``_jr_teller``: bouwstenen voor het
+    Jaarresultaat (sum/sum door downstream).
+    """
+    heeft_actief = "_actief_1_oktober" in obt.columns
+    heeft_hoofd = "_hoofdinschrijving" in obt.columns
+
+    if heeft_actief and heeft_hoofd:
+        obt = obt.with_columns(
+            (
+                pl.col("_actief_1_oktober").fill_null(False)
+                & pl.col("_hoofdinschrijving").fill_null(False)
+            ).alias("_telling")
+        )
+    else:
+        obt = obt.with_columns(pl.lit(False).alias("_telling"))
+
+    heeft_gediplomeerd = "_gediplomeerd_in_jaar" in obt.columns
+    heeft_ingeschreven = "_ingeschreven_jaar_later" in obt.columns
+
+    obt = obt.with_columns(pl.col("_telling").alias("_jr_noemer"))
+
+    if heeft_gediplomeerd and heeft_ingeschreven:
+        obt = obt.with_columns(
+            (
+                pl.col("_jr_noemer")
+                & (
+                    pl.col("_gediplomeerd_in_jaar").fill_null(False)
+                    | pl.col("_ingeschreven_jaar_later").fill_null(False)
+                )
+            ).alias("_jr_teller")
+        )
+    else:
+        obt = obt.with_columns(pl.lit(False).alias("_jr_teller"))
+
+    return obt
+
+
+def _voeg_entree_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_entree_uitstroom`` en ``_entree_doorstroom`` toe.
+
+    Alleen relevant voor MBO-1 (Entree) inschrijvingen.
+    Doorstroom = dezelfde persoon heeft een ISP op MBO-2+ niveau.
+    """
+    vereist = {"Niveau", "_persoon_id"}
+    if not vereist.issubset(obt.columns):
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_entree_uitstroom"),
+            pl.lit(None, dtype=pl.Boolean).alias("_entree_doorstroom"),
+        )
+
+    is_entree = _niveau_numeriek(pl.col("Niveau")) == 1
+
+    heeft_uitschrijving = (
+        "DatumUitschrijvingWerkelijk" in obt.columns
+        and "DatumUitschrijvingGepland" in obt.columns
+    )
+    if heeft_uitschrijving:
+        obt = obt.with_columns(
+            (
+                is_entree
+                & pl.col("DatumUitschrijvingWerkelijk").is_not_null()
+            )
+            .fill_null(False)
+            .alias("_entree_uitstroom")
+        )
+    else:
+        obt = obt.with_columns(
+            pl.lit(False).alias("_entree_uitstroom")
+        )
+
+    join_cols = ["_persoon_id"]
+    if "BRIN" in obt.columns:
+        join_cols.append("BRIN")
+    hoger_niveau = (
+        obt.filter(_niveau_numeriek(pl.col("Niveau")) >= 2)
+        .select(join_cols)
+        .unique()
+        .with_columns(pl.lit(True).alias("_heeft_hoger"))
+    )
+    obt = obt.join(hoger_niveau, on=join_cols, how="left")
+    obt = obt.with_columns(
+        (is_entree & pl.col("_heeft_hoger").fill_null(False))
+        .fill_null(False)
+        .alias("_entree_doorstroom")
+    ).drop("_heeft_hoger")
+
+    return obt
+
+
+def _voeg_afgeleide_velden_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """Voeg afgeleide gemaksvelden toe.
+
+    ``Niveau_gecombineerd``: ``"MBO-4 BOL"`` — concat van Niveau en Leertraject.
+    ``_tellingen_aanwezig``: hoe vaak deze persoon × inschrijving voorkomt
+    over leveringen (datakwaliteit / deduplicatie).
+    """
+    if "Niveau" in obt.columns and "Leertraject" in obt.columns:
+        obt = obt.with_columns(
+            pl.concat_str(
+                [pl.col("Niveau"), pl.col("Leertraject")],
+                separator=" ",
+                ignore_nulls=False,
+            ).alias("Niveau_gecombineerd")
+        )
+
+    if "_persoon_id" in obt.columns and "Inschrijvingvolgnummer" in obt.columns:
+        tellingen = obt.group_by(
+            ["_persoon_id", "Inschrijvingvolgnummer"]
+        ).agg(pl.len().alias("_tellingen_aanwezig"))
+        obt = obt.join(
+            tellingen,
+            on=["_persoon_id", "Inschrijvingvolgnummer"],
+            how="left",
+        )
+
+    return obt
+
+
 def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
     """Aggregeer BPV per inschrijving: tellers en datumbereik."""
     bpv = _add_persoon_id(bpv)
@@ -280,7 +655,13 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
             obt, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
         )
 
-    return obt
+    obt = _leid_studiejaar_af(obt)
+    obt = _vul_niveau_aan(obt)
+    obt = _voeg_bekostigingsvlaggen_toe(obt)
+    obt = _voeg_sr_vlaggen_toe(obt)
+    obt = _voeg_telling_en_jr_vlaggen_toe(obt)
+    obt = _voeg_entree_vlaggen_toe(obt)
+    return _voeg_afgeleide_velden_toe(obt)
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -349,8 +730,15 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     Gebruikt TBGI Inschrijving als vervanging voor ISP; verrijkt met Teldatum
     aggregaat zodat de grain bruikbaar is voor analyse.
     """
-    inschrijving = _add_persoon_id(stacked["Inschrijving"])
-    return _drop(inschrijving, "Recordsoort")
+    obt = _add_persoon_id(stacked["Inschrijving"])
+    obt = _drop(obt, "Recordsoort")
+    obt = _leid_studiejaar_af(obt)
+    obt = _vul_niveau_aan(obt)
+    obt = _voeg_bekostigingsvlaggen_toe(obt)
+    obt = _voeg_sr_vlaggen_toe(obt)
+    obt = _voeg_telling_en_jr_vlaggen_toe(obt)
+    obt = _voeg_entree_vlaggen_toe(obt)
+    return _voeg_afgeleide_velden_toe(obt)
 
 
 def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -396,7 +784,7 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
         )
 
     return {
-        "obt_inschrijvingen": (
+        "obt_inschrijvingen": enrich_obt(
             _bouw_obt_inschrijvingen(stacked)
             if heeft_isp
             else _bouw_tbgi_inschrijvingen(stacked)

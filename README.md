@@ -55,6 +55,7 @@ obt = run_obt(
              "data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025"],
     target="data/03-output/demo/obt",
     relative_to="data/02-prepared/demo",
+    star=True,  # exporteer ook dimensionaal model naar datamodel/
 )
 # obt["obt_inschrijvingen"]  — één rij per inschrijvingsperiode (ISP)
 ```
@@ -88,6 +89,7 @@ git.
   - `detail_kzd_amo` — keuzedelen en AMvB-onderdelen
   - `detail_bekostiging` — bekostigingsdetail (BII-records / TBGI Teldatum)
   - `meta_leveringen` — metadata per leveringsbestand
+  - `datamodel/` — optioneel star schema (dim/fact-tabellen, zie [docs/datamodel.md](docs/datamodel.md))
 - Echte data staat niet in git; alleen demo-data in `data/*/demo/`.
 
 ## Ontwikkeling

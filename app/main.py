@@ -11,6 +11,7 @@ st.set_page_config(
 pg = st.navigation(
     [
         st.Page("pages/home.py", title="Home", default=True),
+        st.Page("pages/dashboard.py", title="Dashboard"),
         st.Page("pages/resultaten.py", title="Resultaten"),
     ],
     position="sidebar",

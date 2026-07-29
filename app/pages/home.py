@@ -13,6 +13,7 @@ from mbo_bekostiging_bestanden.export import export_frames
 from mbo_bekostiging_bestanden.obt import build_obt
 from mbo_bekostiging_bestanden.pipeline import detect_bestandstype, run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
+from mbo_bekostiging_bestanden.star import build_star
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties
@@ -126,6 +127,8 @@ if not done:
             stacked = stack_prepared(prep_dirs_met_data, relative_to=prepared)
             obt = build_obt(stacked)
             export_frames(obt, obt_target)
+            star_tables = build_star(obt)
+            export_frames(star_tables, obt_target / "datamodel")
             obt_summary = {
                 "isp_rijen": obt["obt_inschrijvingen"].height,
                 "bekostiging_rijen": obt["detail_bekostiging"].height,

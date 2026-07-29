@@ -25,7 +25,7 @@ per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De ap
 1. Detecteert automatisch alle herkenbare bestanden in `data/01-raw/`.
 2. Verwerkt elk bestand naar `data/02-prepared/`.
 3. Stapelt alle leveringen en bouwt één gecombineerde OBT.
-4. Schrijft vijf Parquet-bestanden naar `data/03-output/obt/`.
+4. Schrijft vijf Parquet-bestanden naar `data/03-output/obt/` plus een star schema in `datamodel/`.
 
 Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
 
@@ -94,6 +94,7 @@ obt = run_obt(
     ],
     target="data/03-output/demo/obt",
     relative_to="data/02-prepared/demo",
+    star=True,  # exporteer ook star schema naar datamodel/
 )
 
 obt["obt_inschrijvingen"]  # één rij per inschrijvingsperiode
@@ -172,7 +173,12 @@ data/
         ├── detail_bpv.parquet
         ├── detail_kzd_amo.parquet
         ├── detail_bekostiging.parquet
-        └── meta_leveringen.parquet
+        ├── meta_leveringen.parquet
+        └── datamodel/
+            ├── dim_deelnemer.parquet
+            ├── dim_opleiding.parquet
+            ├── dim_instelling.parquet
+            └── fact_inschrijving.parquet
 ```
 
 Echte data zet je in `data/01-raw/` buiten de `demo/`-submap — die staat in `.gitignore`.

@@ -119,10 +119,12 @@ Geldt voor: `VLP.Bekostiging` in GRONDSLAG IP MBO
 
 Geldt voor: `ISP.IndicatieBekostigbaar`, `DIP.IndicatieBekostigbaar`
 
-| Waarde (RO) | Waarde (GRONDSLAG) | Betekenis |
-|---|---|---|
-| `J` | `1` | Instelling vraagt bekostiging aan |
-| `N` | `0` | Instelling vraagt geen bekostiging aan |
+| Waarde (RO) | Waarde (GRONDSLAG) | Waarde (TBGI) | Betekenis |
+|---|---|---|---|
+| `J` | `1` | `true` | Instelling vraagt bekostiging aan |
+| `N` | `0` | `false` | Instelling vraagt geen bekostiging aan |
+
+> Na de decode-fase worden alle varianten genormaliseerd naar `"J"`/`"N"`.
 
 ---
 

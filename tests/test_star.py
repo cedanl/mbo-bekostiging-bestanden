@@ -1,0 +1,84 @@
+"""Tests voor star.py (dimensionaal model)."""
+
+import polars as pl
+
+from mbo_bekostiging_bestanden.star import build_star
+
+
+def _minimal_obt() -> dict[str, pl.DataFrame]:
+    """Minimale OBT met velden voor alle drie dimensies."""
+    return {
+        "obt_inschrijvingen": pl.DataFrame({
+            "levering": ["h15/RO_X", "h15/RO_X", "h15/RO_X"],
+            "_persoon_id": ["P1", "P1", "P2"],
+            "Geboortedatum": [None, None, None],
+            "Geslacht": ["M", "M", "V"],
+            "Opleidingcode": ["25655", "23301", "25655"],
+            "Niveau": ["MBO-4", "MBO-1", "MBO-4"],
+            "Opleiding_naam": ["App-ontwikkelaar", "Entree", "App-ontwikkelaar"],
+            "BRIN": ["01AA", "01AA", "02BB"],
+            "Instelling_naam": ["ROC West", "ROC West", "Graafschap"],
+            "Instelling_plaats": ["Den Haag", "Den Haag", "Doetinchem"],
+            "_telling": [True, False, True],
+            "_actief_1_oktober": [True, False, True],
+        }),
+    }
+
+
+def test_star_bevat_alle_tabellen():
+    """build_star retourneert vier tabellen."""
+    result = build_star(_minimal_obt())
+    assert set(result.keys()) == {
+        "dim_deelnemer",
+        "dim_opleiding",
+        "dim_instelling",
+        "fact_inschrijving",
+    }
+
+
+def test_dim_deelnemer_uniek_op_persoon():
+    """dim_deelnemer heeft één rij per _persoon_id."""
+    result = build_star(_minimal_obt())
+    dim = result["dim_deelnemer"]
+    assert dim.shape[0] == 2
+    assert dim["_persoon_id"].to_list() == ["P1", "P2"]
+    assert "Geslacht" in dim.columns
+
+
+def test_dim_opleiding_uniek_op_code():
+    """dim_opleiding heeft één rij per Opleidingcode."""
+    result = build_star(_minimal_obt())
+    dim = result["dim_opleiding"]
+    assert dim.shape[0] == 2
+    assert set(dim["Opleidingcode"].to_list()) == {"25655", "23301"}
+    assert "Opleiding_naam" in dim.columns
+    assert "Niveau" in dim.columns
+
+
+def test_dim_instelling_uniek_op_brin():
+    """dim_instelling heeft één rij per BRIN."""
+    result = build_star(_minimal_obt())
+    dim = result["dim_instelling"]
+    assert dim.shape[0] == 2
+    assert set(dim["BRIN"].to_list()) == {"01AA", "02BB"}
+
+
+def test_fact_bevat_fks_en_measures():
+    """fact_inschrijving bevat foreign keys en measures, niet de dimensie-attributen."""
+    result = build_star(_minimal_obt())
+    fact = result["fact_inschrijving"]
+    assert fact.shape[0] == 3
+    assert "_persoon_id" in fact.columns
+    assert "Opleidingcode" in fact.columns
+    assert "BRIN" in fact.columns
+    assert "_telling" in fact.columns
+    assert "Instelling_naam" not in fact.columns
+    assert "Opleiding_naam" not in fact.columns
+    assert "Geslacht" not in fact.columns
+
+
+def test_fact_behoudt_alle_rijen():
+    """fact_inschrijving verliest geen rijen t.o.v. de OBT."""
+    obt = _minimal_obt()
+    result = build_star(obt)
+    assert result["fact_inschrijving"].shape[0] == obt["obt_inschrijvingen"].shape[0]
