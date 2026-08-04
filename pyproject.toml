@@ -16,6 +16,7 @@ mbo = "mbo_bekostiging_bestanden.cli:main"
 
 [dependency-groups]
 dev = [
+    "playwright>=1.62.0",
     "pytest>=8.0",
     "ruff>=0.6",
     "ty>=0.0.0a1",

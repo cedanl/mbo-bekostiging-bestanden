@@ -16,13 +16,52 @@ bekostigingsdata werken.
 
 ```bash
 uv sync
+uv run streamlit run app/main.py
 ```
 
-**Interactieve app** — de app verwerkt de bestanden in de invoermap uit
-`app/config.toml` (standaard `data/01-raw/demo`). Klik op *Verwerk alles*:
+De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
+
+---
+
+### Stap 1 — Bestanden verwerken
+
+Open de app, bekijk de ontdekte bestanden en klik **Verwerk alles**. De pipeline
+normaliseert alle ruw DUO-bestanden naar Parquet en bouwt de gecombineerde OBT.
+
+![Home — bestanden verwerken](docs/assets/home.gif)
+
+### Stap 2 — Dashboard
+
+Na de verwerking toont het Dashboard een visueel overzicht verdeeld over vijf
+tabs: rendementen (JR), bekostigingstrechter, opleidingen (BOL/BBL, BPV, KZD),
+studenten (geslacht, herkomst, gemeente) en GEO-examencijfers.
+
+![Dashboard — analyse-overzicht](docs/assets/dashboard.gif)
+
+### Stap 3 — Resultaten bekijken en downloaden
+
+Op de Resultaten-pagina selecteer je een van de output-tabellen (OBT,
+detail-tabellen of star-schema), bekijk je een preview van de eerste 1 000 rijen
+en download je de volledige tabel als CSV.
+
+![Resultaten — tabel preview en download](docs/assets/resultaten.gif)
+
+---
+
+**CLI**:
 
 ```bash
-uv run streamlit run app/main.py
+# Verwerk één ruw bestand naar prepared
+uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
+    data/02-prepared/demo/h15/RO_27DV_20240731_20260324
+
+# Bouw OBT vanuit meerdere prepared-mappen
+uv run mbo obt \
+    data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
+    data/02-prepared/demo/h16/TBGI_25LX_2027_20251124 \
+    data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
+    --output data/03-output/demo/obt \
+    --relative-to data/02-prepared/demo
 ```
 
 **CLI**:
@@ -59,8 +98,6 @@ obt = run_obt(
 )
 # obt["obt_inschrijvingen"]  — één rij per inschrijvingsperiode (ISP)
 ```
-
-De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 ### Eigen data verwerken
 
