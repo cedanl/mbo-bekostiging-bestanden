@@ -1,9 +1,16 @@
-"""Gedeelde test-fixtures voor stack- en CLI-tests."""
+"""Gedeelde test-fixtures voor stack-, OBT- en indicatoren-tests."""
 
 from datetime import date
+from pathlib import Path
 
 import polars as pl
 import pytest
+
+from mbo_bekostiging_bestanden.obt import build_obt
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
+from mbo_bekostiging_bestanden.stack import stack_prepared
+
+RAW = Path("data/01-raw/demo")
 
 
 @pytest.fixture(scope="session")
@@ -61,3 +68,21 @@ def prepared_dirs(tmp_path_factory):
         "25LX": dir_25lx,
         "IP": dir_ip,
     }
+
+
+@pytest.fixture(scope="session")
+def demo_stacked(tmp_path_factory):
+    """Bouw de gestapelde demo-data (data/01-raw/demo) in een tmp-dir."""
+    prepared = tmp_path_factory.mktemp("prepared")
+    for raw_file in sorted(RAW.rglob("*")):
+        if raw_file.suffix.lower() not in {".csv", ".xml"}:
+            continue
+        subdir = raw_file.parent.relative_to(RAW)
+        run_auto_pipeline(raw_file, prepared / subdir / raw_file.stem)
+    dirs = [d for d in sorted(prepared.glob("*/*")) if d.is_dir()]
+    return stack_prepared(dirs, relative_to=prepared)
+
+
+@pytest.fixture(scope="session")
+def demo_obt(demo_stacked):
+    return build_obt(demo_stacked)

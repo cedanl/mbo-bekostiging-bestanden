@@ -75,6 +75,14 @@ def _laad_sbb_koppeltabel() -> pl.DataFrame:
     ])
 
 
+@functools.cache
+def _laad_sbb_crebolijst() -> pl.DataFrame:
+    return pl.read_parquet(_METADATA / "sbb_crebolijst.parquet").select([
+        "kwalificatiecode", "geldig_van", "geldig_tot",
+        "prijsfactor", "soort_opleiding",
+    ])
+
+
 # ---------------------------------------------------------------------------
 # Interne join-helpers
 # ---------------------------------------------------------------------------
@@ -137,10 +145,14 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
         ``Opleiding_domein``, ``Opleiding_subgroep``,
         ``Opleiding_dossiercode``, ``Opleiding_dossier``, ``Opleiding_sectorkamer``
 
-    Opleidingcode → S-BB koppeltabel:
+    Opleidingcode → S-BB koppeltabel (Groep 19):
         ``Opleiding_beroep``, ``Opleiding_niveau``,
         ``Opleiding_opvolger``,
         ``Opleiding_eerste_schooljaar``, ``Opleiding_laatste_schooljaar``
+
+    Opleidingcode → S-BB crebolijst (Groep 14, officiële geldigheidsperioden):
+        ``Opleiding_geldig_van``, ``Opleiding_geldig_tot``,
+        ``Opleiding_prijsfactor``, ``Opleiding_soort_opleiding``
 
     BRIN → instelling:
         ``Instelling_naam``, ``Instelling_plaats``
@@ -210,6 +222,19 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
             .join(koppel_lookup, on="Opleidingcode_i64", how="left")
             .drop("Opleidingcode_i64")
         )
+
+        crebolijst_lookup = (
+            _laad_sbb_crebolijst()
+            .rename({
+                "kwalificatiecode": "Opleidingcode",
+                "geldig_van": "Opleiding_geldig_van",
+                "geldig_tot": "Opleiding_geldig_tot",
+                "prijsfactor": "Opleiding_prijsfactor",
+                "soort_opleiding": "Opleiding_soort_opleiding",
+            })
+            .unique(subset=["Opleidingcode"], keep="first", maintain_order=True)
+        )
+        df = df.join(crebolijst_lookup, on="Opleidingcode", how="left")
 
     # ── BRIN → instelling ────────────────────────────────────────────────────
     if "BRIN" in df.columns:

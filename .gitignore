@@ -29,3 +29,14 @@ data/03-output/**
 # Ruwe .asc bronbestanden decodeertabellen (te groot; CSV-versies staan in metadata/)
 src/mbo_bekostiging_bestanden/metadata/*.asc
 src/mbo_bekostiging_bestanden/metadata/Bestandsbeschrijving_Dec-bestanden.txt
+
+# Extern gedownloade bronbestanden (scripts/ regenereren deze)
+data/external/
+
+# Gegenereerde documentatiesite
+site/
+
+# Tijdelijke bestanden en lokale referentiedocumenten
+afbeelding*.png
+toelichting_onderwijsresultaten*.txt
+scripts/debug_dashboard.py

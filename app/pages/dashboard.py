@@ -8,7 +8,17 @@ import polars as pl
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from _chart_docs import chart_help
 from _utils import output_dir
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from mbo_bekostiging_bestanden.indicatoren import (
+    bereken_oordeel,
+    entree_indicatoren,
+    entree_totaal,
+    norm_voor,
+    populatie_regele_filter,
+)
 
 _GEO_META = (
     Path(__file__).parent.parent.parent
@@ -124,10 +134,27 @@ if "DIP_DatumResultaat" in df.columns:
 n_leveringen = df["levering"].n_unique() if "levering" in df.columns else 0
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Inschrijvingen", f"{totaal:,}")
-col2.metric("Bekostigd (indicatie)", f"{bekostigd_n:,}")
-col3.metric("Diploma's behaald", f"{diplomas_n:,}")
-col4.metric("Leveringen", n_leveringen)
+col1.metric(
+    "Inschrijvingen",
+    f"{totaal:,}",
+    help="Aantal rijen in de OBT-inschrijvingentabel na toepassing van de "
+    "studiejaarfilters.",
+)
+col2.metric(
+    "Bekostigd (indicatie)",
+    f"{bekostigd_n:,}",
+    help="Aantal inschrijvingen met `IndicatieBekostigbaar` in ('J','1').",
+)
+col3.metric(
+    "Diploma's behaald",
+    f"{diplomas_n:,}",
+    help="Aantal inschrijvingen met een ingevulde `DIP_DatumResultaat`.",
+)
+col4.metric(
+    "Leveringen",
+    n_leveringen,
+    help="Aantal unieke leveringen (bronbestanden) in de data.",
+)
 
 st.divider()
 
@@ -144,18 +171,28 @@ tab_rendementen, tab_bekostiging, tab_opleidingen, tab_studenten, tab_examens = 
 # ---------------------------------------------------------------------------
 
 with tab_rendementen:
-    st.subheader("Jaarresultaat (JR) — indicatief")
+    st.subheader("Jaarresultaat (JR) — indicatief, per niveau")
+    chart_help("jr_indicatief")
+
+    # Populatieregels (bijlage 3): alleen bol/bbl/ex-leerwegen en niveau ≥ 2.
+    jr_pop = populatie_regele_filter(df, min_niveau=2)
 
     if "_actief_1_oktober" in df.columns and "_gediplomeerd_in_jaar" in df.columns:
-        jr_base = df.filter(pl.col("_actief_1_oktober").is_not_null())
-        if not jr_base.is_empty() and "levering" in df.columns:
+        if jr_pop.is_empty() or "Niveau" not in jr_pop.columns:
+            st.info(
+                "Geen rijen in de indicator-populatie (leerweg bol/bbl/ex, "
+                "niveau ≥ 2, actief op 1-okt)."
+            )
+        else:
             jr = (
-                jr_base.group_by("levering")
+                jr_pop.filter(pl.col("_actief_1_oktober").is_not_null())
+                .group_by(["levering", "Niveau"])
                 .agg(
                     pl.col("_actief_1_oktober").sum().alias("Actief 1-okt (N)"),
-                    pl.col("_gediplomeerd_in_jaar").sum().alias("Gediplomeerd (N)"),
+                    pl.col("_gediplomeerd_in_jaar")
+                    .sum()
+                    .alias("Gediplomeerd (N)"),
                 )
-                .sort("levering")
                 .with_columns(
                     (
                         pl.col("Gediplomeerd (N)")
@@ -165,18 +202,128 @@ with tab_rendementen:
                     .round(1)
                     .alias("JR (%)")
                 )
-                .rename({"levering": "Levering"})
+                .sort(["Niveau", "levering"])
             )
-            st.dataframe(jr, use_container_width=True, hide_index=True)
-            st.info("DUO-norm: ≥ 75% voor positieve beoordeling")
-        else:
-            st.info("Geen rijen met bekende `_actief_1_oktober`-status.")
+            if jr.is_empty():
+                st.info("Geen rijen met bekende `_actief_1_oktober`-status.")
+            else:
+                jr = jr.with_columns(
+                    pl.col("Niveau").str.extract(r"(\d+)$").cast(pl.Int32).alias("_niv"),
+                ).with_columns(
+                    pl.struct(["Niveau", "_niv"])
+                    .map_elements(
+                        lambda r: norm_voor("jr", r["_niv"], "voldoende"),
+                        return_dtype=pl.Int64,
+                    )
+                    .alias("Norm voldoende (%)"),
+                    pl.struct(["Niveau", "_niv"])
+                    .map_elements(
+                        lambda r: norm_voor("jr", r["_niv"], "hoog"),
+                        return_dtype=pl.Int64,
+                    )
+                    .alias("Norm hoog (%)"),
+                ).drop("_niv")
+                jr = jr.with_columns(
+                    (
+                        pl.col("JR (%)") >= pl.col("Norm voldoende (%)")
+                    ).alias("Voldoet aan voldoende-norm")
+                )
+                st.dataframe(jr, use_container_width=True, hide_index=True)
+
+                st.scatter_chart(
+                    jr,
+                    x="levering",
+                    y="JR (%)",
+                    size="Actief 1-okt (N)",
+                    color="Niveau",
+                    x_label="Levering",
+                    y_label="JR (%)",
+                    height=400,
+                )
+                st.caption(
+                    "Normen voor voldoende (JR): niveau 2 = "
+                    f"{norm_voor('jr', 2, 'voldoende')}%, niveau 3/4 = "
+                    f"{norm_voor('jr', 3, 'voldoende')}%. Voor hoog: niveau 2 = "
+                    f"{norm_voor('jr', 2, 'hoog')}%, niveau 3/4 = "
+                    f"{norm_voor('jr', 3, 'hoog')}%. "
+                    "Zie `_chart_docs` voor de indicatieve definitie."
+                )
     else:
         st.info(
             "Kolommen `_actief_1_oktober` en `_gediplomeerd_in_jaar` niet beschikbaar."
         )
 
+    st.subheader("Berekend oordeel Studiesucces (indicatief)")
+    chart_help("berekend_oordeel")
+    if "Niveau" in jr_pop.columns and "levering" in jr_pop.columns:
+        oordeel_df = (
+            jr_pop.filter(pl.col("_actief_1_oktober").is_not_null())
+            .group_by(["Niveau"])
+            .agg(
+                pl.col("_actief_1_oktober").sum().alias("Actief 1-okt (N)"),
+                pl.col("_gediplomeerd_in_jaar").sum().alias("Gediplomeerd (N)"),
+            )
+            .with_columns(
+                (pl.col("Gediplomeerd (N)") / pl.col("Actief 1-okt (N)") * 100)
+                .round(1)
+                .alias("JR (%)")
+            )
+        )
+        rows = []
+        for r in oordeel_df.to_dicts():
+            niv = int(r["Niveau"].split("-")[-1])
+            if niv not in (2, 3, 4):
+                continue
+            oordeel, _, hoge = bereken_oordeel(
+                {"waarde": r["JR (%)"], "noemer": r["Actief 1-okt (N)"]},
+                None,
+                None,
+                niveau=niv,
+            )
+            rows.append(
+                {
+                    "Niveau": r["Niveau"],
+                    "Actief (N)": r["Actief 1-okt (N)"],
+                    "JR (%)": r["JR (%)"],
+                    "Norm vold. JR (%)": norm_voor("jr", niv, "voldoende"),
+                    "Norm hoog JR (%)": norm_voor("jr", niv, "hoog"),
+                    "Berekend oordeel": oordeel,
+                }
+            )
+        if rows:
+            st.dataframe(
+                pl.DataFrame(rows), use_container_width=True, hide_index=True
+            )
+            st.warning(
+                "Het oordeel is alleen op JR-basis (DR en SR zijn niet beschikbaar "
+                "in de OBT) en daarmee indicatief. Bij één indicator is een oordeel "
+                "alleen mogelijk als de overige twee dezelfde richting uitwijzen "
+                "(§3.5)."
+            )
+        else:
+            st.info("Geen beoordeelbare rijen (niveau 2–4).")
+    else:
+        st.info("Kolommen `Niveau` of `levering` niet beschikbaar.")
+
+    st.subheader("Entree-indicatoren (niveau 1)")
+    chart_help("entree")
+    entree_df = entree_indicatoren(df)
+    if entree_df.is_empty():
+        st.info("Geen niveau-1-inschrijvingen in de data.")
+    else:
+        st.metric(
+            "Niveau-1-inschrijvingen (noemer)",
+            f"{entree_totaal(df):,}",
+            help="Aantal inschrijvingen op niveau 1 (Entree).",
+        )
+        st.dataframe(entree_df, use_container_width=True, hide_index=True)
+        if "Categorie" in entree_df.columns:
+            st.bar_chart(
+                entree_df, x="Categorie", y="Aantal", color="Categorie"
+            )
+
     st.subheader("Diploma's per Leertraject")
+    chart_help("diplomas_leertraject")
     if "Leertraject" in df.columns and "DIP_DatumResultaat" in df.columns:
         dip_lt = (
             df.with_columns(
@@ -208,6 +355,7 @@ with tab_rendementen:
 
 with tab_bekostiging:
     st.subheader("Bekostigingstrechter")
+    chart_help("bekostigingstrechter")
 
     actief_1okt_n: int | str = "—"
     bekostigd_1okt_n: int | str = "—"
@@ -244,6 +392,7 @@ with tab_bekostiging:
     )
 
     st.subheader("Bekostigd vs niet-bekostigd per levering")
+    chart_help("bekostiging_levering")
     if "IndicatieBekostigbaar" in df.columns and "levering" in df.columns:
         bek_lev = (
             df.with_columns(
@@ -269,6 +418,7 @@ with tab_bekostiging:
         st.info("Kolommen `IndicatieBekostigbaar` of `levering` niet beschikbaar.")
 
     st.subheader("Inschrijvingen na 1-oktober")
+    chart_help("na_1okt")
     if "_ingeschreven_jaar_later" in df.columns:
         na_1okt = df.filter(pl.col("_ingeschreven_jaar_later")).height
         st.metric(
@@ -285,6 +435,7 @@ with tab_bekostiging:
 
 with tab_opleidingen:
     st.subheader("Top-10 opleidingen naar inschrijvingen")
+    chart_help("top10_opleidingen")
     if "Opleidingcode" in df.columns:
         top10 = (
             df.filter(
@@ -318,6 +469,7 @@ with tab_opleidingen:
         st.info("Kolom `Opleidingcode` niet beschikbaar.")
 
     st.subheader("BOL vs BBL per levering")
+    chart_help("bol_bbl_levering")
     if "Leertraject" in df.columns and "levering" in df.columns:
         bol_bbl = (
             df.filter(
@@ -338,6 +490,7 @@ with tab_opleidingen:
         st.info("Kolommen `levering` of `Leertraject` niet beschikbaar.")
 
     st.subheader("BPV-coverage")
+    chart_help("bpv_coverage")
     if "BPV_Aantal" in df.columns and "Leertraject" in df.columns:
         bpv = (
             df.filter(
@@ -364,6 +517,7 @@ with tab_opleidingen:
         st.info("Kolommen `BPV_Aantal` of `Leertraject` niet beschikbaar.")
 
     st.subheader("KZD-behaaldverhouding per levering")
+    chart_help("kzd")
     if (
         "KZD_Aantal" in df.columns
         and "KZD_AantalBehaald" in df.columns
@@ -404,6 +558,7 @@ with tab_opleidingen:
         )
         if not instelling_info.is_empty():
             st.subheader("Instelling")
+            chart_help("instelling")
             st.dataframe(instelling_info, use_container_width=True, hide_index=True)
 
 # ---------------------------------------------------------------------------
@@ -412,6 +567,7 @@ with tab_opleidingen:
 
 with tab_studenten:
     st.subheader("Geslachtsverdeling per Leertraject")
+    chart_help("geslacht_leertraject")
     if "Geslacht" in df.columns and "Leertraject" in df.columns:
         _GESLACHT = {"M": "Man", "V": "Vrouw", "O": "Onbekend"}
         geslacht = (
@@ -439,6 +595,7 @@ with tab_studenten:
 
     if "Nationaliteit1_migratieachtergrond" in df.columns:
         st.subheader("Herkomst (migratieachtergrond)")
+        chart_help("herkomst")
         herkomst = (
             df.filter(pl.col("Nationaliteit1_migratieachtergrond").is_not_null())
             .group_by("Nationaliteit1_migratieachtergrond")
@@ -453,6 +610,7 @@ with tab_studenten:
 
     if "Gemeente" in df.columns:
         st.subheader("Top 10 gemeenten")
+        chart_help("top10_gemeenten")
         top10_gem = (
             df.filter(
                 pl.col("Gemeente").is_not_null() & (pl.col("Gemeente") != "")
@@ -469,6 +627,7 @@ with tab_studenten:
 
     if "CodeGeboorteland_naam" in df.columns:
         st.subheader("Top 10 geboorteland")
+        chart_help("top10_geboorteland")
         top10_land = (
             df.filter(
                 pl.col("CodeGeboorteland_naam").is_not_null()
@@ -488,6 +647,7 @@ with tab_studenten:
             st.info("Geen geboortelanddata beschikbaar.")
 
     st.subheader("Uitstroomredenen")
+    chart_help("uitstroomredenen")
     if "RedenUitschrijving" in df.columns:
         reden_code = pl.col("RedenUitschrijving")
         uitstroom = (
@@ -495,7 +655,7 @@ with tab_studenten:
                 pl.when(reden_code.is_null() | (reden_code == ""))
                 .then(pl.lit("Nog ingeschreven"))
                 .when(reden_code.is_in(REDEN_LABELS))
-                .then(reden_code.replace_strict(REDEN_LABELS))
+                .then(reden_code.replace(REDEN_LABELS))
                 .otherwise(pl.format("Overig (code: {})", reden_code))
                 .alias("Reden")
             )
@@ -511,6 +671,7 @@ with tab_studenten:
         st.info("Kolom `RedenUitschrijving` niet beschikbaar.")
 
     st.subheader("Duur inschrijving (maanden)")
+    chart_help("duur_inschrijving")
     if (
         "DatumInschrijving" in df.columns
         and "DatumUitschrijvingWerkelijk" in df.columns
@@ -583,6 +744,7 @@ with tab_examens:
     ]
 
     st.subheader("GEO-examencijfers")
+    chart_help("geo_eindcijfers")
     if geo_eindcijfer_cols:
         geo_rows = []
         for col in sorted(geo_eindcijfer_cols):
@@ -608,6 +770,7 @@ with tab_examens:
         st.info("Geen GEO-eindcijferkolommen aanwezig in de data.")
 
     st.subheader("GEO IE vs CE — vergelijking")
+    chart_help("geo_ie_ce")
     for geo_code in ("3001", "3002"):
         ie_col = f"GEO_{geo_code}_CijferIE"
         ce_col = f"GEO_{geo_code}_CijferCE"
@@ -630,6 +793,7 @@ with tab_examens:
                 )
 
     st.subheader("AMO-onderdelen")
+    chart_help("amo")
     if "AMO_Aantal" in df.columns:
         amo_serie = df["AMO_Aantal"].drop_nulls()
         if not amo_serie.is_empty():

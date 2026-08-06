@@ -1,0 +1,16 @@
+# Normen standaard Studiesucces (in %).
+# Bron: "Definitie indicatoren en toelichting bestanden onderwijsresultaten
+# voor het bekostigd MBO", v. 31 mei 2024 — tabel 1 (voldoende) en tabel 2 (hoog).
+# Normen verschillen per opleidingsniveau (2, 3, 4). Voor het startersresultaat
+# is geen hoge norm vastgesteld (alleen via JR/DR wordt "hoog" bereikt).
+
+[jaarresultaat]
+voldoende = { "2" = 67, "3" = 68, "4" = 68 }
+hoog = { "2" = 82, "3" = 85, "4" = 85 }
+
+[diplomaresultaat]
+voldoende = { "2" = 61, "3" = 70, "4" = 70 }
+hoog = { "2" = 79, "3" = 89, "4" = 89 }
+
+[startersresultaat]
+voldoende = { "2" = 79, "3" = 82, "4" = 82 }

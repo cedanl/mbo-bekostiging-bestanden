@@ -15,6 +15,7 @@ Volg de CEDA technische standaarden: https://github.com/cedanl/.github/tree/main
 - **Boy Scout Principle** — laat elke file die je aanraakt schoner achter dan je hem aantrof: verwijder dode code, los triviale stijlproblemen op, vereenvoudig onduidelijke logica.
 - **Geen Tactical Tornado** — geen snelle quick-fixes die technische schuld opbouwen of toekomstig onderhoud bemoeilijken. Kies de duurzame oplossing, ook als die iets meer werk is.
 - **Geen commit tenzij gevraagd** — implementeer lokaal en meld wat er gedaan is; wacht op een expliciete commit-opdracht van de gebruiker.
+- **Grafiektoelichtingen bijhouden** — bij elke aanpassing aan het dashboard of een grafiek (`app/pages/dashboard.py` e.d.): check de bijbehorende toelichting in `app/_chart_docs.py`, werk deze bij als de grafiek verandert, en maak er een aan als een (nieuwe) grafiek nog geen toelichting heeft. Een grafiek zonder toelichting is niet af.
 
 ## Tech Stack
 - Python 3.13, uv voor dependency-management
