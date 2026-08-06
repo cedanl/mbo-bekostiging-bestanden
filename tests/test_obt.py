@@ -74,12 +74,13 @@ def test_build_obt_tbgi_fallback_detail_bekostiging_gevuld():
 # ---------------------------------------------------------------------------
 
 
-def test_build_obt_returns_five_tables(demo_obt):
+def test_build_obt_returns_zes_tables(demo_obt):
     assert set(demo_obt.keys()) == {
         "obt_inschrijvingen",
         "detail_bpv",
         "detail_kzd_amo",
         "detail_bekostiging",
+        "detail_geo",
         "meta_leveringen",
     }
 

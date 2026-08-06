@@ -26,13 +26,17 @@ def _minimal_obt() -> dict[str, pl.DataFrame]:
 
 
 def test_star_bevat_alle_tabellen():
-    """build_star retourneert vier tabellen."""
+    """build_star retourneert acht tabellen (drie dims + vijf facts)."""
     result = build_star(_minimal_obt())
     assert set(result.keys()) == {
         "dim_deelnemer",
         "dim_opleiding",
         "dim_instelling",
         "fact_inschrijving",
+        "fact_bpv",
+        "fact_kzd",
+        "fact_amo",
+        "fact_geo",
     }
 
 

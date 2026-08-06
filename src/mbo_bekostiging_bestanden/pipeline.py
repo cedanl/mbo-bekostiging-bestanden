@@ -141,7 +141,7 @@ def run_obt(
     sources: Sequence[Path | str],
     target: str | Path,
     relative_to: Path | str | None = None,
-    star: bool = False,
+    star: bool = True,
 ) -> dict[str, pl.DataFrame]:
     """Stapel prepared-mappen en bouw vijf OBT-output-tabellen.
 
@@ -150,7 +150,7 @@ def run_obt(
         target:      Doelmap voor de vijf OBT-bestanden.
         relative_to: Basispad voor automatische leveringslabels (optioneel).
         star:        Exporteer ook een dimensionaal model (star schema)
-                     naar ``<target>/datamodel/``.
+                     naar ``<target>/datamodel/`` (standaard aan).
 
     Returns:
         Dict met vijf sleutels: ``obt_inschrijvingen``, ``detail_bpv``,

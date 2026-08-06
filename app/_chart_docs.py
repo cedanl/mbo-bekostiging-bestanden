@@ -152,6 +152,22 @@ CHART_DOCS: dict[str, dict] = {
             "Leertraject en BPV-status geteld."
         ),
     },
+    "bpv_periodes": {
+        "titel": "BPV-periodes — duur en omvang",
+        "variabelen": [
+            "fact_bpv.DatumBegin",
+            "fact_bpv.DatumEindWerkelijk",
+            "fact_bpv.Omvang",
+        ],
+        "manipulatie": (
+            "Gelezen uit `fact_bpv` (grain: één rij per BPV-stage per inschrijving).  "
+            "Stages met bekende begin- én einddatum tellen mee.  De duur wordt "
+            "berekend als het aantal dagen tussen `DatumBegin` en "
+            "`DatumEindWerkelijk`.  "
+            "De gemiddelde omvang (uren/weken, afhankelijk van de bron) wordt "
+            "apart getoond."
+        ),
+    },
     "kzd": {
         "titel": "KZD-behaaldverhouding per levering",
         "variabelen": ["levering", "KZD_Aantal", "KZD_AantalBehaald"],
@@ -160,6 +176,16 @@ CHART_DOCS: dict[str, dict] = {
             "inschrijving wordt het percentage behaalde onderdelen berekend "
             "(`KZD_AantalBehaald / KZD_Aantal × 100`), waarna per levering het "
             "gemiddelde over de inschrijvingen wordt getoond."
+        ),
+    },
+    "kzd_detail": {
+        "titel": "Keuzedelen — resultaten per code",
+        "variabelen": ["fact_kzd.CodeKeuzedeel", "fact_kzd.Resultaat"],
+        "manipulatie": (
+            "Gelezen uit `fact_kzd` (grain: één rij per keuzedeel per inschrijving).  "
+            "Per keuzedeel-code (`CodeKeuzedeel`) wordt het totaal en het aantal "
+            "behaalde resultaten geteld.  Een keuzedeel telt als behaald als het "
+            "veld `Resultaat` de tekst 'BEHAALD' bevat.  Top-15 op volume."
         ),
     },
     "instelling": {
@@ -231,24 +257,26 @@ CHART_DOCS: dict[str, dict] = {
     # ── Tab Examens ──────────────────────────────────────────────────────────
     "geo_eindcijfers": {
         "titel": "GEO-examencijfers",
-        "variabelen": ["GEO_<code>_Eindcijfer"],
+        "variabelen": ["fact_geo.CodeGeneriekExamenonderdeel", "fact_geo.Eindcijfer"],
         "manipulatie": (
-            "Voor elk aanwezig generiek examenvak (kolommen `GEO_*_Eindcijfer`) "
-            "wordt het gemiddelde eindcijfer en het aantal invullingen berekend.  "
-            "De code wordt via `geo_codes.toml` vertaald naar een leesbare naam."
+            "Gelezen uit `fact_geo` (grain: één rij per "
+            "inschrijving × examenonderdeel).  "
+            "Voor elk aanwezig generiek examenvak wordt het gemiddelde eindcijfer en "
+            "het aantal invullingen berekend.  De code wordt via `geo_codes.toml` "
+            "vertaald naar een leesbare naam."
         ),
     },
     "geo_ie_ce": {
         "titel": "GEO IE vs CE — vergelijking",
         "variabelen": [
-            "GEO_3001_CijferIE",
-            "GEO_3001_CijferCE",
-            "GEO_3002_CijferIE",
-            "GEO_3002_CijferCE",
+            "fact_geo.CodeGeneriekExamenonderdeel",
+            "fact_geo.CijferIE",
+            "fact_geo.CijferCE",
         ],
         "manipulatie": (
-            "Voor Nederlands (3001) en Rekenen (3002) wordt het gemiddelde "
-            "instituutsexamen (IE) en centraal examen (CE) vergeleken."
+            "Gelezen uit `fact_geo`.  Voor Nederlands (3001) en Rekenen (3002) "
+            "wordt het gemiddelde instituutsexamen (IE) en centraal examen (CE) "
+            "vergeleken."
         ),
     },
     "amo": {
