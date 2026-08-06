@@ -91,7 +91,8 @@ def _sbb_koppeltabel_lookup() -> pl.DataFrame:
 def _patch_lookups():
     """Patch alle zeven laad-functies met in-memory tabellen.
 
-    Gebruik: ``with *_patch_lookups():`` of ``mocks = _patch_lookups(); with mocks[0], ..., mocks[6]:``.
+    Gebruik: ``with *_patch_lookups():`` of
+    ``mocks = _patch_lookups(); with mocks[0], ..., mocks[6]:``.
     """
     return (
         patch(
