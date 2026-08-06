@@ -7,7 +7,7 @@ Het ISG-record bevat de inschrijvingsgegevens van een student bij een instelling
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `ISG` | `ISG` |
-| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | `BSN1` |
+| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
 | 4 | Inschrijvingvolgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer | `C3` |
 | 5 | Datum inschrijving | Ja | D `ccyy-mm-dd` | Eerste dag inschrijving (inclusief) | `2023-01-30` |
@@ -29,7 +29,7 @@ In de GRONDSLAG heeft ISG een extra BRIN-veld (de instelling waarvoor de inschri
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `ISG` | `ISG` |
-| 2 | PGN | Ja | N9 | Pseudonummer van de student | `BSN1` |
+| 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
 | 3 | BRIN | Ja | AN4 | Instelling van inschrijving | `27DV` |
 | 4 | Inschrijvingsvolgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer | `C3` |
 | 5 | Datum inschrijving | Ja | D `ccyymmdd` | Eerste dag inschrijving | `20230130` |

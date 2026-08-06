@@ -7,7 +7,7 @@ Het BPV-record bevat een **praktijkovereenkomst** (POK) van een BBL-student bij 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `BPV` | `BPV` |
-| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | `BSN1` |
+| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
 | 4 | Inschrijvingvolgnummer | Ja | AN1..20 | Koppeling naar het ISG-record | `C3` |
 | 5 | Volgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer voor de POK | `C1` |
@@ -32,7 +32,7 @@ BPV|BSN1||C3|C1|2023-01-07|2023-02-01|2025-01-29|2024-08-30|2163|100018965|25655
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `BPV` | `BPV` |
-| 2 | PGN | Ja | N9 | Pseudonummer van de student | `BSN1` |
+| 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
 | 3 | BRIN | Ja | AN4 | Instelling van inschrijving | `27DV` |
 | 4 | Inschrijvingsvolgnummer | Ja | AN1..20 | Koppeling naar het ISG-record | `C3` |
 | 5 | Volgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer voor de POK | `C1` |

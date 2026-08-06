@@ -9,7 +9,7 @@ In het RO staan de werkelijke BSN/ONR en geboortedatum.
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `PER` | `PER` |
-| 2 | Burgerservicenummer | Nee* | AN9 | 9-cijferig BSN, voldoet aan elfproef; voorloopnullen altijd aanwezig | `BSN1` |
+| 2 | Burgerservicenummer | Nee* | AN9 | 9-cijferig BSN, voldoet aan elfproef; voorloopnullen altijd aanwezig | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN; 9 cijfers, elfproef | — |
 | 4 | Geboortedatum | Ja | D `ccyy-mm-dd` | Dag of dag+maand kan onbekend zijn (gevuld met `00`) | `1987-11-23` |
 | 5 | Geslacht | Ja | AN1 | Zie waardenlijst | `V` |
@@ -37,7 +37,7 @@ In de GRONDSLAG is de BSN vervangen door een **PGN** (pseudonummer) en de geboor
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `PER` | `PER` |
-| 2 | PGN | Ja | N9 | Pseudonummer; vervangt BSN voor privacy | `BSN1` |
+| 2 | PGN | Ja | N9 | Pseudonummer; vervangt BSN voor privacy | — |
 | 3 | Leeftijd 1 | Ja | N2 | Leeftijd op 1-8 van het studiejaar | `37` |
 | 4 | Leeftijd 2 | Ja | N2 | Leeftijd op 1-10 van het studiejaar | `37` |
 | 5 | Leeftijd 3 | Ja | N2 | Leeftijd op 1-2 van het studiejaar | `38` |

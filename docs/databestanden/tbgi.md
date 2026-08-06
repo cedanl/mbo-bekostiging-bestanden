@@ -118,7 +118,7 @@ Voorbeeld: bekostigingsjaar 2027 = inschrijvingen studiejaar 2025–2026, diplom
 | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|
 | BRIN | Ja | AN4 | Unieke instelling-code | `25LX` |
-| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld | `100000000` |
+| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld | — |
 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
 | Inschrijvingvolgnummer | Ja | AN1..20 | Inschrijvingsreferentie van de instelling | `002` |
 | DatumInschrijving | Ja | D `ccyy-mm-dd` | Begin inschrijving | `2024-02-01` |
@@ -152,7 +152,7 @@ Voorbeeld: bekostigingsjaar 2027 = inschrijvingen studiejaar 2025–2026, diplom
 | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|
 | BRIN | Ja | AN4 | Instelling waar diploma behaald | `25LX` |
-| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld | `200000000` |
+| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld | — |
 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
 | Resultaatvolgnummer | Ja | AN1..20 | Diploma-referentie van de instelling | `1362433` |
 | Opleidingcode | Ja | AN5 | CREBO-code | `25297` |

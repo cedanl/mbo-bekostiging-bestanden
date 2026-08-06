@@ -7,7 +7,7 @@ Het KZD-record bevat het resultaat van een **keuzedeel**. Dit kan horen bij een 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `KZD` | `KZD` |
-| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | `BSN1` |
+| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | `27DV` |
 | 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; alleen bij diploma-KZD | `8286771` |
 | 5 | Opleidingcode diploma | Nee | AN5 | Opleiding van het diploma; alleen bij diploma-KZD | `8286772` |

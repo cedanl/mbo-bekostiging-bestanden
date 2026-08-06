@@ -7,7 +7,7 @@ Het ISP-record beschrijft een **periode** binnen een inschrijving, met de opleid
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `ISP` | `ISP` |
-| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | `BSN1` |
+| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
 | 4 | Inschrijvingvolgnummer | Ja | AN1..20 | Koppeling naar het ISG-record | `C3` |
 | 5 | Datum begin | Ja | D `ccyy-mm-dd` | Begindatum van de periode (inclusief) | `2023-01-30` |
@@ -35,7 +35,7 @@ In de GRONDSLAG heeft ISP een extra BRIN-veld én een Datum eind veld.
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `ISP` | `ISP` |
-| 2 | PGN | Ja | N9 | Pseudonummer van de student | `BSN1` |
+| 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
 | 3 | BRIN | Ja | AN4 | Instelling van inschrijving | `27DV` |
 | 4 | Inschrijvingsvolgnummer | Ja | AN1..20 | Koppeling naar het ISG-record | `C3` |
 | 5 | Datum begin | Ja | D `ccyymmdd` | Begindatum van de periode | `20230130` |

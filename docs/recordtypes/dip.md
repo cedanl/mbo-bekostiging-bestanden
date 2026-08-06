@@ -7,7 +7,7 @@ Het DIP-record bevat de gegevens van een behaald diploma. Een student kan meerde
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `DIP` | `DIP` |
-| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | `BSN1` |
+| 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
 | 4 | Resultaatvolgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer voor het diploma | `8286771` |
 | 5 | Opleidingcode | Ja | AN5 | CREBO-code van de opleiding | `25655` |
@@ -29,7 +29,7 @@ DIP|BSN1||8286771|25655|2025-01-16||J|C3|100A501
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
 | 1 | Recordsoort | Ja | AN3 | Waarde `DIP` | `DIP` |
-| 2 | PGN | Ja | N9 | Pseudonummer van de student | `BSN1` |
+| 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
 | 3 | BRIN | Ja | AN4 | Instelling waar diploma behaald | `27DV` |
 | 4 | Resultaatvolgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer | `8286771` |
 | 5 | Opleidingcode | Ja | AN5 | CREBO-code | `25655` |
