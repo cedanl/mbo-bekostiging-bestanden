@@ -39,6 +39,16 @@ def _resolve_dir() -> Path | None:
     return None
 
 
+@st.cache_resource(show_spinner=False)
+def _lees_obt(pad: str, mtime: float) -> pl.DataFrame:
+    """Leest de OBT-tabel in en houdt het DataFrame in het geheugen.
+
+    Gecached op pad + wijzigingsdatum, zodat elke Streamlit-rerun niet de
+    hele tabel opnieuw hoeft te lezen.
+    """
+    return pl.read_parquet(pad)
+
+
 _PILLS_KEY = "studiejaar_pills"
 
 
@@ -91,7 +101,8 @@ if data_dir is None:
         st.switch_page("pages/home.py")
     st.stop()
 
-df = pl.read_parquet(data_dir / "obt_inschrijvingen.parquet")
+obt_pad = data_dir / "obt_inschrijvingen.parquet"
+df = _lees_obt(str(obt_pad), obt_pad.stat().st_mtime)
 df = _sidebar_studiejaar_filter(df)
 
 # ---------------------------------------------------------------------------
@@ -478,17 +489,14 @@ with tab_studenten:
 
     st.subheader("Uitstroomredenen")
     if "RedenUitschrijving" in df.columns:
-
-        def _label_reden(code: str | None) -> str:
-            if code is None or code == "":
-                return "Nog ingeschreven"
-            lbl = REDEN_LABELS.get(code)
-            return lbl if lbl is not None else f"Overig (code: {code})"
-
+        reden_code = pl.col("RedenUitschrijving")
         uitstroom = (
             df.with_columns(
-                pl.col("RedenUitschrijving")
-                .map_elements(_label_reden, return_dtype=pl.String)
+                pl.when(reden_code.is_null() | (reden_code == ""))
+                .then(pl.lit("Nog ingeschreven"))
+                .when(reden_code.is_in(REDEN_LABELS))
+                .then(reden_code.replace_strict(REDEN_LABELS))
+                .otherwise(pl.format("Overig (code: {})", reden_code))
                 .alias("Reden")
             )
             .group_by("Reden")

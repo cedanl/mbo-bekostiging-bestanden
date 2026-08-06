@@ -6,22 +6,22 @@ Het GEO-record bevat de resultaten voor een **generiek examenonderdeel** (taal o
 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `GEO` | — |
+| 1 | Recordsoort | Ja | AN3 | Waarde `GEO` | `GEO` |
 | 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
-| 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; alleen bij diploma-GEO | — |
-| 5 | Opleidingcode diploma | Nee | AN5 | Opleiding van het diploma; alleen bij diploma-GEO | — |
-| 6 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer van dit GEO-record | — |
-| 7 | Code generiek examenonderdeel | Ja | AN4 | Unieke identificatie van het onderdeel | — |
-| 8 | Datum resultaat | Nee | D `ccyy-mm-dd` | Alleen bij los GEO-onderdeel | — |
-| 9 | Eindcijfer | Nee | N1..2 | Behaald eindcijfer | — |
-| 10 | Vrijstelling generiek examenonderdeel | Nee | AN1..4 | Vrijstellingsgrond voor het gehele onderdeel | — |
-| 11 | Cijfer IE | Nee | N2..3 | Cijfer institutioneel examen | — |
-| 12 | Vrijstelling IE | Nee | AN3 | Vrijstellingsgrond voor IE | — |
-| 13 | Cijfer CE | Nee | N2..3 | Cijfer centraal examen | — |
-| 14 | Vrijstelling CE | Nee | AN3 | Vrijstellingsgrond voor CE | — |
-| 15 | Inschrijvingvolgnummer | Nee | AN1..20 | Alleen bij los GEO-onderdeel | — |
-| 16 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | — |
+| 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; alleen bij diploma-GEO | `8286771` |
+| 5 | Opleidingcode diploma | Nee | AN5 | Opleiding van het diploma; alleen bij diploma-GEO | `25655` |
+| 6 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer van dit GEO-record | `8286774` |
+| 7 | Code generiek examenonderdeel | Ja | AN4 | Unieke identificatie van het onderdeel | `3005` |
+| 8 | Datum resultaat | Nee | D `ccyy-mm-dd` | Alleen bij los GEO-onderdeel | `4-10-2023` |
+| 9 | Eindcijfer | Nee | N1..2 | Behaald eindcijfer | `6` |
+| 10 | Vrijstelling generiek examenonderdeel | Nee | AN1..4 | Vrijstellingsgrond voor het gehele onderdeel | `MBO` |
+| 11 | Cijfer IE | Nee | N2..3 | Cijfer institutioneel examen | `74` |
+| 12 | Vrijstelling IE | Nee | AN3 | Vrijstellingsgrond voor IE | `MBO` |
+| 13 | Cijfer CE | Nee | N2..3 | Cijfer centraal examen | `51` |
+| 14 | Vrijstelling CE | Nee | AN3 | Vrijstellingsgrond voor CE | `MBO` |
+| 15 | Inschrijvingvolgnummer | Nee | AN1..20 | Alleen bij los GEO-onderdeel | `2` |
+| 16 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | `101A741` |
 
 *Ofwel BSN ofwel ONR is gevuld.
 
@@ -36,21 +36,21 @@ In de GRONDSLAG ontbreekt het veld `Opleidingcode diploma`.
 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `GEO` | — |
+| 1 | Recordsoort | Ja | AN3 | Waarde `GEO` | `GEO` |
 | 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
-| 3 | BRIN | Ja | AN4 | Instelling | — |
-| 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; leeg bij los GEO | — |
-| 5 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer | — |
-| 6 | Code generiek examenonderdeel | Ja | AN5 | Unieke identificatie | — |
-| 7 | Eindcijfer | Nee | N2 | Behaald eindcijfer | — |
-| 8 | Vrijstelling generiek examenonderdeel | Nee | AN70 | Vrijstellingsgrond | — |
-| 9 | Cijfer IE | Nee | AN3 | Cijfer institutioneel examen | — |
-| 10 | Vrijstelling IE | Nee | AN70 | Vrijstellingsgrond IE | — |
-| 11 | Cijfer CE | Nee | AN3 | Cijfer centraal examen | — |
-| 12 | Vrijstelling CE | Nee | AN70 | Vrijstellingsgrond CE | — |
-| 13 | Datum resultaat | Nee | D `ccyymmdd` | Alleen bij los onderdeel | — |
-| 14 | Inschrijvingvolgnummer | Nee | AN1..20 | Alleen bij los onderdeel | — |
-| 15 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | — |
+| 3 | BRIN | Ja | AN4 | Instelling | `27DV` |
+| 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; leeg bij los GEO | `8286771` |
+| 5 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer | `8286774` |
+| 6 | Code generiek examenonderdeel | Ja | AN5 | Unieke identificatie | `3005` |
+| 7 | Eindcijfer | Nee | N2 | Behaald eindcijfer | `6` |
+| 8 | Vrijstelling generiek examenonderdeel | Nee | AN70 | Vrijstellingsgrond | `MBO` |
+| 9 | Cijfer IE | Nee | AN3 | Cijfer institutioneel examen | `74` |
+| 10 | Vrijstelling IE | Nee | AN70 | Vrijstellingsgrond IE | `MBO` |
+| 11 | Cijfer CE | Nee | AN3 | Cijfer centraal examen | `51` |
+| 12 | Vrijstelling CE | Nee | AN70 | Vrijstellingsgrond CE | `MBO` |
+| 13 | Datum resultaat | Nee | D `ccyymmdd` | Alleen bij los onderdeel | `20250304` |
+| 14 | Inschrijvingvolgnummer | Nee | AN1..20 | Alleen bij los onderdeel | `C3` |
+| 15 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | `100A500` |
 
 **Voorbeeld (GEO bij diploma):**
 ```

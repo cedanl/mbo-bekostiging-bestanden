@@ -6,17 +6,17 @@ Het AMO-record bevat een **AMvB-onderdeel** (Algemene Maatregel van Bestuur exam
 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `AMO` | — |
+| 1 | Recordsoort | Ja | AN3 | Waarde `AMO` | `AMO` |
 | 2 | Burgerservicenummer | Nee* | AN9 | BSN van de student | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
-| 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; alleen gevuld als AMO bij diploma hoort | — |
-| 5 | Opleidingcode diploma | Nee | AN5 | Opleiding van het diploma; alleen gevuld als AMO bij diploma hoort | — |
-| 6 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer van dit AMO-record | — |
-| 7 | Code AMvB onderdeel | Ja | AN5 | Unieke identificatie van het AMvB-onderdeel | — |
-| 8 | Datum resultaat | Nee | D `ccyy-mm-dd` | Alleen gevuld bij los AMvB-onderdeel | — |
-| 9 | Certificaat | Nee | AN1 | `J` = certificaat uitgereikt; alleen bij los onderdeel | — |
-| 10 | Inschrijvingvolgnummer | Nee | AN1..20 | Koppeling naar ISG; alleen bij los onderdeel | — |
-| 11 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | — |
+| 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; alleen gevuld als AMO bij diploma hoort | `1405571` |
+| 5 | Opleidingcode diploma | Nee | AN5 | Opleiding van het diploma; alleen gevuld als AMO bij diploma hoort | `25988` |
+| 6 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer van dit AMO-record | `1415418` |
+| 7 | Code AMvB onderdeel | Ja | AN5 | Unieke identificatie van het AMvB-onderdeel | `C0004` |
+| 8 | Datum resultaat | Nee | D `ccyy-mm-dd` | Alleen gevuld bij los AMvB-onderdeel | `15-12-2025` |
+| 9 | Certificaat | Nee | AN1 | `J` = certificaat uitgereikt; alleen bij los onderdeel | `J` |
+| 10 | Inschrijvingvolgnummer | Nee | AN1..20 | Koppeling naar ISG; alleen bij los onderdeel | `C1` |
+| 11 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | `101A742` |
 
 *Ofwel BSN ofwel ONR is gevuld.
 
@@ -24,9 +24,9 @@ Het AMO-record bevat een **AMvB-onderdeel** (Algemene Maatregel van Bestuur exam
 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `AMO` | — |
+| 1 | Recordsoort | Ja | AN3 | Waarde `AMO` | `AMO` |
 | 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
-| 3 | BRIN | Ja | AN4 | Instelling | — |
+| 3 | BRIN | Ja | AN4 | Instelling | `27DV` |
 | 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; leeg bij los AMO | — |
 | 5 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer | — |
 | 6 | Code AMvB onderdeel | Ja | AN5 | Unieke identificatie | — |

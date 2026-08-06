@@ -8,6 +8,18 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+
+@st.cache_resource(show_spinner=False)
+def _lees_tabel(pad: str, mtime: float) -> pl.DataFrame:
+    """Houdt een gelezen Parquet-tabel in het geheugen tussen reruns."""
+    return pl.read_parquet(pad)
+
+
+@st.cache_data(show_spinner=False)
+def _tabel_csv(pad: str, mtime: float) -> str:
+    """Genereert de CSV-tekst één keer per bestand i.p.v. bij elke rerun."""
+    return _lees_tabel(pad, mtime).write_csv()
+
 st.markdown(
     '<span style="font-size:.75rem;font-weight:700;color:#7b8ab8;'
     'text-transform:uppercase;letter-spacing:.08em">Resultaten</span>',
@@ -52,7 +64,8 @@ gekozen = st.selectbox(
 
 if gekozen and gekozen != "---":
     parquet_pad = result_path / f"{gekozen}.parquet"
-    df = pl.read_parquet(parquet_pad)
+    mtime = parquet_pad.stat().st_mtime
+    df = _lees_tabel(str(parquet_pad), mtime)
     tabel_label = gekozen.split("/")[-1]
 
     col_info1, col_info2 = st.columns(2)
@@ -64,10 +77,9 @@ if gekozen and gekozen != "---":
     if df.height > 1_000:
         st.caption(f"Eerste 1 000 van {df.height:,} rijen getoond.")
 
-    csv = df.write_csv()
     st.download_button(
         label=f"Download `{tabel_label}.csv`",
-        data=csv,
+        data=_tabel_csv(str(parquet_pad), mtime),
         file_name=f"{tabel_label}.csv",
         mime="text/csv",
         use_container_width=True,
