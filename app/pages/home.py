@@ -70,8 +70,7 @@ if not groepen:
 
 totaal_bestanden = sum(len(v) for v in groepen.values())
 st.write(
-    f"**{totaal_bestanden} bestand(en) gevonden** in `{raw}` "
-    f"— {len(groepen)} map(pen):"
+    f"**{totaal_bestanden} bestand(en) gevonden** in `{raw}` — {len(groepen)} map(pen):"
 )
 
 for periode in sorted(groepen):
@@ -117,8 +116,7 @@ if not done:
         # Stap 2: alle prepared dirs samen stapelen en één gecombineerde OBT bouwen
         status.info("Stapel alle leveringen en bouw gecombineerde OBT…")
         prep_dirs_met_data = [
-            d for d in alle_prep_dirs
-            if d.exists() and any(d.glob("*.parquet"))
+            d for d in alle_prep_dirs if d.exists() and any(d.glob("*.parquet"))
         ]
         obt_target = output / "obt"
         obt_target.mkdir(parents=True, exist_ok=True)
@@ -126,7 +124,6 @@ if not done:
         try:
             stacked = stack_prepared(prep_dirs_met_data, relative_to=prepared)
             obt = build_obt(stacked)
-            export_frames(obt, obt_target)
             star_tables = build_star(obt)
             export_frames(star_tables, obt_target / "datamodel")
             obt_summary = {
@@ -135,7 +132,12 @@ if not done:
                 "bpv_rijen": obt["detail_bpv"].height,
                 "kzd_amo_rijen": obt["detail_kzd_amo"].height,
                 "leveringen": sorted(
-                    obt["obt_inschrijvingen"]["levering"].unique().to_list()
+                    {
+                        lev
+                        for tbl in obt.values()
+                        if "levering" in tbl.columns and not tbl.is_empty()
+                        for lev in tbl["levering"].drop_nulls().unique().to_list()
+                    }
                 ),
             }
         except Exception as exc:

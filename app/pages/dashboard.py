@@ -4,6 +4,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+import altair as alt
 import polars as pl
 import streamlit as st
 
@@ -38,6 +39,8 @@ REDEN_LABELS = {
 _BPV_DUUR_GRENZEN = (30, 90, 180)  # dagen — grenzen voor de duurklasse-buckets
 _KZD_TOP_N = 15  # maximaal aantal keuzedelen in de detailtabel
 _KZD_BEHAALD_RE = "(?i)behaald"  # patroon om behaald-status te herkennen
+_KZD_LAGE_GRENS = 50  # drempel waaronder slagingskans als laag wordt beschouwd (%)
+_SBB_BEROEP_TOP_N = 20  # maximaal aantal beroepen in de S-BB-grafiek
 
 
 def _resolve_dir() -> Path | None:
@@ -45,10 +48,10 @@ def _resolve_dir() -> Path | None:
         val = st.session_state.get(key)
         if val:
             p = Path(val)
-            if (p / "obt_inschrijvingen.parquet").exists():
+            if (p / "datamodel" / "fact_inschrijving.parquet").exists():
                 return p
     fallback = output_dir() / "obt"
-    if (fallback / "obt_inschrijvingen.parquet").exists():
+    if (fallback / "datamodel" / "fact_inschrijving.parquet").exists():
         return fallback
     return None
 
@@ -61,8 +64,8 @@ def _lees_parquet(pad: str, mtime: float) -> pl.DataFrame:
 
 def _lees_star_schema(
     data_dir: Path,
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    """Laad het star schema en lever (df, fact_geo, fact_bpv, fact_kzd).
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Laad het star schema en lever (df, fact_geo, fact_bpv, fact_kzd, fact_bek).
 
     ``df`` is fact_inschrijving gejoined met de drie dim-tabellen, wat een
     vergelijkbaar kolomset geeft als de oude OBT (zonder GEO-pivotkolommen).
@@ -89,7 +92,21 @@ def _lees_star_schema(
     if not dim_instelling.is_empty() and "BRIN" in df.columns:
         df = df.join(dim_instelling, on="BRIN", how="left")
 
-    return df, _laad("fact_geo"), _laad("fact_bpv"), _laad("fact_kzd")
+    fact_bek = _laad("fact_bekostiging")
+    if not fact_bek.is_empty() and not dim_opleiding.is_empty() and "Opleidingcode" in fact_bek.columns:
+        fact_bek = fact_bek.join(dim_opleiding, on="Opleidingcode", how="left")
+        fact_bek = fact_bek.drop([c for c in fact_bek.columns if c.endswith("_right")])
+    if not fact_bek.is_empty() and not dim_instelling.is_empty() and "BRIN" in fact_bek.columns:
+        fact_bek = fact_bek.join(dim_instelling, on="BRIN", how="left")
+        fact_bek = fact_bek.drop([c for c in fact_bek.columns if c.endswith("_right")])
+
+    return (
+        df,
+        _laad("fact_geo"),
+        _laad("fact_bpv"),
+        _laad("fact_kzd"),
+        fact_bek,
+    )
 
 
 _PILLS_KEY = "studiejaar_pills"
@@ -144,7 +161,7 @@ if data_dir is None:
         st.switch_page("pages/home.py")
     st.stop()
 
-df, fact_geo, fact_bpv, fact_kzd = _lees_star_schema(data_dir)
+df, fact_geo, fact_bpv, fact_kzd, fact_bekostiging = _lees_star_schema(data_dir)
 df = _sidebar_studiejaar_filter(df)
 
 # Sleutels voor join op detail-feiten, gefilterd op geselecteerde studiejaren.
@@ -164,9 +181,24 @@ def _filter_fact(f: pl.DataFrame) -> pl.DataFrame:
     return f.join(keys, on=join_on, how="inner")
 
 
+def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
+    """Horizontaal staafdiagram gesorteerd op waarde (aflopend = meest boven)."""
+    chart = (
+        alt.Chart(df.select([label, value]))
+        .mark_bar()
+        .encode(
+            y=alt.Y(f"{label}:N", sort="-x", title=label),
+            x=alt.X(f"{value}:Q", title=value),
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
 fact_geo_f = _filter_fact(fact_geo)
 fact_bpv_f = _filter_fact(fact_bpv)
 fact_kzd_f = _filter_fact(fact_kzd)
+# TBGI fact: zelfstandige fact-tabel met eigen dimensies; geen FK-join op ISP-sleutels.
+fact_bek_f = fact_bekostiging
 
 # ---------------------------------------------------------------------------
 # Header metrics
@@ -213,8 +245,16 @@ st.divider()
 # Tabs
 # ---------------------------------------------------------------------------
 
-tab_rendementen, tab_bekostiging, tab_opleidingen, tab_studenten, tab_examens = st.tabs(
-    ["Rendementen", "Bekostiging", "Opleidingen", "Studenten", "Examens"]
+(
+    tab_rendementen,
+    tab_bekostiging,
+    tab_opleidingen,
+    tab_studenten,
+    tab_examens,
+    tab_opl_structuur,
+) = st.tabs(
+    ["Rendementen", "Bekostiging", "Opleidingen", "Studenten", "Examens",
+     "Opleidingsstructuur"]
 )
 
 # ---------------------------------------------------------------------------
@@ -282,16 +322,7 @@ with tab_rendementen:
                 )
                 st.dataframe(jr, use_container_width=True, hide_index=True)
 
-                st.scatter_chart(
-                    jr,
-                    x="levering",
-                    y="JR (%)",
-                    size="Actief 1-okt (N)",
-                    color="Niveau",
-                    x_label="Levering",
-                    y_label="JR (%)",
-                    height=400,
-                )
+                st.bar_chart(jr, x="Niveau", y="JR (%)", color="levering")
                 st.caption(
                     "Normen voor voldoende (JR): niveau 2 = "
                     f"{norm_voor('jr', 2, 'voldoende')}%, niveau 3/4 = "
@@ -368,7 +399,7 @@ with tab_rendementen:
         )
         st.dataframe(entree_df, use_container_width=True, hide_index=True)
         if "Categorie" in entree_df.columns:
-            st.bar_chart(entree_df, x="Categorie", y="Aantal", color="Categorie")
+            st.bar_chart(entree_df, x="Categorie", y="Aandeel (%)")
 
     st.subheader("Diploma's per Leertraject")
     chart_help("diplomas_leertraject")
@@ -474,6 +505,29 @@ with tab_bekostiging:
     else:
         st.info("Kolom `_ingeschreven_jaar_later` niet beschikbaar.")
 
+    st.subheader("Bekostigingsgrondslagen (TBGI)")
+    chart_help("bekostigingsgrondslagen")
+    if not fact_bek_f.is_empty() and "Bekostigingsstatus" in fact_bek_f.columns:
+        bek_status = (
+            fact_bek_f.filter(pl.col("Bekostigingsstatus").is_not_null())
+            .group_by("Bekostigingsstatus")
+            .agg(pl.len().alias("Inschrijvingen"))
+        )
+        if not bek_status.is_empty():
+            _hbar(bek_status, "Bekostigingsstatus", "Inschrijvingen")
+        if "BijdrageInschrijvingAanDeelnemerswaarde" in fact_bek_f.columns:
+            totaal_dw = fact_bek_f["BijdrageInschrijvingAanDeelnemerswaarde"].sum()
+            st.metric(
+                "Totale deelnemerswaarde (som)",
+                f"{totaal_dw:,.2f}" if totaal_dw is not None else "—",
+                help="Som van `BijdrageInschrijvingAanDeelnemerswaarde` over alle "
+                "TBGI-rijen in de selectie.",
+            )
+    else:
+        st.info(
+            "fact_bekostiging niet beschikbaar of kolom `Bekostigingsstatus` ontbreekt."
+        )
+
 # ---------------------------------------------------------------------------
 # Tab 3 — Opleidingen
 # ---------------------------------------------------------------------------
@@ -506,14 +560,49 @@ with tab_opleidingen:
                 top10 = top10.with_columns(
                     ("CREBO " + pl.col("Opleidingcode")).alias("Opleiding")
                 )
-            top10 = top10.with_columns(
-                pl.col("Opleiding").cast(pl.Enum(top10["Opleiding"].to_list()))
-            )
-            st.bar_chart(top10, x="Opleiding", y="Inschrijvingen")
+            _hbar(top10, "Opleiding", "Inschrijvingen")
         else:
             st.info("Geen data beschikbaar voor deze grafiek.")
     else:
         st.info("Kolom `Opleidingcode` niet beschikbaar.")
+
+    st.subheader("Inschrijvingen per domein")
+    chart_help("inschrijvingen_domein")
+    if "Opleiding_domein" in df.columns:
+        domein = (
+            df.filter(
+                pl.col("Opleiding_domein").is_not_null()
+                & (pl.col("Opleiding_domein") != "")
+            )
+            .group_by("Opleiding_domein")
+            .agg(pl.len().alias("Inschrijvingen"))
+            .rename({"Opleiding_domein": "Domein"})
+        )
+        if not domein.is_empty():
+            _hbar(domein, "Domein", "Inschrijvingen")
+        else:
+            st.info("Geen domeindata beschikbaar.")
+    else:
+        st.info("Kolom `Opleiding_domein` niet beschikbaar.")
+
+    st.subheader("Inschrijvingen per sectorkamer")
+    chart_help("inschrijvingen_sectorkamer")
+    if "Opleiding_sectorkamer" in df.columns:
+        sectorkamer = (
+            df.filter(
+                pl.col("Opleiding_sectorkamer").is_not_null()
+                & (pl.col("Opleiding_sectorkamer") != "")
+            )
+            .group_by("Opleiding_sectorkamer")
+            .agg(pl.len().alias("Inschrijvingen"))
+            .rename({"Opleiding_sectorkamer": "Sectorkamer"})
+        )
+        if not sectorkamer.is_empty():
+            _hbar(sectorkamer, "Sectorkamer", "Inschrijvingen")
+        else:
+            st.info("Geen sectorkamerdata beschikbaar.")
+    else:
+        st.info("Kolom `Opleiding_sectorkamer` niet beschikbaar.")
 
     st.subheader("BOL vs BBL per levering")
     chart_help("bol_bbl_levering")
@@ -675,6 +764,13 @@ with tab_opleidingen:
         )
         if not kzd_detail.is_empty():
             st.dataframe(kzd_detail, use_container_width=True, hide_index=True)
+            lage_kzd = kzd_detail.filter(pl.col("Behaald (%)") < _KZD_LAGE_GRENS)
+            if not lage_kzd.is_empty():
+                st.warning(
+                    f"{lage_kzd.height} keuzedeel(en) in de top-{_KZD_TOP_N} "
+                    f"met minder dan {_KZD_LAGE_GRENS}% behaald:"
+                )
+                st.dataframe(lage_kzd, use_container_width=True, hide_index=True)
         else:
             st.info("Geen keuzedeel-data beschikbaar.")
     else:
@@ -736,12 +832,7 @@ with tab_studenten:
             .rename({"Nationaliteit1_migratieachtergrond": "Migratieachtergrond"})
         )
         if not herkomst.is_empty():
-            herkomst = herkomst.with_columns(
-                pl.col("Migratieachtergrond").cast(
-                    pl.Enum(herkomst["Migratieachtergrond"].to_list())
-                )
-            )
-            st.bar_chart(herkomst, x="Migratieachtergrond", y="Inschrijvingen")
+            _hbar(herkomst, "Migratieachtergrond", "Inschrijvingen")
         else:
             st.info("Geen herkomstdata beschikbaar.")
 
@@ -799,10 +890,7 @@ with tab_studenten:
             .sort("Aantal", descending=True)
         )
         if not uitstroom.is_empty():
-            uitstroom = uitstroom.with_columns(
-                pl.col("Reden").cast(pl.Enum(uitstroom["Reden"].to_list()))
-            )
-            st.bar_chart(uitstroom, x="Reden", y="Aantal")
+            _hbar(uitstroom, "Reden", "Aantal")
         else:
             st.info("Geen uitstroomdata beschikbaar.")
     else:
@@ -907,6 +995,34 @@ with tab_examens:
     else:
         st.info("fact_geo niet beschikbaar of kolommen ontbreken.")
 
+    st.subheader("GEO slagingspercentage (eindcijfer ≥ 5,5)")
+    chart_help("geo_slagingspercentage")
+    if (
+        not fact_geo_f.is_empty()
+        and "CodeGeneriekExamenonderdeel" in fact_geo_f.columns
+        and "Eindcijfer" in fact_geo_f.columns
+    ):
+        geo_slag_rows = []
+        for (code,), grp in fact_geo_f.group_by("CodeGeneriekExamenonderdeel"):
+            vals = grp["Eindcijfer"].drop_nulls().cast(pl.Float64)
+            if vals.is_empty():
+                continue
+            geslaagd = int((vals >= 5.5).sum())
+            geo_slag_rows.append(
+                {
+                    "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
+                    "Geslaagd (%)": round(geslaagd / len(vals) * 100, 1),
+                    "N": len(vals),
+                }
+            )
+        if geo_slag_rows:
+            slag_tbl = pl.DataFrame(geo_slag_rows)
+            _hbar(slag_tbl, "Onderdeel", "Geslaagd (%)")
+        else:
+            st.info("Geen GEO-eindcijfers beschikbaar voor slagingspercentage.")
+    else:
+        st.info("fact_geo niet beschikbaar of kolom `Eindcijfer` ontbreekt.")
+
     st.subheader("GEO IE vs CE — vergelijking")
     chart_help("geo_ie_ce")
     if (
@@ -968,6 +1084,150 @@ with tab_examens:
             st.info("Kolom `AMO_Aantal` is volledig leeg.")
     else:
         st.info("Kolom `AMO_Aantal` niet beschikbaar.")
+
+# ---------------------------------------------------------------------------
+# Tab 6 — Opleidingsstructuur
+# ---------------------------------------------------------------------------
+
+with tab_opl_structuur:
+    st.markdown(
+        "Overzicht van de CREBO-structuur: **kwalificatiedossiers (23xxx)**, "
+        "**kwalificaties/beroepen (25xxx/27xxx)** via de S-BB koppeltabel, "
+        "en **hercodering** bij dossierherziening. "
+        "Klik op ℹ️ bij elke grafiek voor de exacte definitie."
+    )
+
+    # ── Dossiers (23xxx) ────────────────────────────────────────────────────
+
+    st.subheader("Inschrijvingen per kwalificatiedossier (23xxx)")
+    chart_help("dossier_inschrijvingen")
+    if "Opleiding_dossiercode" in df.columns and "Opleiding_dossier" in df.columns:
+        dossier = (
+            df.filter(pl.col("Opleiding_dossiercode").is_not_null())
+            .with_columns(
+                pl.format(
+                    "{} — {}", "Opleiding_dossiercode", "Opleiding_dossier"
+                ).alias("Dossier")
+            )
+            .group_by("Dossier")
+            .agg(pl.len().alias("Inschrijvingen"))
+            .sort("Inschrijvingen", descending=True)
+        )
+        if not dossier.is_empty():
+            _hbar(dossier, "Dossier", "Inschrijvingen")
+        else:
+            st.info("Geen dossierdata beschikbaar.")
+    else:
+        st.info(
+            "Kolommen `Opleiding_dossiercode` of `Opleiding_dossier` niet beschikbaar."
+        )
+
+    # ── S-BB beroepen (25xxx / 27xxx) ───────────────────────────────────────
+
+    st.subheader("Inschrijvingen per beroep (S-BB koppeltabel)")
+    chart_help("sbb_beroep_inschrijvingen")
+    if "Opleiding_beroep" in df.columns:
+        beroep = (
+            df.filter(
+                pl.col("Opleiding_beroep").is_not_null()
+                & (pl.col("Opleiding_beroep") != "")
+            )
+            .group_by("Opleiding_beroep")
+            .agg(pl.len().alias("Inschrijvingen"))
+            .sort("Inschrijvingen", descending=True)
+            .head(_SBB_BEROEP_TOP_N)
+            .rename({"Opleiding_beroep": "Beroep"})
+        )
+        if not beroep.is_empty():
+            _hbar(beroep, "Beroep", "Inschrijvingen")
+        else:
+            st.info("Geen beroepsdata beschikbaar (S-BB koppeltabel).")
+    else:
+        st.info("Kolom `Opleiding_beroep` niet beschikbaar.")
+
+    st.subheader("Looptijd van opleidingen (S-BB)")
+    chart_help("sbb_looptijd")
+    if (
+        "Opleiding_laatste_schooljaar" in df.columns
+        and "Opleiding_eerste_schooljaar" in df.columns
+    ):
+        looptijd_cols = [
+            "Opleidingcode",
+            "Opleiding_eerste_schooljaar",
+            "Opleiding_laatste_schooljaar",
+        ]
+        if "Opleiding_naam" in df.columns:
+            looptijd_cols.insert(1, "Opleiding_naam")
+        looptijd = (
+            df.filter(pl.col("Opleiding_laatste_schooljaar").is_not_null())
+            .select([c for c in looptijd_cols if c in df.columns])
+            .unique(subset=["Opleidingcode"])
+            .sort("Opleiding_laatste_schooljaar")
+        )
+        if not looptijd.is_empty():
+            # Distributiebalk: hoeveel inschrijvingen per "laatste schooljaar"
+            dist = (
+                df.filter(pl.col("Opleiding_laatste_schooljaar").is_not_null())
+                .group_by("Opleiding_laatste_schooljaar")
+                .agg(pl.len().alias("Inschrijvingen"))
+                .sort("Opleiding_laatste_schooljaar")
+                .rename({"Opleiding_laatste_schooljaar": "Laatste schooljaar"})
+            )
+            st.bar_chart(dist, x="Laatste schooljaar", y="Inschrijvingen")
+            with st.expander("Detailtabel opleidingen met looptijd"):
+                st.dataframe(looptijd, use_container_width=True, hide_index=True)
+        else:
+            st.info("Geen looptijddata beschikbaar.")
+    else:
+        st.info(
+            "Kolommen `Opleiding_eerste_schooljaar` of `Opleiding_laatste_schooljaar` "
+            "niet beschikbaar."
+        )
+
+    # ── Hercodering 25xxx → 27xxx ────────────────────────────────────────────
+
+    st.subheader("Hercodering: 25xxx → 27xxx (via S-BB opvolger)")
+    chart_help("hercodering_25_27")
+    if "Opleiding_opvolger" in df.columns and "Opleidingcode" in df.columns:
+        met_opvolger_dim = (
+            df.filter(pl.col("Opleiding_opvolger").is_not_null())
+            .select(
+                [
+                    c
+                    for c in [
+                        "Opleidingcode",
+                        "Opleiding_naam",
+                        "Opleiding_opvolger",
+                        "Opleiding_dossier",
+                    ]
+                    if c in df.columns
+                ]
+            )
+            .unique(subset=["Opleidingcode"])
+            .sort("Opleidingcode")
+        )
+        inschrijvingen_oud = (
+            df.filter(pl.col("Opleiding_opvolger").is_not_null()).height
+        )
+        hc1, hc2 = st.columns(2)
+        hc1.metric(
+            "Unieke codes mét opvolger",
+            met_opvolger_dim.height,
+            help="Aantal unieke CREBO-codes (25xxx) waarvoor de S-BB koppeltabel "
+            "een opvolger (27xxx) vermeldt.",
+        )
+        hc2.metric(
+            "Inschrijvingen op 'oude' code",
+            f"{inschrijvingen_oud:,}",
+            help="Inschrijvingen waarbij de Opleidingcode een opvolger heeft; "
+            "voor longitudinale analyses samenvoegen met de 27xxx-opvolger.",
+        )
+        if not met_opvolger_dim.is_empty():
+            st.dataframe(met_opvolger_dim, use_container_width=True, hide_index=True)
+        else:
+            st.info("Geen opleidingen met opvolger in de geselecteerde data.")
+    else:
+        st.info("Kolom `Opleiding_opvolger` niet beschikbaar.")
 
 st.caption(
     "© CEDA · Npuls — [GitHub](https://github.com/cedanl/mbo-bekostiging-bestanden)"

@@ -116,6 +116,20 @@ CHART_DOCS: dict[str, dict] = {
             "aantal inschrijvingen per categorie geteld."
         ),
     },
+    "bekostigingsgrondslagen": {
+        "titel": "Bekostigingsgrondslagen (TBGI)",
+        "variabelen": [
+            "fact_bekostiging.Bekostigingsstatus",
+            "fact_bekostiging.BijdrageInschrijvingAanDeelnemerswaarde",
+        ],
+        "manipulatie": (
+            "Gelezen uit `fact_bekostiging` (grain: één rij per inschrijving per "
+            "teldatum, afkomstig uit het TBGI-bestand).  Het aantal rijen wordt "
+            "per `Bekostigingsstatus` geteld en aflopend gesorteerd.  Aanvullend "
+            "wordt de som van `BijdrageInschrijvingAanDeelnemerswaarde` over alle "
+            "rijen getoond als totale deelnemerswaarde."
+        ),
+    },
     "na_1okt": {
         "titel": "Inschrijvingen na 1-oktober",
         "variabelen": ["_ingeschreven_jaar_later"],
@@ -133,6 +147,25 @@ CHART_DOCS: dict[str, dict] = {
             "Het aantal inschrijvingen wordt per `Opleidingcode` geteld, aflopend "
             "gesorteerd, en de tien grootste worden getoond.  Waar beschikbaar "
             "wordt de CREBO-naam uit de verrijkingstabel getoond."
+        ),
+    },
+    "inschrijvingen_domein": {
+        "titel": "Inschrijvingen per domein",
+        "variabelen": ["dim_opleiding.Opleiding_domein"],
+        "manipulatie": (
+            "Het aantal inschrijvingen wordt per CREBO-domein ("
+            "`Opleiding_domein`, afgeleid uit `hoofdgroep_naam` in de CREBO-tabel) "
+            "geteld en aflopend gesorteerd. Elke inschrijving telt mee voor het "
+            "domein van de bijbehorende opleiding."
+        ),
+    },
+    "inschrijvingen_sectorkamer": {
+        "titel": "Inschrijvingen per sectorkamer",
+        "variabelen": ["dim_opleiding.Opleiding_sectorkamer"],
+        "manipulatie": (
+            "Het aantal inschrijvingen wordt per S-BB sectorkamer ("
+            "`Opleiding_sectorkamer`, afgeleid uit `sectorkamer_naam` in de "
+            "CREBO-tabel) geteld en aflopend gesorteerd."
         ),
     },
     "bol_bbl_levering": {
@@ -254,7 +287,96 @@ CHART_DOCS: dict[str, dict] = {
             "geteld."
         ),
     },
+    # ── Tab Opleidingsstructuur ──────────────────────────────────────────────
+    "dossier_inschrijvingen": {
+        "titel": "Inschrijvingen per kwalificatiedossier (23xxx)",
+        "variabelen": [
+            "dim_opleiding.Opleiding_dossiercode",
+            "dim_opleiding.Opleiding_dossier",
+        ],
+        "manipulatie": (
+            "Een **kwalificatiedossier** (23xxx-code) is een brede beroepsgerichte "
+            "eenheid die meerdere verwante kwalificaties (25xxx/27xxx) bundelt. "
+            "Elke CREBO-kwalificatie valt onder precies één dossier. "
+            "Het aantal inschrijvingen wordt per dossier geteld en aflopend "
+            "gesorteerd. "
+            "Dossiercode en -naam zijn afgeleid uit de CREBO-metadatatable "
+            "(`crebo.csv`)."
+        ),
+        "kanttekening": (
+            "Een student kan meerdere kwalificaties (25xxx/27xxx) onder hetzelfde "
+            "dossier (23xxx) volgen; tel op dossierniveau dus niet gelijk aan unieke "
+            "studenten. Voor een stabiele longitudinale tijdreeks over meerdere "
+            "studiejaren is groeperen op dossiercode (23xxx) te verkiezen boven "
+            "individuele kwalificatiecodes, omdat 25xxx-codes kunnen overgaan in 27xxx."
+        ),
+    },
+    "sbb_beroep_inschrijvingen": {
+        "titel": "Inschrijvingen per beroep (S-BB koppeltabel)",
+        "variabelen": ["dim_opleiding.Opleiding_beroep"],
+        "manipulatie": (
+            "De S-BB mbo-opleidingskoppeltabel (Groep 19, kwalificatie-mijn.s-bb.nl) "
+            "koppelt elke actuele CREBO-kwalificatiecode (25xxx/27xxx) aan een "
+            "beroepsnaam. Het aantal inschrijvingen wordt per beroep geteld. "
+            "Getoond zijn de top-20 beroepen naar inschrijvingen. "
+            "Inschrijvingen op codes die niet in de koppeltabel voorkomen "
+            "tellen niet mee."
+        ),
+    },
+    "sbb_looptijd": {
+        "titel": "Looptijd van opleidingen (S-BB)",
+        "variabelen": [
+            "dim_opleiding.Opleiding_eerste_schooljaar",
+            "dim_opleiding.Opleiding_laatste_schooljaar",
+        ],
+        "manipulatie": (
+            "De S-BB koppeltabel registreert per kwalificatiecode het eerste en "
+            "laatste schooljaar dat de opleiding actief is. "
+            "De staafgrafiek toont het aantal inschrijvingen per "
+            "`Opleiding_laatste_schooljaar`: "
+            "een piek bij een recent schooljaar duidt op veel lopende opleidingen, "
+            "een piek in het verleden op opleidingen die al zijn beëindigd."
+        ),
+        "kanttekening": (
+            "Een inschrijving op een 'verlopen' opleiding (laatste schooljaar < huidig "
+            "schooljaar) hoeft geen datafout te zijn: studenten die vóór de "
+            "looptijdwijziging zijn ingeschreven mogen de opleiding doorgaans afmaken."
+        ),
+    },
+    "hercodering_25_27": {
+        "titel": "Hercodering: 25xxx → 27xxx (via S-BB opvolger)",
+        "variabelen": [
+            "dim_opleiding.Opleidingcode",
+            "dim_opleiding.Opleiding_opvolger",
+        ],
+        "manipulatie": (
+            "Bij herziening van een kwalificatiedossier krijgt een bestaande "
+            "kwalificatie (25xxx) een nieuwe code (27xxx). "
+            "De S-BB koppeltabel bevat de kolom `opvolger_crebo` die de nieuwe code "
+            "vermeldt. De tabel toont alle unieke 25xxx-codes in de data waarvoor "
+            "een opvolger is geregistreerd, plus het totaal aantal inschrijvingen "
+            "op die 'oude' codes."
+        ),
+        "kanttekening": (
+            "Voor longitudinale analyses over meerdere studiejaren moeten 25xxx en "
+            "de bijbehorende 27xxx-opvolger als één opleiding worden behandeld. "
+            "Groepeer op dossiercode (23xxx) voor een stabiele tijdreeks "
+            "die onafhankelijk is van hernummering."
+        ),
+    },
     # ── Tab Examens ──────────────────────────────────────────────────────────
+    "geo_slagingspercentage": {
+        "titel": "GEO slagingspercentage (eindcijfer ≥ 5,5)",
+        "variabelen": ["fact_geo.CodeGeneriekExamenonderdeel", "fact_geo.Eindcijfer"],
+        "manipulatie": (
+            "Gelezen uit `fact_geo` (grain: één rij per inschrijving × "
+            "examenonderdeel).  Per generiek examenonderdeel wordt het aandeel "
+            "deelnemers met een eindcijfer van 5,5 of hoger berekend: "
+            "**geslaagd (%) = (eindcijfer ≥ 5,5) / totaal met eindcijfer × 100**.  "
+            "De drempel 5,5 is de gangbare slaaggrens; deelnemers zonder eindcijfer "
+            "tellen niet mee in de noemer.  Gesorteerd op slagingspercentage."
+        ),
+    },
     "geo_eindcijfers": {
         "titel": "GEO-examencijfers",
         "variabelen": ["fact_geo.CodeGeneriekExamenonderdeel", "fact_geo.Eindcijfer"],

@@ -1,8 +1,8 @@
 """Dimensionaal model (star schema) afgeleid van de OBT-tabellen.
 
 Splitst ``obt_inschrijvingen`` in drie dimensietabellen en één feitstabel,
-en promoveert de detail-tabellen (BPV, KZD, AMO, GEO) naar expliciete
-feittabellen met een stabiel schema.
+en promoveert de detail-tabellen (BPV, KZD, AMO, GEO, bekostiging) naar
+expliciete feittabellen met een stabiel schema.
 
 Publieke API:
     build_star(obt_tables) -> dict[str, pl.DataFrame]
@@ -78,6 +78,11 @@ _FK_COLS = {"_persoon_id", "Opleidingcode", "BRIN"}
 # Deze zijn schema-instabiel en worden vervangen door fact_geo.
 _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 
+# Kolommen die persoonsidentificerende gegevens bevatten en niet in het
+# star schema horen (BSN is al gehasht naar _persoon_id; Onderwijsnummer
+# is directe identifier).
+_BEKOSTIGING_DROP = {"Burgerservicenummer", "Onderwijsnummer", "_bron"}
+
 
 # ---------------------------------------------------------------------------
 # Publieke API
@@ -92,10 +97,11 @@ def build_star(
     Args:
         obt_tables: Dict zoals geretourneerd door ``build_obt``.  Verwacht
             minimaal de sleutel ``obt_inschrijvingen``; optioneel ook
-            ``detail_bpv``, ``detail_kzd_amo``, ``detail_geo``.
+            ``detail_bpv``, ``detail_kzd_amo``, ``detail_geo``,
+            ``detail_bekostiging``.
 
     Returns:
-        Dict met acht sleutels:
+        Dict met negen sleutels:
 
         Dimensies:
           ``dim_deelnemer``     — uniek per ``_persoon_id``
@@ -108,6 +114,7 @@ def build_star(
           ``fact_kzd``          — Keuzedelen per inschrijving
           ``fact_amo``          — AMO-onderdelen per inschrijving
           ``fact_geo``          — GEO-examenresultaten in long format
+          ``fact_bekostiging``  — TBGI bekostigingsgrondslagen per inschrijving
     """
     obt = obt_tables["obt_inschrijvingen"]
 
@@ -134,6 +141,7 @@ def build_star(
         "fact_kzd": _build_fact_kzd(obt_tables),
         "fact_amo": _build_fact_amo(obt_tables),
         "fact_geo": _build_fact_geo(obt_tables),
+        "fact_bekostiging": _build_fact_bekostiging(obt_tables),
     }
 
 
@@ -171,6 +179,20 @@ def _build_fact_amo(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     if detail.is_empty() or "_bron" not in detail.columns:
         return pl.DataFrame()
     return detail.filter(pl.col("_bron") == "AMO").drop("_bron")
+
+
+def _build_fact_bekostiging(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
+    """fact_bekostiging: TBGI bekostigingsgrondslagen per inschrijving.
+
+    Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Teldatum).
+    Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen en met
+    dim_instelling via BRIN.  BSN en Onderwijsnummer worden verwijderd.
+    """
+    detail = obt_tables.get("detail_bekostiging", pl.DataFrame())
+    if detail.is_empty():
+        return pl.DataFrame()
+    drop = [c for c in _BEKOSTIGING_DROP if c in detail.columns]
+    return detail.drop(drop)
 
 
 def _build_fact_geo(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
