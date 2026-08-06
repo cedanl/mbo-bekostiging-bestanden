@@ -56,6 +56,7 @@ def _crebo_lookup() -> pl.DataFrame:
         "leerweg": ["BOL", "BOL"],
         "hoofdgroep_naam": ["ICT", "Entree"],
         "subgroep_naam": ["Software development", "Entree"],
+        "dossier_code": ["23001", "23002"],
         "dossier_naam": ["Software development", "Entree"],
         "sectorkamer_naam": ["Techniek en gebouwde omgeving", "Entree"],
     })
@@ -66,8 +67,19 @@ def _crebo_lookup() -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+def _sbb_koppeltabel_lookup() -> pl.DataFrame:
+    return pl.DataFrame({
+        "opleidingscode": [25655, 23301],
+        "beroepsnaam": ["Applicatieontwikkelaar", "Entree"],
+        "niveau": ["3", "1"],
+        "opvolger_kwalificatie": [0, 0],
+        "eerste_schooljaar": ["2025-2026", "2025-2026"],
+        "laatste_schooljaar": ["2026-2027", "2026-2027"],
+    })
+
+
 def _patch_lookups():
-    """Patch alle vijf laad-functies met in-memory tabellen."""
+    """Patch alle zes laad-functies met in-memory tabellen."""
     return (
         patch(
             "mbo_bekostiging_bestanden.enrich._laad_nationaliteitscode",
@@ -88,6 +100,10 @@ def _patch_lookups():
         patch(
             "mbo_bekostiging_bestanden.enrich._laad_crebo",
             return_value=_crebo_lookup(),
+        ),
+        patch(
+            "mbo_bekostiging_bestanden.enrich._laad_sbb_koppeltabel",
+            return_value=_sbb_koppeltabel_lookup(),
         ),
     )
 

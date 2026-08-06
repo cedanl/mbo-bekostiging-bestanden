@@ -63,7 +63,15 @@ def _laad_crebo() -> pl.DataFrame:
     ).select([
         "code", "naam", "leerweg",
         "hoofdgroep_naam", "subgroep_naam",
-        "dossier_naam", "sectorkamer_naam",
+        "dossier_code", "dossier_naam", "sectorkamer_naam",
+    ])
+
+
+@functools.cache
+def _laad_sbb_koppeltabel() -> pl.DataFrame:
+    return pl.read_parquet(_METADATA / "sbb_koppeltabel.parquet").select([
+        "opleidingscode", "beroepsnaam", "niveau",
+        "opvolger_kwalificatie", "eerste_schooljaar", "laatste_schooljaar",
     ])
 
 
@@ -127,7 +135,12 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
     Opleidingcode → CREBO (DUO erkende-opleidingstabel):
         ``Opleiding_naam``, ``Opleiding_leerweg``,
         ``Opleiding_domein``, ``Opleiding_subgroep``,
-        ``Opleiding_dossier``, ``Opleiding_sectorkamer``
+        ``Opleiding_dossiercode``, ``Opleiding_dossier``, ``Opleiding_sectorkamer``
+
+    Opleidingcode → S-BB koppeltabel:
+        ``Opleiding_beroep``, ``Opleiding_niveau``,
+        ``Opleiding_opvolger``,
+        ``Opleiding_eerste_schooljaar``, ``Opleiding_laatste_schooljaar``
 
     BRIN → instelling:
         ``Instelling_naam``, ``Instelling_plaats``
@@ -171,16 +184,32 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
                 "leerweg": "Opleiding_leerweg",
                 "hoofdgroep_naam": "Opleiding_domein",
                 "subgroep_naam": "Opleiding_subgroep",
+                "dossier_code": "Opleiding_dossiercode",
                 "dossier_naam": "Opleiding_dossier",
                 "sectorkamer_naam": "Opleiding_sectorkamer",
             })
-            .unique(
-                subset=["Opleidingcode"],
-                keep="first",
-                maintain_order=True,
-            )
+            .unique(subset=["Opleidingcode"], keep="first", maintain_order=True)
         )
         df = df.join(crebo_lookup, on="Opleidingcode", how="left")
+
+        koppel_lookup = (
+            _laad_sbb_koppeltabel()
+            .rename({
+                "opleidingscode": "Opleidingcode_i64",
+                "beroepsnaam": "Opleiding_beroep",
+                "niveau": "Opleiding_niveau",
+                "opvolger_kwalificatie": "Opleiding_opvolger",
+                "eerste_schooljaar": "Opleiding_eerste_schooljaar",
+                "laatste_schooljaar": "Opleiding_laatste_schooljaar",
+            })
+        )
+        df = (
+            df.with_columns(
+                pl.col("Opleidingcode").cast(pl.Int64, strict=False).alias("Opleidingcode_i64")
+            )
+            .join(koppel_lookup, on="Opleidingcode_i64", how="left")
+            .drop("Opleidingcode_i64")
+        )
 
     # ── BRIN → instelling ────────────────────────────────────────────────────
     if "BRIN" in df.columns:
