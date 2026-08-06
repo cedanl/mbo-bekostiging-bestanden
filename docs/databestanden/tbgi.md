@@ -115,57 +115,57 @@ Voorbeeld: bekostigingsjaar 2027 = inschrijvingen studiejaar 2025–2026, diplom
 
 ### Inschrijving
 
-| Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|
-| BRIN | Ja | AN4 | Unieke instelling-code |
-| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld |
-| Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN |
-| Inschrijvingvolgnummer | Ja | AN1..20 | Inschrijvingsreferentie van de instelling |
-| DatumInschrijving | Ja | D `ccyy-mm-dd` | Begin inschrijving |
-| DatumUitschrijvingGepland | Ja | D `ccyy-mm-dd` | Geplande einddatum |
-| DatumUitschrijvingWerkelijk | Nee | D `ccyy-mm-dd` | Werkelijke einddatum |
-| NiveauHoogstBekostigdeDiploma | Nee | Zie [Waardenlijsten](../waardenlijsten.md) | Hoogste eerder bekostigde diplomaniveau |
+| Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|
+| BRIN | Ja | AN4 | Unieke instelling-code | `25LX` |
+| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld | `100000000` |
+| Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
+| Inschrijvingvolgnummer | Ja | AN1..20 | Inschrijvingsreferentie van de instelling | `002` |
+| DatumInschrijving | Ja | D `ccyy-mm-dd` | Begin inschrijving | `2024-02-01` |
+| DatumUitschrijvingGepland | Ja | D `ccyy-mm-dd` | Geplande einddatum | `2026-01-31` |
+| DatumUitschrijvingWerkelijk | Nee | D `ccyy-mm-dd` | Werkelijke einddatum | — |
+| NiveauHoogstBekostigdeDiploma | Nee | Zie [Waardenlijsten](../waardenlijsten.md) | Hoogste eerder bekostigde diplomaniveau | — |
 
 ### Teldatum (per inschrijving)
 
-| Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|
-| Teldatum | Ja | D `ccyy-mm-dd` | Meetmoment (bijv. `2025-10-01`) |
-| DatumTijdBepalingBekostigingsgrondslagen | Ja | DT | Wanneer grondslagen berekend zijn |
-| StatusBepalingBekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief |
-| LeeftijdOpEenAugustusStudiejaar | Ja | N1..3 | Leeftijd in jaren op 1-8 van het studiejaar |
-| Opleidingcode | Ja | AN5 | CREBO-code |
-| Niveau | Ja | AN5 | Zie [Waardenlijsten](../waardenlijsten.md) |
-| Leertraject | Ja | AN2..6 | Zie [Waardenlijsten](../waardenlijsten.md) |
-| Leerroutefase | Nee | AN2..3 | Zie [Waardenlijsten](../waardenlijsten.md) |
-| IndicatieBekostigbaar | Ja | Boolean | Of instelling aanvraagt voor bekostiging |
-| Bekostigingsstatus | Nee | Boolean | Of DUO bekostiging toekent |
-| InschrijvingVoorCorrectiefactor | Ja | Boolean | Telt mee voor correctiefactor 1-10/1-2 |
-| BBLBOLFactor | Nee | N5.2 | Factor voor leertraject (BBL < BOL) |
-| PrijsfactorMBO | Nee | N5.2 | Factor per opleiding |
-| AantalBekostigdeVerblijfsjarenMBO | Nee | N2 | n.v.t. na 01-10-2018 |
-| Verblijfsjaarfactor | Nee | N10.2 | n.v.t. na 01-10-2018 |
-| BijdrageInschrijvingAanDeelnemerswaarde | Nee | N15.6 | Individuele bijdrage aan deelnemerswaarde |
+| Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|
+| Teldatum | Ja | D `ccyy-mm-dd` | Meetmoment (bijv. `2025-10-01`) | `2025-10-01` |
+| DatumTijdBepalingBekostigingsgrondslagen | Ja | DT | Wanneer grondslagen berekend zijn | `2025-11-21 10:42:29` |
+| StatusBepalingBekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief | `V` |
+| LeeftijdOpEenAugustusStudiejaar | Ja | N1..3 | Leeftijd in jaren op 1-8 van het studiejaar | `25` |
+| Opleidingcode | Ja | AN5 | CREBO-code | `25748` |
+| Niveau | Ja | AN5 | Zie [Waardenlijsten](../waardenlijsten.md) | `MBO-1` |
+| Leertraject | Ja | AN2..6 | Zie [Waardenlijsten](../waardenlijsten.md) | `BOL` |
+| Leerroutefase | Nee | AN2..3 | Zie [Waardenlijsten](../waardenlijsten.md) | — |
+| IndicatieBekostigbaar | Ja | Boolean | Of instelling aanvraagt voor bekostiging | `true` |
+| Bekostigingsstatus | Nee | Boolean | Of DUO bekostiging toekent | `true` |
+| InschrijvingVoorCorrectiefactor | Ja | Boolean | Telt mee voor correctiefactor 1-10/1-2 | `true` |
+| BBLBOLFactor | Nee | N5.2 | Factor voor leertraject (BBL < BOL) | `1` |
+| PrijsfactorMBO | Nee | N5.2 | Factor per opleiding | `1` |
+| AantalBekostigdeVerblijfsjarenMBO | Nee | N2 | n.v.t. na 01-10-2018 | `0` |
+| Verblijfsjaarfactor | Nee | N10.2 | n.v.t. na 01-10-2018 | — |
+| BijdrageInschrijvingAanDeelnemerswaarde | Nee | N15.6 | Individuele bijdrage aan deelnemerswaarde | `1` |
 
 ### Diploma
 
-| Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|
-| BRIN | Ja | AN4 | Instelling waar diploma behaald |
-| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld |
-| Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN |
-| Resultaatvolgnummer | Ja | AN1..20 | Diploma-referentie van de instelling |
-| Opleidingcode | Ja | AN5 | CREBO-code |
-| Inschrijvingvolgnummer | Ja | AN1..20 | Gekoppelde inschrijving |
-| DatumBehaald | Ja | D `ccyy-mm-dd` | Datum diploma behaald |
-| Niveau | Ja | AN5 | Zie [Waardenlijsten](../waardenlijsten.md) |
-| IndicatieSpecialistendiploma | Ja | Boolean | Is het een specialistendiploma |
-| NiveauHoogstBekostigdeDiploma | Ja | AN5 | Hoogste eerder bekostigde niveau |
-| IndicatieHoogstBekostigdeDiplomaIsSpecialist | Ja | Boolean | Hoogste eerder behaalde is specialist |
-| DatumTijdBepalingBekostigingsgrondslagen | Ja | DT | Wanneer grondslagen berekend |
-| StatusBepalingBekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief |
-| Bekostigingsstatus | Ja | Boolean | Of DUO bekostiging toekent |
-| BijdrageDiplomawaarde | Nee | N15.6 | Individuele bijdrage aan diplomawaarde |
+| Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|
+| BRIN | Ja | AN4 | Instelling waar diploma behaald | `25LX` |
+| Burgerservicenummer | Nee* | AN9 | BSN of ONR is gevuld | `200000000` |
+| Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN | — |
+| Resultaatvolgnummer | Ja | AN1..20 | Diploma-referentie van de instelling | `1362433` |
+| Opleidingcode | Ja | AN5 | CREBO-code | `25297` |
+| Inschrijvingvolgnummer | Ja | AN1..20 | Gekoppelde inschrijving | `001` |
+| DatumBehaald | Ja | D `ccyy-mm-dd` | Datum diploma behaald | `2025-06-17` |
+| Niveau | Ja | AN5 | Zie [Waardenlijsten](../waardenlijsten.md) | `MBO-4` |
+| IndicatieSpecialistendiploma | Ja | Boolean | Is het een specialistendiploma | `false` |
+| NiveauHoogstBekostigdeDiploma | Ja | AN5 | Hoogste eerder bekostigde niveau | — |
+| IndicatieHoogstBekostigdeDiplomaIsSpecialist | Ja | Boolean | Hoogste eerder behaalde is specialist | — |
+| DatumTijdBepalingBekostigingsgrondslagen | Ja | DT | Wanneer grondslagen berekend | `2025-07-07 07:13:15` |
+| StatusBepalingBekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief | `V` |
+| Bekostigingsstatus | Ja | Boolean | Of DUO bekostiging toekent | `true` |
+| BijdrageDiplomawaarde | Nee | N15.6 | Individuele bijdrage aan diplomawaarde | `5` |
 
 ## Voorbeeld (demo-data 25LX, bekostigingsjaar 2027)
 

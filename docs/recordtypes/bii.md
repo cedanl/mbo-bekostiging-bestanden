@@ -11,22 +11,22 @@ BII-records volgen direct na het ISG-block (na ISP, ISE en BPV-records) van de b
 
 ## Velden (GRONDSLAG IP)
 
-| Pos | Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `BII` |
-| 2 | PGN | Ja | N9 | Pseudonummer van de student |
-| 3 | BRIN | Ja | AN4 | Instelling van inschrijving |
-| 4 | Inschrijvingsvolgnummer | Ja | AN1..20 | Koppeling naar het ISG-record |
-| 5 | Teldatum | Ja | D `ccyymmdd` | Meetmoment (1-10 of 1-2 van het studiejaar) |
-| 6 | DatumTijd bepaling bekostigingsgrondslagen | Ja | DT15 | Tijdstip waarop DUO de grondslagen heeft berekend |
-| 7 | Status bepaling bekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief |
-| 8 | Bekostigingsstatus | Nee | AN1 | `J` = bekostigd door DUO, `N` = niet |
-| 9 | Inschrijving voor correctiefactor | Ja | AN1 | `J` / `N` – telt mee voor de correctiefactor 1-10/1-2 |
-| 10 | BBL BOL factor | Nee | N5 (2 dec.) | Vermenigvuldigingsfactor voor leertraject |
-| 11 | Prijsfactor MBO | Nee | N5 (2 dec.) | Vermenigvuldigingsfactor voor de opleiding |
-| 12 | Aantal bekostigde verblijfsjaren MBO | Nee | N2 | Niet meer van toepassing na 01-10-2018 |
-| 13 | Verblijfsjaarfactor | Nee | N10 (2 dec.) | Niet meer van toepassing na 01-10-2018 |
-| 14 | Bijdrage inschrijving aan deelnemerswaarde | Nee | N15 (6 dec.) | Individuele bijdrage aan de deelnemerswaarde |
+| Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|---|
+| 1 | Recordsoort | Ja | AN3 | Waarde `BII` | — |
+| 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
+| 3 | BRIN | Ja | AN4 | Instelling van inschrijving | — |
+| 4 | Inschrijvingsvolgnummer | Ja | AN1..20 | Koppeling naar het ISG-record | — |
+| 5 | Teldatum | Ja | D `ccyymmdd` | Meetmoment (1-10 of 1-2 van het studiejaar) | — |
+| 6 | DatumTijd bepaling bekostigingsgrondslagen | Ja | DT15 | Tijdstip waarop DUO de grondslagen heeft berekend | — |
+| 7 | Status bepaling bekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief | — |
+| 8 | Bekostigingsstatus | Nee | AN1 | `J` = bekostigd door DUO, `N` = niet | — |
+| 9 | Inschrijving voor correctiefactor | Ja | AN1 | `J` / `N` – telt mee voor de correctiefactor 1-10/1-2 | — |
+| 10 | BBL BOL factor | Nee | N5 (2 dec.) | Vermenigvuldigingsfactor voor leertraject | — |
+| 11 | Prijsfactor MBO | Nee | N5 (2 dec.) | Vermenigvuldigingsfactor voor de opleiding | — |
+| 12 | Aantal bekostigde verblijfsjaren MBO | Nee | N2 | Niet meer van toepassing na 01-10-2018 | — |
+| 13 | Verblijfsjaarfactor | Nee | N10 (2 dec.) | Niet meer van toepassing na 01-10-2018 | — |
+| 14 | Bijdrage inschrijving aan deelnemerswaarde | Nee | N15 (6 dec.) | Individuele bijdrage aan de deelnemerswaarde | — |
 
 ## Factoren uitgelegd
 

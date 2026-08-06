@@ -6,18 +6,18 @@ Het SLR-record is altijd het **laatste record** in het bestand. Het bevat tellin
 
 ### RO-variant
 
-| Pos | Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `SLR` |
-| 2 | Totaal aantal personen | Ja | N12 | Aantal PER-records |
-| 3 | Totaal aantal deelnames | Ja | N12 | Aantal ISG-records |
-| 4 | Totaal aantal deelnameperiodes | Ja | N12 | Aantal ISP-records |
-| 5 | Totaal aantal periodes extra ondersteuning | Ja | N12 | Aantal ISE-records |
-| 6 | Totaal aantal BPV's | Ja | N12 | Aantal BPV-records |
-| 7 | Totaal aantal diploma's | Ja | N12 | Aantal DIP-records |
-| 8 | Totaal aantal AMvB-onderdelen | Ja | N12 | Aantal AMO-records |
-| 9 | Totaal aantal generieke examenonderdelen | Ja | N12 | Aantal GEO-records |
-| 10 | Totaal aantal keuzedelen | Ja | N12 | Aantal KZD-records |
+| Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|---|
+| 1 | Recordsoort | Ja | AN3 | Waarde `SLR` | `SLR` |
+| 2 | Totaal aantal personen | Ja | N12 | Aantal PER-records | `16616` |
+| 3 | Totaal aantal deelnames | Ja | N12 | Aantal ISG-records | `19859` |
+| 4 | Totaal aantal deelnameperiodes | Ja | N12 | Aantal ISP-records | `31053` |
+| 5 | Totaal aantal periodes extra ondersteuning | Ja | N12 | Aantal ISE-records | `2` |
+| 6 | Totaal aantal BPV's | Ja | N12 | Aantal BPV-records | `28260` |
+| 7 | Totaal aantal diploma's | Ja | N12 | Aantal DIP-records | `4696` |
+| 8 | Totaal aantal AMvB-onderdelen | Ja | N12 | Aantal AMO-records | `133` |
+| 9 | Totaal aantal generieke examenonderdelen | Ja | N12 | Aantal GEO-records | `11758` |
+| 10 | Totaal aantal keuzedelen | Ja | N12 | Aantal KZD-records | `11511` |
 
 **Voorbeeld:**
 ```
@@ -27,20 +27,20 @@ SLR|16616|19859|31053|2|28260|4696|133|11758|11511
 
 ### GRONDSLAG IP-variant
 
-| Pos | Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `SLR` |
-| 2 | Aantal PER-records | Ja | N10 | |
-| 3 | Aantal ISG-records | Ja | N10 | |
-| 4 | Aantal ISP-records | Ja | N10 | |
-| 5 | Aantal ISE-records | Ja | N10 | |
-| 6 | Aantal BPV-records | Ja | N10 | |
-| 7 | Aantal BII-records | Ja | N10 | |
-| 8 | Aantal DIP-records | Ja | N10 | |
-| 9 | Aantal BID-records | Ja | N10 | |
-| 10 | Aantal AMO-records | Ja | N10 | |
-| 11 | Aantal GEO-records | Ja | N10 | |
-| 12 | Aantal KZD-records | Ja | N10 | |
+| Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|---|
+| 1 | Recordsoort | Ja | AN3 | Waarde `SLR` | `SLR` |
+| 2 | Aantal PER-records | Ja | N10 | | `14027` |
+| 3 | Aantal ISG-records | Ja | N10 | | `15415` |
+| 4 | Aantal ISP-records | Ja | N10 | | `23093` |
+| 5 | Aantal ISE-records | Ja | N10 | | `1` |
+| 6 | Aantal BPV-records | Ja | N10 | | `21410` |
+| 7 | Aantal BII-records | Ja | N10 | | `0` |
+| 8 | Aantal DIP-records | Ja | N10 | | `3238` |
+| 9 | Aantal BID-records | Ja | N10 | | `0` |
+| 10 | Aantal AMO-records | Ja | N10 | | `86` |
+| 11 | Aantal GEO-records | Ja | N10 | | `7302` |
+| 12 | Aantal KZD-records | Ja | N10 | | `7622` |
 
 **Voorbeeld:**
 ```
@@ -54,14 +54,14 @@ SLR;14027;15415;23093;1;21410;0;3238;0;86;7302;7622
 
 Het CTR-record wordt gebruikt in de **OBO** (Overzicht Basis- en diplomagegevens Onderzoek) en heeft een andere structuur dan het SLR.
 
-| Pos | Veld | Verplicht | Formaat | Definitie |
-|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `CTR` |
-| 2 | Totaal aantal deelnames | Ja | N12 | Aantal ISG-records |
-| 3 | Totaal aantal diploma's | Ja | N12 | Aantal DIP-records |
-| 4 | Totaal opleidingcodes | Ja | N12 | Totaal opleidingcodes uit ISP-, BPV- en DIP-records |
-| 5 | Totaal generaal | Ja | N12 | Som van opleidingcodes + inschrijvingen + bekostigbare ISP+DIP + diploma's |
-| 6 | Totaal aantal records ISP en DIP bekostigbaar | Ja | N12 | ISP+DIP-records met indicatie bekostigbaar = J |
+| Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
+|---|---|---|---|---|---|
+| 1 | Recordsoort | Ja | AN3 | Waarde `CTR` | — |
+| 2 | Totaal aantal deelnames | Ja | N12 | Aantal ISG-records | — |
+| 3 | Totaal aantal diploma's | Ja | N12 | Aantal DIP-records | — |
+| 4 | Totaal opleidingcodes | Ja | N12 | Totaal opleidingcodes uit ISP-, BPV- en DIP-records | — |
+| 5 | Totaal generaal | Ja | N12 | Som van opleidingcodes + inschrijvingen + bekostigbare ISP+DIP + diploma's | — |
+| 6 | Totaal aantal records ISP en DIP bekostigbaar | Ja | N12 | ISP+DIP-records met indicatie bekostigbaar = J | — |
 
 !!! note
     CTR wordt alleen in OBO-bestanden gebruikt. RO en GRONDSLAG IP gebruiken SLR.
