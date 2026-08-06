@@ -8,18 +8,18 @@ BID-records volgen direct na het bijbehorende DIP-block (na AMO-, GEO- en KZD-re
 
 | Pos | Veld | Verplicht | Formaat | Definitie | Voorbeeldwaarde |
 |---|---|---|---|---|---|
-| 1 | Recordsoort | Ja | AN3 | Waarde `BID` | — |
+| 1 | Recordsoort | Ja | AN3 | Waarde `BID` | `BID` |
 | 2 | PGN | Ja | N9 | Pseudonummer van de student | — |
-| 3 | BRIN | Ja | AN4 | Instelling waar diploma behaald | — |
+| 3 | BRIN | Ja | AN4 | Instelling waar diploma behaald | `27DV` |
 | 4 | Resultaatvolgnummer | Ja | AN1..20 | Koppeling naar het DIP-record | — |
-| 5 | Niveau | Nee | AN5 | Niveau van het diploma; zie [Waardenlijsten](../waardenlijsten.md#niveau) | — |
-| 6 | Indicatie specialistendiploma | Nee | AN1 | `J` = specialistendiploma, `N` = niet | — |
+| 5 | Niveau | Nee | AN5 | Niveau van het diploma; zie [Waardenlijsten](../waardenlijsten.md#niveau) | `MBO-4` |
+| 6 | Indicatie specialistendiploma | Nee | AN1 | `J` = specialistendiploma, `N` = niet | `N` |
 | 7 | Niveau hoogst bekostigde diploma | Nee | AN5 | Hoogste al eerder bekostigde diplomaniveau; zie [Waardenlijsten](../waardenlijsten.md#niveau) | — |
 | 8 | Indicatie hoogst bekostigde diploma is specialist | Nee | AN1 | `J` / `N` | — |
-| 9 | DatumTijd bepaling bekostigingsgrondslagen | Ja | DT15 | Tijdstip berekening door DUO | — |
-| 10 | Status bepaling bekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief | — |
-| 11 | Bekostigingsstatus | Nee | AN1 | `J` / `N` | — |
-| 12 | Bijdrage diplomawaarde | Nee | N1 | Individuele bijdrage aan de diplomawaarde | — |
+| 9 | DatumTijd bepaling bekostigingsgrondslagen | Ja | DT15 | Tijdstip berekening door DUO | `20250707071315` |
+| 10 | Status bepaling bekostigingsstatus | Ja | AN1 | `V` = Voorlopig, `D` = Definitief | `V` |
+| 11 | Bekostigingsstatus | Nee | AN1 | `J` / `N` | `J` |
+| 12 | Bijdrage diplomawaarde | Nee | N1 | Individuele bijdrage aan de diplomawaarde | `5` |
 
 ## Diplomawaarde en niveau
 

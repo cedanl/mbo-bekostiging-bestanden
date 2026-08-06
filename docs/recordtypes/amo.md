@@ -29,11 +29,11 @@ Het AMO-record bevat een **AMvB-onderdeel** (Algemene Maatregel van Bestuur exam
 | 3 | BRIN | Ja | AN4 | Instelling | `27DV` |
 | 4 | Resultaatvolgnummer diploma | Nee | AN1..20 | Koppeling naar DIP; leeg bij los AMO | — |
 | 5 | Resultaatvolgnummer | Ja | AN1..20 | Eigen volgnummer | — |
-| 6 | Code AMvB onderdeel | Ja | AN5 | Unieke identificatie | — |
-| 7 | Certificaat | Nee | N1 | `1` = certificaat; `0` = geen certificaat; alleen bij los onderdeel | — |
-| 8 | Datum resultaat | Nee | D `ccyymmdd` | Alleen bij los onderdeel | — |
+| 6 | Code AMvB onderdeel | Ja | AN5 | Unieke identificatie | `C0004` |
+| 7 | Certificaat | Nee | N1 | `1` = certificaat; `0` = geen certificaat; alleen bij los onderdeel | `1` |
+| 8 | Datum resultaat | Nee | D `ccyymmdd` | Alleen bij los onderdeel | `20251215` |
 | 9 | Inschrijvingvolgnummer | Nee | AN1..20 | Alleen bij los onderdeel | — |
-| 10 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | — |
+| 10 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | `101A742` |
 
 ## Verschil los vs. bij diploma
 
