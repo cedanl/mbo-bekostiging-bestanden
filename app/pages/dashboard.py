@@ -151,9 +151,13 @@ _filter_keys = df.select([k for k in _FK if k in df.columns])
 def _filter_fact(f: pl.DataFrame) -> pl.DataFrame:
     """Filter een detail-fact op de gefilterde inschrijvingen via FK-join."""
     join_on = [k for k in _FK if k in f.columns]
-    if not join_on or f.is_empty() or _filter_keys.is_empty():
+    if not join_on or f.is_empty():
         return f
-    return f.join(_filter_keys.select(join_on), on=join_on, how="inner")
+    # Lege _filter_keys (geen studiejaar geselecteerd) → lege fact teruggeven.
+    keys = _filter_keys.select(join_on).unique()
+    if keys.is_empty():
+        return f.clear()
+    return f.join(keys, on=join_on, how="inner")
 
 
 fact_geo_f = _filter_fact(fact_geo)
@@ -900,9 +904,17 @@ with tab_examens:
         and "CijferIE" in fact_geo_f.columns
         and "CijferCE" in fact_geo_f.columns
     ):
-        _IE_CE_CODES = {"3001": "Nederlands", "3002": "Rekenen"}
         _showed_any = False
-        for geo_code, label in _IE_CE_CODES.items():
+        codes_in_data = (
+            fact_geo_f.filter(
+                pl.col("CijferIE").is_not_null() | pl.col("CijferCE").is_not_null()
+            )["CodeGeneriekExamenonderdeel"]
+            .cast(pl.Utf8)
+            .unique()
+            .sort()
+            .to_list()
+        )
+        for geo_code in codes_in_data:
             grp = fact_geo_f.filter(
                 pl.col("CodeGeneriekExamenonderdeel").cast(pl.Utf8) == geo_code
             )
@@ -911,22 +923,23 @@ with tab_examens:
             if ie_vals.is_empty() and ce_vals.is_empty():
                 continue
             _showed_any = True
-            st.markdown(f"**{label} (GEO {geo_code})**")
+            label = _geo_labels.get(geo_code, f"GEO {geo_code}")
+            st.markdown(f"**{label} (code {geo_code})**")
             gc1, gc2 = st.columns(2)
             if not ie_vals.is_empty():
                 gc1.metric(
-                    f"Gem. IE ({label})",
+                    "Gem. IE",
                     f"{ie_vals.cast(pl.Float64).mean():.1f}",
                     help="Instituutsexamen",
                 )
             if not ce_vals.is_empty():
                 gc2.metric(
-                    f"Gem. CE ({label})",
+                    "Gem. CE",
                     f"{ce_vals.cast(pl.Float64).mean():.1f}",
                     help="Centraal examen",
                 )
         if not _showed_any:
-            st.info("Geen IE/CE-cijfers beschikbaar voor Nederlands of Rekenen.")
+            st.info("Geen IE/CE-cijfers beschikbaar in de data.")
     else:
         st.info("fact_geo niet beschikbaar of IE/CE-kolommen ontbreken.")
 
