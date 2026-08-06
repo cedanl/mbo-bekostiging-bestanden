@@ -879,11 +879,12 @@ with tab_examens:
             vals = grp["Eindcijfer"].drop_nulls()
             if vals.is_empty():
                 continue
+            _mean = vals.cast(pl.Float64).mean()
             geo_rows.append(
                 {
                     "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
                     "Gemiddeld eindcijfer": round(
-                        float(vals.cast(pl.Float64).mean()), 1
+                        _mean if isinstance(_mean, float) else 0.0, 1
                     ),
                     "N": len(vals),
                 }
