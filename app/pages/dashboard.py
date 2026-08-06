@@ -35,6 +35,10 @@ REDEN_LABELS = {
     "8": "Verwijderd (oud)",
 }
 
+_BPV_DUUR_GRENZEN = (30, 90, 180)  # dagen — grenzen voor de duurklasse-buckets
+_KZD_TOP_N = 15  # maximaal aantal keuzedelen in de detailtabel
+_KZD_BEHAALD_RE = "(?i)behaald"  # patroon om behaald-status te herkennen
+
 
 def _resolve_dir() -> Path | None:
     for key in ("resultaten_dir", "obt_pad"):
@@ -613,16 +617,22 @@ with tab_opleidingen:
                 if not omvang_vals.is_empty():
                     gem_omvang = omvang_vals.cast(pl.Float64).mean()
                     st.metric("Gem. omvang", f"{gem_omvang:.1f}")
-            bucket_order = ["< 30 dgn", "30–90 dgn", "90–180 dgn", "> 180 dgn"]
+            _d1, _d2, _d3 = _BPV_DUUR_GRENZEN
+            bucket_order = [
+                f"< {_d1} dgn",
+                f"{_d1}–{_d2} dgn",
+                f"{_d2}–{_d3} dgn",
+                f"> {_d3} dgn",
+            ]
             bpv_buckets = (
                 bpv_periodes.with_columns(
-                    pl.when(pl.col("Duur (dagen)") < 30)
-                    .then(pl.lit("< 30 dgn"))
-                    .when(pl.col("Duur (dagen)") < 90)
-                    .then(pl.lit("30–90 dgn"))
-                    .when(pl.col("Duur (dagen)") < 180)
-                    .then(pl.lit("90–180 dgn"))
-                    .otherwise(pl.lit("> 180 dgn"))
+                    pl.when(pl.col("Duur (dagen)") < _d1)
+                    .then(pl.lit(f"< {_d1} dgn"))
+                    .when(pl.col("Duur (dagen)") < _d2)
+                    .then(pl.lit(f"{_d1}–{_d2} dgn"))
+                    .when(pl.col("Duur (dagen)") < _d3)
+                    .then(pl.lit(f"{_d2}–{_d3} dgn"))
+                    .otherwise(pl.lit(f"> {_d3} dgn"))
                     .alias("Duur-klasse")
                 )
                 .group_by("Duur-klasse")
@@ -644,7 +654,7 @@ with tab_opleidingen:
             .with_columns(
                 pl.when(
                     pl.col("Resultaat").is_not_null()
-                    & pl.col("Resultaat").str.contains("(?i)behaald")
+                    & pl.col("Resultaat").str.contains(_KZD_BEHAALD_RE)
                 )
                 .then(pl.lit(1))
                 .otherwise(pl.lit(0))
@@ -661,7 +671,7 @@ with tab_opleidingen:
                 .alias("Behaald (%)")
             )
             .sort("Totaal", descending=True)
-            .head(15)
+            .head(_KZD_TOP_N)
         )
         if not kzd_detail.is_empty():
             st.dataframe(kzd_detail, use_container_width=True, hide_index=True)

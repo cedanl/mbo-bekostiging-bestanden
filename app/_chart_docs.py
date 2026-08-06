@@ -274,9 +274,10 @@ CHART_DOCS: dict[str, dict] = {
             "fact_geo.CijferCE",
         ],
         "manipulatie": (
-            "Gelezen uit `fact_geo`.  Voor Nederlands (3001) en Rekenen (3002) "
-            "wordt het gemiddelde instituutsexamen (IE) en centraal examen (CE) "
-            "vergeleken."
+            "Gelezen uit `fact_geo`.  Voor elk examenonderdeel met zowel een "
+            "gevuld `CijferIE` als `CijferCE` worden de gemiddelden naast "
+            "elkaar gezet.  De code wordt via `geo_codes.toml` vertaald naar "
+            "een leesbare naam."
         ),
     },
     "amo": {
