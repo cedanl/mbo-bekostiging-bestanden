@@ -462,6 +462,9 @@ with tab_opleidingen:
                 top10 = top10.with_columns(
                     ("CREBO " + pl.col("Opleidingcode")).alias("Opleiding")
                 )
+            top10 = top10.with_columns(
+                pl.col("Opleiding").cast(pl.Enum(top10["Opleiding"].to_list()))
+            )
             st.bar_chart(top10, x="Opleiding", y="Inschrijvingen")
         else:
             st.info("Geen data beschikbaar voor deze grafiek.")
@@ -604,6 +607,11 @@ with tab_studenten:
             .rename({"Nationaliteit1_migratieachtergrond": "Migratieachtergrond"})
         )
         if not herkomst.is_empty():
+            herkomst = herkomst.with_columns(
+                pl.col("Migratieachtergrond").cast(
+                    pl.Enum(herkomst["Migratieachtergrond"].to_list())
+                )
+            )
             st.bar_chart(herkomst, x="Migratieachtergrond", y="Inschrijvingen")
         else:
             st.info("Geen herkomstdata beschikbaar.")
@@ -664,6 +672,9 @@ with tab_studenten:
             .sort("Aantal", descending=True)
         )
         if not uitstroom.is_empty():
+            uitstroom = uitstroom.with_columns(
+                pl.col("Reden").cast(pl.Enum(uitstroom["Reden"].to_list()))
+            )
             st.bar_chart(uitstroom, x="Reden", y="Aantal")
         else:
             st.info("Geen uitstroomdata beschikbaar.")
