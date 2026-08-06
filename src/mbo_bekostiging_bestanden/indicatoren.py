@@ -234,8 +234,10 @@ def bereken_oordeel(
 
     # Hoog-oordeel: alle drie voldoende én (JR of DR) ≥ hoge norm.
     if all(s is True for s in statuses):
-        jr_val = float(jr["waarde"]) if jr and jr.get("waarde") is not None else None
-        dr_val = float(dr["waarde"]) if dr and dr.get("waarde") is not None else None
+        _jr_w = jr.get("waarde") if jr else None
+        jr_val = float(_jr_w) if isinstance(_jr_w, (int, float)) else None
+        _dr_w = dr.get("waarde") if dr else None
+        dr_val = float(_dr_w) if isinstance(_dr_w, (int, float)) else None
         jr_hoog = (
             hoge_normen["jr"] is not None
             and jr_val is not None
