@@ -8,6 +8,14 @@ Pipeline-fase: `ingest > decode > validate > export > stack > OBT > enrich > (op
 ## Standards
 Volg de CEDA technische standaarden: https://github.com/cedanl/.github/tree/main/standards/README.md
 
+## Coding Principles (voor alle LLM-bijdragers)
+- **Modulair & onderhoudbaar** — herhalende logica hoort in een herbruikbare functie of module, niet inline gedupliceerd.
+- **Geen hardcoded waarden** — paden, codes, labels en drempelwaarden komen uit config (`config.toml`, constanten bovenaan het bestand, of parameters). Nooit als magic string midden in de code.
+- **Dynamisch** — lees kolomnamen, opties en lijsten uit de data; neem ze niet over als vaste lijst tenzij ze écht stabiel zijn.
+- **Boy Scout Principle** — laat elke file die je aanraakt schoner achter dan je hem aantrof: verwijder dode code, los triviale stijlproblemen op, vereenvoudig onduidelijke logica.
+- **Geen Tactical Tornado** — geen snelle quick-fixes die technische schuld opbouwen of toekomstig onderhoud bemoeilijken. Kies de duurzame oplossing, ook als die iets meer werk is.
+- **Geen commit tenzij gevraagd** — implementeer lokaal en meld wat er gedaan is; wacht op een expliciete commit-opdracht van de gebruiker.
+
 ## Tech Stack
 - Python 3.13, uv voor dependency-management
 - Polars voor data-verwerking

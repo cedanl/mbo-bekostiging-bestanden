@@ -39,6 +39,40 @@ def _resolve_dir() -> Path | None:
     return None
 
 
+_PILLS_KEY = "studiejaar_pills"
+
+
+def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
+    """Rendert studiejaar-pills met select/deselect-all in de sidebar en filtert df."""
+    if "Studiejaar" not in df.columns:
+        return df
+    jaren = sorted(df["Studiejaar"].drop_nulls().unique().to_list())
+    if _PILLS_KEY not in st.session_state:
+        st.session_state[_PILLS_KEY] = jaren
+    with st.sidebar:
+        st.header("Filters")
+        st.caption(
+            "**Studiejaar** — schooljaar dat start op 1 augustus "
+            "(bijv. 2024 = aug 2024 – jul 2025)."
+        )
+        col_all, col_none = st.columns(2)
+        if col_all.button("Alle", use_container_width=True):
+            st.session_state[_PILLS_KEY] = jaren
+        if col_none.button("Geen", use_container_width=True):
+            st.session_state[_PILLS_KEY] = []
+        geselecteerd = st.pills(
+            "Studiejaar",
+            options=jaren,
+            selection_mode="multi",
+            key=_PILLS_KEY,
+        )
+        if not geselecteerd:
+            st.warning("Geen studiejaar geselecteerd.")
+    if not geselecteerd:
+        return df.clear()
+    return df.filter(pl.col("Studiejaar").is_in(geselecteerd))
+
+
 st.markdown(
     '<span style="font-size:.75rem;font-weight:700;color:#7b8ab8;'
     'text-transform:uppercase;letter-spacing:.08em">Dashboard</span>',
@@ -58,6 +92,7 @@ if data_dir is None:
     st.stop()
 
 df = pl.read_parquet(data_dir / "obt_inschrijvingen.parquet")
+df = _sidebar_studiejaar_filter(df)
 
 # ---------------------------------------------------------------------------
 # Header metrics
