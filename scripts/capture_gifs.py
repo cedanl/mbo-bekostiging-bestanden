@@ -1,10 +1,7 @@
 """Capture animated GIFs of the Streamlit app per feature, using Playwright + ffmpeg."""
 
 import asyncio
-import os
 import subprocess
-import sys
-import time
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -114,7 +111,8 @@ async def capture_dashboard(page, tmp: Path) -> list[tuple[Path, float]]:
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.5))
 
-    for i, tab in enumerate(["Rendementen", "Bekostiging", "Opleidingen", "Studenten", "Examens"], 1):
+    tabs = ["Rendementen", "Bekostiging", "Opleidingen", "Studenten", "Examens"]
+    for i, tab in enumerate(tabs, 1):
         await click_tab(page, tab)
         # Scroll naar tab-content zodat grafieken/tabellen zichtbaar zijn
         await page.evaluate("window.scrollTo(0, 300)")
@@ -134,7 +132,9 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     frames: list[tuple[Path, float]] = []
 
     # Navigeer via de sidebar-link naar Home (behoudt WebSocket-sessie + session_state)
-    home_link = page.locator("[data-testid='stSidebarNavLink']:has-text('Home'), a:has-text('Home')")
+    home_link = page.locator(
+        "[data-testid='stSidebarNavLink']:has-text('Home'), a:has-text('Home')"
+    )
     await home_link.first.wait_for(state="visible", timeout=10_000)
     await home_link.first.click()
     await wait_streamlit(page)
@@ -231,7 +231,8 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
             FFMPEG, "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat),
             "-i", str(palette),
-            "-lavfi", f"scale={width}:-1:flags=lanczos[s];[s][1:v]paletteuse=dither=bayer",
+            "-lavfi",
+            f"scale={width}:-1:flags=lanczos[s];[s][1:v]paletteuse=dither=bayer",
             str(output),
         ],
         check=True, capture_output=True,
