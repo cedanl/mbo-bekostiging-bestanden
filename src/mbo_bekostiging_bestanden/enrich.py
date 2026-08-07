@@ -1,7 +1,7 @@
-"""Verrijking van obt_inschrijvingen met leesbare labels uit decodeertabellen.
+"""Verrijking van inschrijvingen met leesbare labels uit decodeertabellen.
 
 Publieke API:
-    enrich_obt(obt_inschrijvingen) -> pl.DataFrame
+    enrich_inschrijvingen(df) -> pl.DataFrame
 
 Voegt leesbare namen en migratieachtergronden toe via LEFT JOINs op de CSV-
 bestanden in de ``metadata/``-map naast dit bestand.  Alle lookups worden
@@ -125,8 +125,8 @@ def _join_landcode(
 # ---------------------------------------------------------------------------
 
 
-def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
-    """Verrijk ``obt_inschrijvingen`` met leesbare labels uit decodeertabellen.
+def enrich_inschrijvingen(df: pl.DataFrame) -> pl.DataFrame:
+    """Verrijk inschrijvingen met leesbare labels uit decodeertabellen.
 
     Toegevoegde kolommen (alleen als de bronkolom aanwezig is):
 
@@ -158,13 +158,12 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
         ``Instelling_naam``, ``Instelling_plaats``
 
     Args:
-        obt_inschrijvingen: Resultaat van ``_bouw_obt_inschrijvingen`` of
-            ``_bouw_tbgi_inschrijvingen`` uit ``obt.py``.
+        df: Resultaat van ``_bouw_obt_inschrijvingen`` of
+            ``_bouw_tbgi_inschrijvingen`` uit ``transform.py``.
 
     Returns:
         Verrijkte DataFrame; originele kolommen blijven onaangepast.
     """
-    df = obt_inschrijvingen
 
     # ── Nationaliteit ────────────────────────────────────────────────────────
     df = _join_nationaliteit(df, "Nationaliteit1")

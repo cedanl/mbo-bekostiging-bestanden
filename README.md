@@ -56,30 +56,30 @@ uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324
 
 # Bouw star schema vanuit meerdere prepared-mappen
-uv run mbo obt \
+uv run mbo star \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
     data/02-prepared/demo/h16/TBGI_25LX_2027_20251124 \
     data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
-    --output data/03-output/demo/obt \
+    --output data/03-output/demo/star \
     --relative-to data/02-prepared/demo
 ```
 
 **Python API**:
 
 ```python
-from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_obt
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
 
 run_auto_pipeline("data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv",
                   "data/02-prepared/demo/h15/RO_27DV_20240731_20260324")
 
-run_obt(
+run_star(
     sources=["data/02-prepared/demo/h15/RO_27DV_20240731_20260324",
              "data/02-prepared/demo/h16/TBGI_25LX_2027_20251124",
              "data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025"],
-    target="data/03-output/demo/obt",
+    target="data/03-output/demo/star",
     relative_to="data/02-prepared/demo",
 )
-# Star schema staat in data/03-output/demo/obt/datamodel/
+# Star schema staat in data/03-output/demo/star/datamodel/
 ```
 
 ### Eigen data verwerken
@@ -103,7 +103,7 @@ git.
   `RO_*.csv` (h15), `TBGI_*.XML` (h16), `GRONDSLAG_IP_MBO_*.csv` (h17).
 - **Prepared**: genormaliseerde Parquet per recordtype in `data/02-prepared/`,
   één submap per leveringsbestand (`groep/bestandsstam/`).
-- **Output**: tien star-schema-tabellen in `data/03-output/obt/datamodel/`
+- **Output**: tien star-schema-tabellen in `data/03-output/star/datamodel/`
   (zie [docs/datamodel.md](docs/datamodel.md) voor een volledig overzicht)
 - Echte data staat niet in git; alleen demo-data in `data/*/demo/`.
 

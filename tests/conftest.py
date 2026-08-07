@@ -1,4 +1,4 @@
-"""Gedeelde test-fixtures voor stack-, OBT- en indicatoren-tests."""
+"""Gedeelde test-fixtures voor stack-, transform- en indicatoren-tests."""
 
 from datetime import date
 from pathlib import Path
@@ -6,9 +6,9 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.obt import build_obt
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
+from mbo_bekostiging_bestanden.transform import _bouw_obt_tables
 
 RAW = Path("data/01-raw/demo")
 
@@ -84,5 +84,5 @@ def demo_stacked(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def demo_obt(demo_stacked):
-    return build_obt(demo_stacked)
+def demo_tabellen(demo_stacked):
+    return _bouw_obt_tables(demo_stacked)

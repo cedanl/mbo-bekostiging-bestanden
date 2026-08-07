@@ -1,17 +1,18 @@
-"""OBT (One Big Table) bouwen vanuit gestapelde genormaliseerde records.
+"""Interne analysetabellen vanuit gestapelde genormaliseerde records.
 
-Zes output-tabellen (nul informatieverlies):
-  obt_inschrijvingen  ISP-grain, alles flat + dynamische GEO-pivot +
+Zeven output-tabellen (nul informatieverlies):
+  inschrijvingen      ISP-grain, alles flat + dynamische GEO-pivot +
                       BPV/KZD/AMO geaggregeerd
   detail_bpv          BPV volledig uitgesplitst, joinbaar op
                       (levering, _persoon_id, Inschrijvingvolgnummer)
   detail_kzd_amo      KZD en AMO volledig, kolom _bron geeft herkomst aan
   detail_bekostiging  BII (GRONDSLAG) + TBGI-Teldatum per
                       inschrijving × teldatum
+  detail_bekostiging_diploma  TBGI-Diploma per inschrijving × diploma
   detail_geo          GEO in long format, grain: inschrijving × onderdeel
   meta_leveringen     VLP + SLR per bronbestand
 
-Berekende vlaggen op obt_inschrijvingen:
+Berekende vlaggen op inschrijvingen:
   Bekostiging   _actief_1_oktober, _bekostigd_eerste_1okt,
                 _gediplomeerd_in_jaar, _ingeschreven_jaar_later,
                 _deelnemer_niet_bekostigd_eerste_1okt
@@ -27,7 +28,7 @@ from pathlib import Path
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.enrich import enrich_obt
+from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
 
 _METADATA = Path(__file__).parent / "metadata"
 
@@ -193,7 +194,7 @@ def _geo_pivot(
         ]:
             prefix = f"{veld}_"
             if col.startswith(prefix):
-                code = col[len(prefix) :]
+                code = col[len(prefix):]
                 is_vrijstelling = veld == "VrijstellingGeneriekExamenonderdeel"
                 kort_veld = "Vrijstelling" if is_vrijstelling else veld
                 hernoem[col] = f"GEO_{code}_{kort_veld}"
@@ -639,7 +640,7 @@ def _amo_aggregaat(
 
 
 def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """ISP-grain OBT: alle record-types samengevoegd tot één platte tabel."""
+    """ISP-grain: alle record-types samengevoegd tot één platte analysetabel."""
 
     # ── Basis: ISP ───────────────────────────────────────────────────────────
     obt = _add_persoon_id(stacked["ISP"])
@@ -839,7 +840,7 @@ def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, CodeGeneriekExamenonderdeel).
 
     Behoudt DatumResultaat, VrijstellingIE/CE en Onderwijsaanbieder die
-    in de GEO-pivot van obt_inschrijvingen verloren gaan.
+    in de GEO-pivot van inschrijvingen verloren gaan.
     Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen.
     """
     if "GEO" not in stacked or stacked["GEO"].is_empty():
@@ -884,12 +885,12 @@ def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# Publieke API
+# Interne aggregaat-API (voor star.py)
 # ---------------------------------------------------------------------------
 
 
-def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Bouw vijf OBT-output-tabellen vanuit gestapelde genormaliseerde records.
+def _bouw_obt_tables(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    """Bouw zeven analysetabellen vanuit gestapelde genormaliseerde records.
 
     Args:
         stacked: Output van :func:`~mbo_bekostiging_bestanden.stack.stack_prepared`,
@@ -897,7 +898,7 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
 
     Returns:
         Dict met zeven sleutels:
-        ``obt_inschrijvingen``, ``detail_bpv``, ``detail_kzd_amo``,
+        ``inschrijvingen``, ``detail_bpv``, ``detail_kzd_amo``,
         ``detail_bekostiging``, ``detail_bekostiging_diploma``,
         ``detail_geo``, ``meta_leveringen``.
     """
@@ -909,11 +910,11 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     if not heeft_isp and not heeft_inschrijving:
         raise ValueError(
             "Gestapelde data bevat geen ISP- of Inschrijving-records; "
-            "OBT kan niet worden gebouwd."
+            "analysetabellen kunnen niet worden gebouwd."
         )
 
     return {
-        "obt_inschrijvingen": enrich_obt(
+        "inschrijvingen": enrich_inschrijvingen(
             _bouw_obt_inschrijvingen(stacked)
             if heeft_isp
             else _bouw_tbgi_inschrijvingen(stacked)

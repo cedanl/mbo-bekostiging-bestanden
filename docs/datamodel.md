@@ -1,9 +1,8 @@
 # Datamodel
 
 De ETL produceert een star schema: drie dimensietabellen en zeven feittabellen.
-Het star schema staat in `<output>/datamodel/` en is de primaire output van de
-pipeline. Het OBT (Object Betrokkenheid Tabel) is een interne tussenstap die
-niet naar schijf wordt geschreven.
+Het star schema staat in `<output>/datamodel/` en is de enige output van de
+pipeline. Interne analysetabellen worden niet naar schijf geschreven.
 
 ---
 

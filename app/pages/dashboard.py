@@ -45,13 +45,13 @@ _GEO_SLAAGGRENS = 5.5  # minimaal eindcijfer om als geslaagd te tellen
 
 
 def _resolve_dir() -> Path | None:
-    for key in ("resultaten_dir", "obt_pad"):
+    for key in ("resultaten_dir", "star_pad"):
         val = st.session_state.get(key)
         if val:
             p = Path(val)
             if (p / "datamodel" / "fact_inschrijving.parquet").exists():
                 return p
-    fallback = output_dir() / "obt"
+    fallback = output_dir() / "star"
     if (fallback / "datamodel" / "fact_inschrijving.parquet").exists():
         return fallback
     return None

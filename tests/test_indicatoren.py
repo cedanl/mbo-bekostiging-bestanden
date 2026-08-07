@@ -378,8 +378,8 @@ def test_entree_indicatoren_ongeclassificeerde_rijen_vallen_in_uitstroom():
 # ---------------------------------------------------------------------------
 
 
-def test_normen_en_populatie_in_demo_obt(demo_obt):
-    obt = demo_obt["obt_inschrijvingen"]
+def test_normen_en_populatie_in_demo_tabellen(demo_tabellen):
+    obt = demo_tabellen["inschrijvingen"]
     populatie = populatie_regele_filter(obt)
     assert "OV" not in populatie["Leertraject"].to_list()
     assert "MBO-1" not in populatie["Niveau"].to_list()

@@ -1,11 +1,11 @@
-"""Tests voor obt.py (OBT-bouwfuncties)."""
+"""Tests voor transform.py (analysetabel-bouwfuncties)."""
 
 from datetime import date
 
 import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.obt import (
+from mbo_bekostiging_bestanden.transform import (
     _bouw_detail_bekostiging,
     _bouw_detail_bekostiging_diploma,
     _leid_studiejaar_af,
@@ -16,26 +16,26 @@ from mbo_bekostiging_bestanden.obt import (
     _voeg_sr_vlaggen_toe,
     _voeg_telling_en_jr_vlaggen_toe,
     _vul_niveau_aan,
-    build_obt,
+    _bouw_obt_tables,
 )
 
 # ---------------------------------------------------------------------------
-# build_obt – input-validatie
+# _bouw_obt_tables – input-validatie
 # ---------------------------------------------------------------------------
 
 
-def test_build_obt_raises_without_isp_and_inschrijving():
+def test_bouw_obt_tables_raises_without_isp_and_inschrijving():
     with pytest.raises(ValueError, match="ISP"):
-        build_obt({"PER": pl.DataFrame()})
+        _bouw_obt_tables({"PER": pl.DataFrame()})
 
 
-def test_build_obt_raises_with_leeg_isp_en_geen_inschrijving():
+def test_bouw_obt_tables_raises_with_leeg_isp_en_geen_inschrijving():
     with pytest.raises(ValueError, match="ISP"):
-        build_obt({"ISP": pl.DataFrame()})
+        _bouw_obt_tables({"ISP": pl.DataFrame()})
 
 
-def test_build_obt_tbgi_fallback_gebruikt_inschrijving_als_grain():
-    """Zonder ISP maar met TBGI Inschrijving → obt_inschrijvingen gevuld."""
+def test_bouw_obt_tables_tbgi_fallback_gebruikt_inschrijving_als_grain():
+    """Zonder ISP maar met TBGI Inschrijving → inschrijvingen gevuld."""
     inschrijving = pl.DataFrame({
         "levering": ["L1"],
         "BRIN": ["25LX"],
@@ -43,12 +43,12 @@ def test_build_obt_tbgi_fallback_gebruikt_inschrijving_als_grain():
         "Onderwijsnummer": [None],
         "Inschrijvingvolgnummer": ["001"],
     })
-    result = build_obt({"Inschrijving": inschrijving})
-    assert result["obt_inschrijvingen"].height == 1
-    assert "_persoon_id" in result["obt_inschrijvingen"].columns
+    result = _bouw_obt_tables({"Inschrijving": inschrijving})
+    assert result["inschrijvingen"].height == 1
+    assert "_persoon_id" in result["inschrijvingen"].columns
 
 
-def test_build_obt_tbgi_fallback_detail_bekostiging_gevuld():
+def test_bouw_obt_tables_tbgi_fallback_detail_bekostiging_gevuld():
     """Teldatum verschijnt in detail_bekostiging ook als ISP ontbreekt."""
     inschrijving = pl.DataFrame({
         "levering": ["L1"],
@@ -64,20 +64,20 @@ def test_build_obt_tbgi_fallback_detail_bekostiging_gevuld():
         "Teldatum": ["2025-10-01"],
         "Bekostigingsstatus": ["A"],
     })
-    result = build_obt({"Inschrijving": inschrijving, "Teldatum": teldatum})
+    result = _bouw_obt_tables({"Inschrijving": inschrijving, "Teldatum": teldatum})
     detail = result["detail_bekostiging"]
     assert detail.height == 1
     assert "TBGI" in detail["_bron"].to_list()
 
 
 # ---------------------------------------------------------------------------
-# build_obt – output-structuur
+# _bouw_obt_tables – output-structuur
 # ---------------------------------------------------------------------------
 
 
-def test_build_obt_returns_zeven_tables(demo_obt):
-    assert set(demo_obt.keys()) == {
-        "obt_inschrijvingen",
+def test_bouw_obt_tables_returns_zeven_tables(demo_tabellen):
+    assert set(demo_tabellen.keys()) == {
+        "inschrijvingen",
         "detail_bpv",
         "detail_kzd_amo",
         "detail_bekostiging",
@@ -87,13 +87,13 @@ def test_build_obt_returns_zeven_tables(demo_obt):
     }
 
 
-def test_obt_inschrijvingen_grain_isp(demo_obt, demo_stacked):
+def test_inschrijvingen_grain_isp(demo_tabellen, demo_stacked):
     """OBT behoudt exact het aantal ISP-rijen."""
-    assert demo_obt["obt_inschrijvingen"].height == demo_stacked["ISP"].height
+    assert demo_tabellen["inschrijvingen"].height == demo_stacked["ISP"].height
 
 
-def test_obt_inschrijvingen_heeft_persoon_id(demo_obt):
-    assert "_persoon_id" in demo_obt["obt_inschrijvingen"].columns
+def test_inschrijvingen_heeft_persoon_id(demo_tabellen):
+    assert "_persoon_id" in demo_tabellen["inschrijvingen"].columns
 
 
 # ---------------------------------------------------------------------------
@@ -101,9 +101,9 @@ def test_obt_inschrijvingen_heeft_persoon_id(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_kzd_aantal_bsn1_ingevuld(demo_obt):
+def test_kzd_aantal_bsn1_ingevuld(demo_tabellen):
     """BSN1 heeft 2 KZD-records; na DIP-fallback is KZD_Aantal=2 (niet null)."""
-    obt = demo_obt["obt_inschrijvingen"]
+    obt = demo_tabellen["inschrijvingen"]
     bsn1 = obt.filter(
         (pl.col("_persoon_id") == "BSN1")
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
@@ -112,8 +112,8 @@ def test_kzd_aantal_bsn1_ingevuld(demo_obt):
     assert bsn1["KZD_Aantal"].to_list()[0] == 2
 
 
-def test_kzd_behaald_bsn1_ingevuld(demo_obt):
-    obt = demo_obt["obt_inschrijvingen"]
+def test_kzd_behaald_bsn1_ingevuld(demo_tabellen):
+    obt = demo_tabellen["inschrijvingen"]
     bsn1 = obt.filter(
         (pl.col("_persoon_id") == "BSN1")
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
@@ -121,10 +121,10 @@ def test_kzd_behaald_bsn1_ingevuld(demo_obt):
     assert bsn1["KZD_AantalBehaald"].to_list()[0] == 2
 
 
-def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_obt):
+def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_tabellen):
     """Na DIP-fallback: geen enkel KZD/AMO-record heeft een leeg Inschrijvingvolgnummer.
     """
-    detail = demo_obt["detail_kzd_amo"]
+    detail = demo_tabellen["detail_kzd_amo"]
     assert detail["Inschrijvingvolgnummer"].null_count() == 0
     leeg = (detail["Inschrijvingvolgnummer"] == "").sum()
     assert leeg == 0
@@ -135,15 +135,15 @@ def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_geo_kolommen_aanwezig(demo_obt):
-    obt = demo_obt["obt_inschrijvingen"]
+def test_geo_kolommen_aanwezig(demo_tabellen):
+    obt = demo_tabellen["inschrijvingen"]
     geo_cols = [c for c in obt.columns if c.startswith("GEO_")]
     assert len(geo_cols) > 0
 
 
-def test_geo_pivot_naam_formaat(demo_obt):
+def test_geo_pivot_naam_formaat(demo_tabellen):
     """GEO-kolomnamen volgen het patroon GEO_{code}_{veld}."""
-    obt = demo_obt["obt_inschrijvingen"]
+    obt = demo_tabellen["inschrijvingen"]
     for col in obt.columns:
         if col.startswith("GEO_"):
             parts = col.split("_")
@@ -155,16 +155,16 @@ def test_geo_pivot_naam_formaat(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_detail_bpv_niet_leeg(demo_obt):
-    assert demo_obt["detail_bpv"].height > 0
+def test_detail_bpv_niet_leeg(demo_tabellen):
+    assert demo_tabellen["detail_bpv"].height > 0
 
 
-def test_detail_bpv_heeft_persoon_id(demo_obt):
-    assert "_persoon_id" in demo_obt["detail_bpv"].columns
+def test_detail_bpv_heeft_persoon_id(demo_tabellen):
+    assert "_persoon_id" in demo_tabellen["detail_bpv"].columns
 
 
-def test_detail_bpv_geen_rijen_verloren(demo_obt, demo_stacked):
-    assert demo_obt["detail_bpv"].height == demo_stacked["BPV"].height
+def test_detail_bpv_geen_rijen_verloren(demo_tabellen, demo_stacked):
+    assert demo_tabellen["detail_bpv"].height == demo_stacked["BPV"].height
 
 
 # ---------------------------------------------------------------------------
@@ -172,19 +172,17 @@ def test_detail_bpv_geen_rijen_verloren(demo_obt, demo_stacked):
 # ---------------------------------------------------------------------------
 
 
-def test_detail_kzd_amo_heeft_bron_kolom(demo_obt):
-    assert "_bron" in demo_obt["detail_kzd_amo"].columns
 
 
-def test_detail_kzd_amo_bron_waarden(demo_obt):
-    bronnen = set(demo_obt["detail_kzd_amo"]["_bron"].unique().to_list())
+def test_detail_kzd_amo_bron_waarden(demo_tabellen):
+    bronnen = set(demo_tabellen["detail_kzd_amo"]["_bron"].unique().to_list())
     assert bronnen <= {"KZD", "AMO"}
 
 
-def test_detail_kzd_amo_alle_records(demo_obt, demo_stacked):
+def test_detail_kzd_amo_alle_records(demo_tabellen, demo_stacked):
     amo = demo_stacked.get("AMO", pl.DataFrame())
     verwacht = demo_stacked["KZD"].height + amo.height
-    assert demo_obt["detail_kzd_amo"].height == verwacht
+    assert demo_tabellen["detail_kzd_amo"].height == verwacht
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +203,8 @@ def test_detail_bekostiging_bevat_bii_indien_aanwezig():
     assert "BII" in detail["_bron"].unique().to_list()
 
 
-def test_detail_bekostiging_bevat_tbgi(demo_obt):
-    detail = demo_obt["detail_bekostiging"]
+def test_detail_bekostiging_bevat_tbgi(demo_tabellen):
+    detail = demo_tabellen["detail_bekostiging"]
     assert "TBGI" in detail["_bron"].unique().to_list()
 
 
@@ -238,9 +236,9 @@ def test_detail_bekostiging_diploma_persoon_id_aanwezig():
     assert result["BijdrageDiplomawaarde"][0] == "5"
 
 
-def test_detail_bekostiging_diploma_in_demo_obt(demo_obt):
+def test_detail_bekostiging_diploma_in_demo_tabellen(demo_tabellen):
     """Demo TBGI levert één Diploma-rij op in detail_bekostiging_diploma."""
-    detail = demo_obt["detail_bekostiging_diploma"]
+    detail = demo_tabellen["detail_bekostiging_diploma"]
     assert not detail.is_empty()
     assert "BijdrageDiplomawaarde" in detail.columns
     assert "Burgerservicenummer" not in detail.columns
@@ -251,10 +249,10 @@ def test_detail_bekostiging_diploma_in_demo_obt(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_meta_leveringen_bevat_alle_leveringen(demo_obt, demo_stacked):
-    leveringen_obt = set(demo_obt["meta_leveringen"]["levering"].unique().to_list())
+def test_meta_leveringen_bevat_alle_leveringen(demo_tabellen, demo_stacked):
+    leveringen = set(demo_tabellen["meta_leveringen"]["levering"].unique().to_list())
     leveringen_stacked = set(demo_stacked["VLP"]["levering"].unique().to_list())
-    assert leveringen_stacked <= leveringen_obt
+    assert leveringen_stacked <= leveringen
 
 
 # ---------------------------------------------------------------------------
@@ -777,9 +775,9 @@ def test_jr_teller_false_geen_resultaat():
 # ---------------------------------------------------------------------------
 
 
-def test_indicatie_bekostigbaar_normalisatie_in_obt(demo_obt):
+def test_indicatie_bekostigbaar_normalisatie_in_demo(demo_tabellen):
     """Na decode-normalisatie bevat de OBT alleen 'J' of 'N' (of null)."""
-    obt = demo_obt["obt_inschrijvingen"]
+    obt = demo_tabellen["inschrijvingen"]
     if "IndicatieBekostigbaar" in obt.columns:
         waarden = set(
             obt["IndicatieBekostigbaar"].drop_nulls().unique().to_list()
@@ -948,9 +946,9 @@ def test_tellingen_aanwezig():
     assert p2["_tellingen_aanwezig"][0] == 1
 
 
-def test_afgeleide_velden_in_demo_obt(demo_obt):
+def test_afgeleide_velden_in_demo(demo_tabellen):
     """Afgeleide velden zijn aanwezig in de OBT."""
-    obt = demo_obt["obt_inschrijvingen"]
+    obt = demo_tabellen["inschrijvingen"]
     assert "Niveau_gecombineerd" in obt.columns
     assert "_tellingen_aanwezig" in obt.columns
 
@@ -991,9 +989,9 @@ def test_vul_niveau_aan_onbekende_code():
     assert result["Niveau"][0] is None
 
 
-def test_vul_niveau_in_demo_obt(demo_obt):
+def test_vul_niveau_in_demo(demo_tabellen):
     """Na Niveau-aanvulling hebben de meeste rijen een Niveau."""
-    obt = demo_obt["obt_inschrijvingen"]
+    obt = demo_tabellen["inschrijvingen"]
     filled = obt["Niveau"].drop_nulls().len()
     assert filled > 2
 
@@ -1066,7 +1064,7 @@ def test_studiejaar_geen_datum_geen_crash():
     assert "Studiejaar" not in result.columns
 
 
-def test_studiejaar_afgeleid_in_demo_obt(demo_obt):
+def test_studiejaar_afgeleid_in_demo(demo_tabellen):
     """Na afleiding heeft elke rij een Studiejaar (geen nulls meer)."""
-    obt = demo_obt["obt_inschrijvingen"]
+    obt = demo_tabellen["inschrijvingen"]
     assert obt["Studiejaar"].null_count() == 0

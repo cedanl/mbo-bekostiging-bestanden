@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.enrich import enrich_obt
+from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties: minimale lookups in-memory
@@ -137,7 +137,7 @@ def test_nationaliteit1_naam_en_migratieachtergrond():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Nationaliteit1_naam" in result.columns
     assert "Nationaliteit1_migratieachtergrond" in result.columns
@@ -156,7 +156,7 @@ def test_nationaliteit2_naam_en_migratieachtergrond():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Nationaliteit2_naam" in result.columns
     assert result["Nationaliteit2_naam"][0] == "Behandeld als Nederlander"
@@ -169,7 +169,7 @@ def test_codegeboorteland_naam():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "CodeGeboorteland_naam" in result.columns
     assert result["CodeGeboorteland_naam"][0] == "Frankrijk"
@@ -182,7 +182,7 @@ def test_postcodecijfers_naar_gemeente():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Gemeente" in result.columns
     assert "Gemeentecode" in result.columns
@@ -196,7 +196,7 @@ def test_brin_naar_instelling():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Instelling_naam" in result.columns
     assert "Instelling_plaats" in result.columns
@@ -213,7 +213,7 @@ def test_ontbrekende_bronkolommen_geen_crash():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     # Geen verrijkingskolommen toegevoegd (bronkolommen ontbreken)
     assert "Nationaliteit1_naam" not in result.columns
@@ -230,7 +230,7 @@ def test_ontbrekende_kolom_per_type():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     # Nationaliteit1 wel verrijkt
     assert "Nationaliteit1_naam" in result.columns
@@ -247,7 +247,7 @@ def test_onbekende_code_geeft_null():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["Nationaliteit1_naam"][0] is None
     assert result["Nationaliteit1_migratieachtergrond"][0] is None
@@ -259,7 +259,7 @@ def test_onbekende_brin_geeft_null():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["Instelling_naam"][0] is None
     assert result["Instelling_plaats"][0] is None
@@ -271,7 +271,7 @@ def test_lege_string_code_geeft_null():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["CodeGeboorteland_naam"][0] is None
 
@@ -286,7 +286,7 @@ def test_originele_kolommen_ongewijzigd():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["BRIN"][0] == "01AA"
     assert result["Nationaliteit1"][0] == "0001"
@@ -299,7 +299,7 @@ def test_crebo_verrijking_naam_en_domein():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Opleiding_naam" in result.columns
     assert "Opleiding_domein" in result.columns
@@ -317,7 +317,7 @@ def test_crebo_onbekende_code_geeft_null():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["Opleiding_naam"][0] is None
     assert result["Opleiding_domein"][0] is None
@@ -329,7 +329,7 @@ def test_crebo_ontbrekende_kolom_geen_crash():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Opleiding_naam" not in result.columns
 
@@ -340,7 +340,7 @@ def test_sbb_koppeltabel_verrijking():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Opleiding_beroep" in result.columns
     assert "Opleiding_niveau" in result.columns
@@ -359,7 +359,7 @@ def test_sbb_koppeltabel_onbekende_code_geeft_null():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["Opleiding_beroep"][0] is None
     assert result["Opleiding_niveau"][0] is None
@@ -371,7 +371,7 @@ def test_crebolijst_verrijking_geldigheid_en_prijsfactor():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert "Opleiding_geldig_van" in result.columns
     assert "Opleiding_geldig_tot" in result.columns
@@ -388,7 +388,7 @@ def test_crebolijst_onbekende_code_geeft_null():
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
-        result = enrich_obt(df)
+        result = enrich_inschrijvingen(df)
 
     assert result["Opleiding_geldig_van"][0] is None
     assert result["Opleiding_geldig_tot"][0] is None
