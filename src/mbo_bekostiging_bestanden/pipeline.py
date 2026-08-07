@@ -153,8 +153,8 @@ def run_obt(
         relative_to: Basispad voor automatische leveringslabels (optioneel).
 
     Returns:
-        Dict met de OBT-tabellen (interne representatie, niet naar schijf
-        geschreven).
+        Dict met de OBT-tabellen (interne representatie); het star schema
+        is naar ``<target>/datamodel/`` geschreven.
     """
     stacked = stack_prepared(sources, relative_to=relative_to)
     obt = build_obt(stacked)

@@ -1,8 +1,8 @@
 """Documentatie per grafiek in het dashboard.
 
 Elke grafiek in ``dashboard.py`` toont via :func:`chart_help` een uitklapbaar
-uitlegblok: welke OBT-variabelen gebruikt worden en, in menselijke taal, welke
-datamanipulatie erachter zit.  Waar relevant is een definitiekanttekening
+uitlegblok: welke star schema-variabelen gebruikt worden en, in menselijke taal,
+welke datamanipulatie erachter zit.  Waar relevant is een definitiekanttekening
 opgenomen (bijv. verschil met de inspectie-indicator Jaarresultaat).
 
 Bewust géén bedrijfslogica; de berekeningen leven in ``dashboard.py`` zelf.
@@ -40,28 +40,60 @@ CHART_DOCS: dict[str, dict] = {
             "Zie 'Toelichting onderwijsresultaten', hfst. 3 en bijlage 1."
         ),
     },
+    "dr_indicatief": {
+        "titel": "Diplomaresultaat (DR) — indicatief, per niveau",
+        "variabelen": [
+            "levering",
+            "Niveau",
+            "_dr_noemer",
+            "_dr_teller",
+            "BRIN",
+            "Studiejaar",
+        ],
+        "manipulatie": (
+            "De **populatieregels** worden eerst toegepast (bijlage 3): alleen "
+            "leerwegen bol/bbl/ex, niveaus ≥ 2.  Een student telt als "
+            "**uitstromer** (noemer) als zij actief zijn op 1-10-t én geen "
+            "actieve inschrijving hebben bij hetzelfde BRIN in studiejaar t+1 "
+            "(bepaald via de gestapelde leveringen).  De **teller** zijn "
+            "uitstromers met een diploma (`DIP_DatumResultaat` gevuld).  "
+            "**DR = gediplomeerde uitstromers / alle uitstromers × 100**.  "
+            "De DUO-normen (voldoende: 61/70/70; hoog: 79/89/89 voor niveau "
+            "2/3/4) worden er per niveau naast gezet."
+        ),
+        "kanttekening": (
+            "Dit is een **indicatieve schatting**, geen officiële inspectie-"
+            "indicator.  De inspectie hanteert een 6-jaars terugblik voor "
+            "diploma's en ontdubbelt studenten bij neveninschrijvingen.  "
+            "De uitstromer-bepaling is hier benaderd via de aanwezigheid in "
+            "het volgende studiejaar binnen de gestapelde leveringen; studenten "
+            "van het meest recente studiejaar hebben geen 't+1'-referentie en "
+            "vallen daardoor altijd in de noemer.  Zie §3.1 en bijlage 1."
+        ),
+    },
     "berekend_oordeel": {
         "titel": "Berekend oordeel Studiesucces (indicatief)",
         "variabelen": [
             "Niveau",
-            "_actief_1_oktober",
-            "_gediplomeerd_in_jaar",
+            "_jr_noemer",
+            "_jr_teller",
+            "_dr_noemer",
+            "_dr_teller",
             "metadata/normen.toml",
         ],
         "manipulatie": (
-            "Op basis van de JR per niveau wordt de beoordelingsregel van "
+            "Op basis van JR én DR per niveau wordt de beoordelingsregel van "
             "tabel 3 toegepast (via `indicatoren.bereken_oordeel`): hoog als "
             "alle drie de indicatoren voldoen en JR of DR de hoge norm haalt; "
             "voldoende als ≥ 2 van de 3 voldoen; anders onvoldoende.  De "
             "normen komen uit `metadata/normen.toml`."
         ),
         "kanttekening": (
-            "Hier is **alleen JR** beschikbaar; DR en SR worden door de OBT "
-            "niet berekend.  Bij één indicator is een oordeel alleen mogelijk "
-            "als de twee aanwezige dezelfde richting uitwijzen (§3.5); met "
-            "maar één indicator is het oordeel dus indicatief en wijkt het af "
-            "van het inspectieoordeel op basis van drie indicatoren over drie "
-            "cursusjaren."
+            "SR (startersresultaat) is **niet beschikbaar** — de inspectie "
+            "berekent dit over drie cohorten met zes jaar inschrijvings­"
+            "historie, die buiten de eigen leveringen valt.  Bij één "
+            "ontbrekende indicator is een oordeel alleen mogelijk als de twee "
+            "aanwezige indicatoren dezelfde richting uitwijzen (§3.5)."
         ),
     },
     "entree": {

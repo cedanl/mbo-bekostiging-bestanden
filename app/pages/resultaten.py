@@ -1,12 +1,9 @@
 """Resultaten — blader door de star-schema-tabellen en download."""
 
-import sys
 from pathlib import Path
 
 import polars as pl
 import streamlit as st
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @st.cache_resource(show_spinner=False)

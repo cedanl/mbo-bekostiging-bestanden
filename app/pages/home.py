@@ -52,7 +52,7 @@ st.markdown(
 </style>
 <div class="hero">
   <h1>MBO-bekostigingsbestanden</h1>
-  <p>Zet ruwe DUO-bekostigingsbestanden automatisch om naar schone OBT-data.</p>
+  <p>Zet ruwe DUO-bekostigingsbestanden automatisch om naar star schema-data.</p>
 </div>""",
     unsafe_allow_html=True,
 )
@@ -89,7 +89,7 @@ if not done:
         prepared = prepared_dir()
         output = output_dir()
 
-        # +1 voor de gecombineerde OBT-stap aan het eind
+        # +1 voor de star-schema-stap aan het eind
         totaal_stappen = totaal_bestanden + 1
         voortgang = st.progress(0, text="Start…")
         status = st.empty()
@@ -113,8 +113,8 @@ if not done:
                     stap / totaal_stappen, text=f"{stap}/{totaal_stappen}"
                 )
 
-        # Stap 2: alle prepared dirs samen stapelen en één gecombineerde OBT bouwen
-        status.info("Stapel alle leveringen en bouw gecombineerde OBT…")
+        # Stap 2: alle prepared dirs stapelen en star schema bouwen
+        status.info("Stapel alle leveringen en bouw star schema…")
         prep_dirs_met_data = [
             d for d in alle_prep_dirs if d.exists() and any(d.glob("*.parquet"))
         ]
@@ -130,7 +130,6 @@ if not done:
                 "isp_rijen": obt["obt_inschrijvingen"].height,
                 "bekostiging_rijen": obt["detail_bekostiging"].height,
                 "bpv_rijen": obt["detail_bpv"].height,
-                "kzd_amo_rijen": obt["detail_kzd_amo"].height,
                 "leveringen": sorted(
                     {
                         lev
@@ -141,7 +140,7 @@ if not done:
                 ),
             }
         except Exception as exc:
-            fouten.append(f"OBT: {exc}")
+            fouten.append(f"Star schema: {exc}")
             obt_summary = {}
 
         stap += 1
@@ -165,7 +164,7 @@ if done:
                 st.write(f"• {f}")
 
     if obt_summary:
-        st.success("Verwerkt — gecombineerde OBT klaar")
+        st.success("Verwerkt — star schema klaar")
         col1, col2, col3 = st.columns(3)
         col1.metric("Inschrijvingen (ISP)", obt_summary.get("isp_rijen", "—"))
         col2.metric("Bekostiging detail", obt_summary.get("bekostiging_rijen", "—"))
