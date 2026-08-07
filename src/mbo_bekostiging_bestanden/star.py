@@ -101,20 +101,21 @@ def build_star(
             ``detail_bekostiging``.
 
     Returns:
-        Dict met negen sleutels:
+        Dict met tien sleutels:
 
         Dimensies:
-          ``dim_deelnemer``     — uniek per ``_persoon_id``
-          ``dim_opleiding``     — uniek per ``Opleidingcode``
-          ``dim_instelling``    — uniek per ``BRIN``
+          ``dim_deelnemer``              — uniek per ``_persoon_id``
+          ``dim_opleiding``              — uniek per ``Opleidingcode``
+          ``dim_instelling``             — uniek per ``BRIN``
 
         Feiten:
-          ``fact_inschrijving`` — ISP-grain, FK's + vlaggen, zonder GEO-pivot
-          ``fact_bpv``          — BPV-periodes per inschrijving
-          ``fact_kzd``          — Keuzedelen per inschrijving
-          ``fact_amo``          — AMO-onderdelen per inschrijving
-          ``fact_geo``          — GEO-examenresultaten in long format
-          ``fact_bekostiging``  — TBGI bekostigingsgrondslagen per inschrijving
+          ``fact_inschrijving``          — ISP-grain, FK's + vlaggen, zonder GEO-pivot
+          ``fact_bpv``                   — BPV-periodes per inschrijving
+          ``fact_kzd``                   — Keuzedelen per inschrijving
+          ``fact_amo``                   — AMO-onderdelen per inschrijving
+          ``fact_geo``                   — GEO-examenresultaten in long format
+          ``fact_bekostiging``           — TBGI Teldatum-grondslagen per inschrijving
+          ``fact_bekostiging_diploma``   — TBGI diplomawaarde-bijdragen per inschrijving
     """
     obt = obt_tables["obt_inschrijvingen"]
 
@@ -142,6 +143,7 @@ def build_star(
         "fact_amo": _build_fact_amo(obt_tables),
         "fact_geo": _build_fact_geo(obt_tables),
         "fact_bekostiging": _build_fact_bekostiging(obt_tables),
+        "fact_bekostiging_diploma": _build_fact_bekostiging_diploma(obt_tables),
     }
 
 
@@ -189,6 +191,22 @@ def _build_fact_bekostiging(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame
     dim_instelling via BRIN.  BSN en Onderwijsnummer worden verwijderd.
     """
     detail = obt_tables.get("detail_bekostiging", pl.DataFrame())
+    if detail.is_empty():
+        return pl.DataFrame()
+    drop = [c for c in _BEKOSTIGING_DROP if c in detail.columns]
+    return detail.drop(drop)
+
+
+def _build_fact_bekostiging_diploma(
+    obt_tables: dict[str, pl.DataFrame],
+) -> pl.DataFrame:
+    """fact_bekostiging_diploma: TBGI diplomawaarde-bijdragen per inschrijving.
+
+    Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
+    Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen.
+    BSN en Onderwijsnummer worden verwijderd.
+    """
+    detail = obt_tables.get("detail_bekostiging_diploma", pl.DataFrame())
     if detail.is_empty():
         return pl.DataFrame()
     drop = [c for c in _BEKOSTIGING_DROP if c in detail.columns]

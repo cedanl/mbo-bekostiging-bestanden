@@ -441,24 +441,85 @@ def _voeg_telling_en_jr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
         obt = obt.with_columns(pl.lit(False).alias("_telling"))
 
     heeft_gediplomeerd = "_gediplomeerd_in_jaar" in obt.columns
-    heeft_ingeschreven = "_ingeschreven_jaar_later" in obt.columns
 
     obt = obt.with_columns(pl.col("_telling").alias("_jr_noemer"))
 
-    if heeft_gediplomeerd and heeft_ingeschreven:
+    if heeft_gediplomeerd:
         obt = obt.with_columns(
             (
                 pl.col("_jr_noemer")
-                & (
-                    pl.col("_gediplomeerd_in_jaar").fill_null(False)
-                    | pl.col("_ingeschreven_jaar_later").fill_null(False)
-                )
+                & pl.col("_gediplomeerd_in_jaar").fill_null(False)
             ).alias("_jr_teller")
         )
     else:
         obt = obt.with_columns(pl.lit(False).alias("_jr_teller"))
 
     return obt
+
+
+def _voeg_dr_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
+    """DR-bouwstenen: uitstromers en gediplomeerde uitstromers (§3.1).
+
+    Uitstromer = actief op 1-10-t én geen actieve inschrijving bij hetzelfde
+    BRIN in studiejaar t+1.  Bij gestapelde leveringen (meerdere studiejaren)
+    wordt over alle leveringen heen gekeken.
+
+    ``_dr_noemer``: hoofdinschrijving, actief 1-10, niveau ≥ 2, uitstromer.
+    ``_dr_teller``: ``_dr_noemer`` met diploma (DIP_DatumResultaat aanwezig).
+
+    Beperking: de 6-jaars terugblik voor diploma's is benaderd via
+    aanwezigheid van ``DIP_DatumResultaat``; ``DIP_Niveau`` wordt niet
+    expliciet gecontroleerd omdat dit een join op de CREBO-koppeltabel vereist.
+    """
+    benodigde = {
+        "_persoon_id", "BRIN", "Studiejaar", "_actief_1_oktober", "_hoofdinschrijving"
+    }
+    if not benodigde.issubset(obt.columns):
+        return obt.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_dr_noemer"),
+            pl.lit(None, dtype=pl.Boolean).alias("_dr_teller"),
+        )
+
+    actief = (
+        obt.filter(pl.col("_actief_1_oktober").fill_null(False))
+        .select(["_persoon_id", "BRIN", "Studiejaar"])
+        .unique()
+    )
+
+    # Lookup: (persoon_id, BRIN, t) → actief in t+1?
+    # Shift Studiejaar -1 zodat de join werkt op het huidige studiejaar t.
+    volgend_lookup = (
+        actief
+        .with_columns((pl.col("Studiejaar") - 1).alias("Studiejaar"))
+        .with_columns(pl.lit(True).alias("_actief_volgend_jaar"))
+    )
+    obt = obt.join(volgend_lookup, on=["_persoon_id", "BRIN", "Studiejaar"], how="left")
+    obt = obt.with_columns(pl.col("_actief_volgend_jaar").fill_null(False))
+
+    niveau_ge_2 = (
+        (_niveau_numeriek(pl.col("Niveau")) >= 2).fill_null(False)
+        if "Niveau" in obt.columns
+        else pl.lit(True)
+    )
+    obt = obt.with_columns(
+        (
+            pl.col("_actief_1_oktober").fill_null(False)
+            & pl.col("_hoofdinschrijving").fill_null(False)
+            & ~pl.col("_actief_volgend_jaar")
+            & niveau_ge_2
+        ).alias("_dr_noemer")
+    )
+
+    if "DIP_DatumResultaat" in obt.columns:
+        obt = obt.with_columns(
+            (pl.col("_dr_noemer") & pl.col("DIP_DatumResultaat").is_not_null()).alias(
+                "_dr_teller"
+            )
+        )
+    else:
+        obt = obt.with_columns(pl.lit(False, dtype=pl.Boolean).alias("_dr_teller"))
+
+    return obt.drop("_actief_volgend_jaar")
 
 
 def _voeg_entree_vlaggen_toe(obt: pl.DataFrame) -> pl.DataFrame:
@@ -685,6 +746,7 @@ def _bouw_obt_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     obt = _voeg_bekostigingsvlaggen_toe(obt)
     obt = _voeg_sr_vlaggen_toe(obt)
     obt = _voeg_telling_en_jr_vlaggen_toe(obt)
+    obt = _voeg_dr_vlaggen_toe(obt)
     obt = _voeg_entree_vlaggen_toe(obt)
     return _voeg_afgeleide_velden_toe(obt)
 
@@ -756,6 +818,21 @@ def _bouw_detail_bekostiging(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     return pl.concat(frames, how="diagonal_relaxed")
 
 
+def _bouw_detail_bekostiging_diploma(
+    stacked: dict[str, pl.DataFrame],
+) -> pl.DataFrame:
+    """TBGI-Diploma bekostigingsbijdragen; één rij per inschrijving × diploma.
+
+    Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
+    """
+    if "Diploma" not in stacked or stacked["Diploma"].is_empty():
+        return pl.DataFrame()
+    dip = stacked["Diploma"].clone()
+    dip = _add_persoon_id(dip)
+    dip = _drop(dip, *_PERSOON_COLS)
+    return dip
+
+
 def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """GEO in long format.
 
@@ -787,6 +864,7 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     obt = _voeg_bekostigingsvlaggen_toe(obt)
     obt = _voeg_sr_vlaggen_toe(obt)
     obt = _voeg_telling_en_jr_vlaggen_toe(obt)
+    obt = _voeg_dr_vlaggen_toe(obt)
     obt = _voeg_entree_vlaggen_toe(obt)
     return _voeg_afgeleide_velden_toe(obt)
 
@@ -818,9 +896,10 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
                  dict van tabelnaam → DataFrame.
 
     Returns:
-        Dict met zes sleutels:
+        Dict met zeven sleutels:
         ``obt_inschrijvingen``, ``detail_bpv``, ``detail_kzd_amo``,
-        ``detail_bekostiging``, ``detail_geo``, ``meta_leveringen``.
+        ``detail_bekostiging``, ``detail_bekostiging_diploma``,
+        ``detail_geo``, ``meta_leveringen``.
     """
     heeft_isp = "ISP" in stacked and not stacked["ISP"].is_empty()
     heeft_inschrijving = (
@@ -842,6 +921,7 @@ def build_obt(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
         "detail_bpv": _bouw_detail_bpv(stacked),
         "detail_kzd_amo": _bouw_detail_kzd_amo(stacked),
         "detail_bekostiging": _bouw_detail_bekostiging(stacked),
+        "detail_bekostiging_diploma": _bouw_detail_bekostiging_diploma(stacked),
         "detail_geo": _bouw_detail_geo(stacked),
         "meta_leveringen": _bouw_meta_leveringen(stacked),
     }
