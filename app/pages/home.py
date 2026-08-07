@@ -9,11 +9,11 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _utils import output_dir, prepared_dir, raw_dir
 
-from mbo_bekostiging_bestanden.export import export_frames
-from mbo_bekostiging_bestanden.obt import build_obt
-from mbo_bekostiging_bestanden.pipeline import detect_bestandstype, run_auto_pipeline
-from mbo_bekostiging_bestanden.stack import stack_prepared
-from mbo_bekostiging_bestanden.star import build_star
+from mbo_bekostiging_bestanden.pipeline import (
+    detect_bestandstype,
+    run_auto_pipeline,
+    run_obt,
+)
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties
@@ -122,10 +122,7 @@ if not done:
         obt_target.mkdir(parents=True, exist_ok=True)
 
         try:
-            stacked = stack_prepared(prep_dirs_met_data, relative_to=prepared)
-            obt = build_obt(stacked)
-            star_tables = build_star(obt)
-            export_frames(star_tables, obt_target / "datamodel")
+            obt = run_obt(prep_dirs_met_data, obt_target, relative_to=prepared)
             obt_summary = {
                 "isp_rijen": obt["obt_inschrijvingen"].height,
                 "bekostiging_rijen": obt["detail_bekostiging"].height,

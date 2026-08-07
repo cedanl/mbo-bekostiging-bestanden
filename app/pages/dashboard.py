@@ -41,6 +41,7 @@ _KZD_TOP_N = 15  # maximaal aantal keuzedelen in de detailtabel
 _KZD_BEHAALD_RE = "(?i)behaald"  # patroon om behaald-status te herkennen
 _KZD_LAGE_GRENS = 50  # drempel waaronder slagingskans als laag wordt beschouwd (%)
 _SBB_BEROEP_TOP_N = 20  # maximaal aantal beroepen in de S-BB-grafiek
+_GEO_SLAAGGRENS = 5.5  # minimaal eindcijfer om als geslaagd te tellen
 
 
 def _resolve_dir() -> Path | None:
@@ -62,8 +63,18 @@ def _lees_parquet(pad: str, mtime: float) -> pl.DataFrame:
     return pl.read_parquet(pad)
 
 
+def _parquet_max_mtime(data_dir: Path) -> float:
+    dm = data_dir / "datamodel"
+    if not dm.exists():
+        return 0.0
+    mtimes = [p.stat().st_mtime for p in dm.glob("*.parquet")]
+    return max(mtimes, default=0.0)
+
+
+@st.cache_data(show_spinner=False)
 def _lees_star_schema(
     data_dir: Path,
+    max_mtime: float,
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """Laad het star schema en lever (df, fact_geo, fact_bpv, fact_kzd, fact_bek).
 
@@ -103,6 +114,16 @@ def _lees_star_schema(
     ):
         fact_bek = fact_bek.join(dim_instelling, on="BRIN", how="left")
         fact_bek = fact_bek.drop([c for c in fact_bek.columns if c.endswith("_right")])
+
+    # Leid Studiejaar af uit Teldatum zodat TBGI-data jaargebonden filterbaar is.
+    if "Teldatum" in fact_bek.columns:
+        teldatum = pl.col("Teldatum").cast(pl.Date, strict=False)
+        fact_bek = fact_bek.with_columns(
+            pl.when(teldatum.dt.month() >= 8)
+            .then(teldatum.dt.year())
+            .otherwise(teldatum.dt.year() - 1)
+            .alias("Studiejaar")
+        )
 
     return (
         df,
@@ -165,7 +186,9 @@ if data_dir is None:
         st.switch_page("pages/home.py")
     st.stop()
 
-df, fact_geo, fact_bpv, fact_kzd, fact_bekostiging = _lees_star_schema(data_dir)
+df, fact_geo, fact_bpv, fact_kzd, fact_bekostiging = _lees_star_schema(
+    data_dir, _parquet_max_mtime(data_dir)
+)
 df = _sidebar_studiejaar_filter(df)
 
 # Sleutels voor join op detail-feiten, gefilterd op geselecteerde studiejaren.
@@ -176,8 +199,10 @@ _filter_keys = df.select([k for k in _FK if k in df.columns])
 def _filter_fact(f: pl.DataFrame) -> pl.DataFrame:
     """Filter een detail-fact op de gefilterde inschrijvingen via FK-join."""
     join_on = [k for k in _FK if k in f.columns]
-    if not join_on or f.is_empty():
+    if f.is_empty():
         return f
+    if not join_on:
+        return f.clear()
     # Lege _filter_keys (geen studiejaar geselecteerd) → lege fact teruggeven.
     keys = _filter_keys.select(join_on).unique()
     if keys.is_empty():
@@ -201,8 +226,16 @@ def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
 fact_geo_f = _filter_fact(fact_geo)
 fact_bpv_f = _filter_fact(fact_bpv)
 fact_kzd_f = _filter_fact(fact_kzd)
-# TBGI fact: zelfstandige fact-tabel met eigen dimensies; geen FK-join op ISP-sleutels.
-fact_bek_f = fact_bekostiging
+# TBGI-leveringen overlappen niet met ISP; filter op Studiejaar afgeleid uit Teldatum.
+if "Studiejaar" in fact_bekostiging.columns and not df.is_empty():
+    _bek_jaren = df["Studiejaar"].drop_nulls().unique().to_list()
+    fact_bek_f = (
+        fact_bekostiging.filter(pl.col("Studiejaar").is_in(_bek_jaren))
+        if _bek_jaren
+        else fact_bekostiging.clear()
+    )
+else:
+    fact_bek_f = fact_bekostiging.clear() if df.is_empty() else fact_bekostiging
 
 # ---------------------------------------------------------------------------
 # Header metrics
@@ -1043,61 +1076,49 @@ with tab_examens:
         for _code, _meta in _geo_toml.get("codes", {}).items():
             _geo_labels[_code] = _meta.get("label", _code)
 
-    st.subheader("GEO-examencijfers")
-    chart_help("geo_eindcijfers")
-    if (
+    # Bereken GEO-stats éénmalig (cijfergemiddelde + slagingspercentage).
+    _geo_heeft_data = (
         not fact_geo_f.is_empty()
         and "CodeGeneriekExamenonderdeel" in fact_geo_f.columns
         and "Eindcijfer" in fact_geo_f.columns
-    ):
-        geo_rows = []
+    )
+    _geo_stats: list[dict] = []
+    if _geo_heeft_data:
         for (code,), grp in fact_geo_f.group_by("CodeGeneriekExamenonderdeel"):
-            vals = grp["Eindcijfer"].drop_nulls()
+            vals = grp["Eindcijfer"].drop_nulls().cast(pl.Float64)
             if vals.is_empty():
                 continue
-            _mean = vals.cast(pl.Float64).mean()
-            geo_rows.append(
-                {
-                    "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
-                    "Gemiddeld eindcijfer": round(
-                        _mean if isinstance(_mean, float) else 0.0, 1
-                    ),
-                    "N": len(vals),
-                }
-            )
-        if geo_rows:
-            geo_tbl = pl.DataFrame(geo_rows).sort("N", descending=True)
-            st.dataframe(geo_tbl, use_container_width=True, hide_index=True)
-        else:
-            st.info("Geen GEO-eindcijfers gevuld in de data.")
+            n = len(vals)
+            _geo_stats.append({
+                "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
+                "Gemiddeld eindcijfer": round(float(vals.mean() or 0.0), 1),
+                "Geslaagd (%)": round(
+                    int((vals >= _GEO_SLAAGGRENS).sum()) / n * 100, 1
+                ),
+                "N": n,
+            })
+
+    st.subheader("GEO-examencijfers")
+    chart_help("geo_eindcijfers")
+    if _geo_stats:
+        geo_tbl = pl.DataFrame(_geo_stats).sort("N", descending=True)
+        st.dataframe(
+            geo_tbl.select(["Onderdeel", "Gemiddeld eindcijfer", "N"]),
+            use_container_width=True,
+            hide_index=True,
+        )
+    elif _geo_heeft_data:
+        st.info("Geen GEO-eindcijfers gevuld in de data.")
     else:
         st.info("fact_geo niet beschikbaar of kolommen ontbreken.")
 
     st.subheader("GEO slagingspercentage (eindcijfer ≥ 5,5)")
     chart_help("geo_slagingspercentage")
-    if (
-        not fact_geo_f.is_empty()
-        and "CodeGeneriekExamenonderdeel" in fact_geo_f.columns
-        and "Eindcijfer" in fact_geo_f.columns
-    ):
-        geo_slag_rows = []
-        for (code,), grp in fact_geo_f.group_by("CodeGeneriekExamenonderdeel"):
-            vals = grp["Eindcijfer"].drop_nulls().cast(pl.Float64)
-            if vals.is_empty():
-                continue
-            geslaagd = int((vals >= 5.5).sum())
-            geo_slag_rows.append(
-                {
-                    "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
-                    "Geslaagd (%)": round(geslaagd / len(vals) * 100, 1),
-                    "N": len(vals),
-                }
-            )
-        if geo_slag_rows:
-            slag_tbl = pl.DataFrame(geo_slag_rows)
-            _hbar(slag_tbl, "Onderdeel", "Geslaagd (%)")
-        else:
-            st.info("Geen GEO-eindcijfers beschikbaar voor slagingspercentage.")
+    if _geo_stats:
+        slag_tbl = pl.DataFrame(_geo_stats)
+        _hbar(slag_tbl, "Onderdeel", "Geslaagd (%)")
+    elif _geo_heeft_data:
+        st.info("Geen GEO-eindcijfers beschikbaar voor slagingspercentage.")
     else:
         st.info("fact_geo niet beschikbaar of kolom `Eindcijfer` ontbreekt.")
 

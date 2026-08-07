@@ -161,15 +161,21 @@ def _build_fact_bpv(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     return obt_tables.get("detail_bpv", pl.DataFrame())
 
 
+def _uit_kzd_amo_detail(
+    obt_tables: dict[str, pl.DataFrame], bron: str
+) -> pl.DataFrame:
+    detail = obt_tables.get("detail_kzd_amo", pl.DataFrame())
+    if detail.is_empty() or "_bron" not in detail.columns:
+        return pl.DataFrame()
+    return detail.filter(pl.col("_bron") == bron).drop("_bron")
+
+
 def _build_fact_kzd(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """fact_kzd: Keuzedelen per inschrijving.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
     """
-    detail = obt_tables.get("detail_kzd_amo", pl.DataFrame())
-    if detail.is_empty() or "_bron" not in detail.columns:
-        return pl.DataFrame()
-    return detail.filter(pl.col("_bron") == "KZD").drop("_bron")
+    return _uit_kzd_amo_detail(obt_tables, "KZD")
 
 
 def _build_fact_amo(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -177,10 +183,7 @@ def _build_fact_amo(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
     """
-    detail = obt_tables.get("detail_kzd_amo", pl.DataFrame())
-    if detail.is_empty() or "_bron" not in detail.columns:
-        return pl.DataFrame()
-    return detail.filter(pl.col("_bron") == "AMO").drop("_bron")
+    return _uit_kzd_amo_detail(obt_tables, "AMO")
 
 
 def _build_fact_bekostiging(obt_tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
