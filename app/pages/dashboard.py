@@ -1089,9 +1089,12 @@ with tab_examens:
             if vals.is_empty():
                 continue
             n = len(vals)
+            _mean = vals.mean()
             _geo_stats.append({
                 "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
-                "Gemiddeld eindcijfer": round(float(vals.mean() or 0.0), 1),
+                "Gemiddeld eindcijfer": round(
+                    _mean if isinstance(_mean, float) else 0.0, 1
+                ),
                 "Geslaagd (%)": round(
                     int((vals >= _GEO_SLAAGGRENS).sum()) / n * 100, 1
                 ),
