@@ -6,8 +6,8 @@ Leest DUO MBO-bekostigingsbestanden in en zet ze om naar schone, onderzoeksklare
 
 MBO-instellingen worden bekostigd op basis van bestanden die DUO publiceert. Die
 bestanden zijn ruw en lastig direct te gebruiken. Deze repo leest ze in,
-decodeert de velden, controleert de kwaliteit en bouwt er één platte tabel van
-(OBT) waarop andere CEDA-projecten kunnen voortbouwen.
+decodeert de velden, controleert de kwaliteit en exporteert een star schema
+(dimensies + feittabellen) waarop andere CEDA-projecten kunnen voortbouwen.
 
 Doelgroep: analisten en onderzoekers bij mbo-instellingen die met
 bekostigingsdata werken.
@@ -26,7 +26,7 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 ### Stap 1 — Bestanden verwerken
 
 Open de app, bekijk de ontdekte bestanden en klik **Verwerk alles**. De pipeline
-normaliseert alle ruw DUO-bestanden naar Parquet en bouwt de gecombineerde OBT.
+normaliseert alle ruwe DUO-bestanden naar Parquet en bouwt het star schema.
 
 ![Home — bestanden verwerken](docs/assets/home.gif)
 
@@ -40,9 +40,9 @@ studenten (geslacht, herkomst, gemeente) en GEO-examencijfers.
 
 ### Stap 3 — Resultaten bekijken en downloaden
 
-Op de Resultaten-pagina selecteer je een van de output-tabellen (OBT,
-detail-tabellen of star-schema), bekijk je een preview van de eerste 1 000 rijen
-en download je de volledige tabel als CSV.
+Op de Resultaten-pagina selecteer je een van de star-schema-tabellen,
+bekijk je een preview van de eerste 1 000 rijen en download je de volledige
+tabel als CSV.
 
 ![Resultaten — tabel preview en download](docs/assets/resultaten.gif)
 
@@ -55,23 +55,7 @@ en download je de volledige tabel als CSV.
 uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324
 
-# Bouw OBT vanuit meerdere prepared-mappen
-uv run mbo obt \
-    data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
-    data/02-prepared/demo/h16/TBGI_25LX_2027_20251124 \
-    data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
-    --output data/03-output/demo/obt \
-    --relative-to data/02-prepared/demo
-```
-
-**CLI**:
-
-```bash
-# Verwerk één ruw bestand naar prepared
-uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
-    data/02-prepared/demo/h15/RO_27DV_20240731_20260324
-
-# Bouw OBT vanuit meerdere prepared-mappen
+# Bouw star schema vanuit meerdere prepared-mappen
 uv run mbo obt \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
     data/02-prepared/demo/h16/TBGI_25LX_2027_20251124 \
@@ -88,15 +72,14 @@ from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_obt
 run_auto_pipeline("data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv",
                   "data/02-prepared/demo/h15/RO_27DV_20240731_20260324")
 
-obt = run_obt(
+run_obt(
     sources=["data/02-prepared/demo/h15/RO_27DV_20240731_20260324",
              "data/02-prepared/demo/h16/TBGI_25LX_2027_20251124",
              "data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025"],
     target="data/03-output/demo/obt",
     relative_to="data/02-prepared/demo",
-    star=True,  # exporteer ook dimensionaal model naar datamodel/
 )
-# obt["obt_inschrijvingen"]  — één rij per inschrijvingsperiode (ISP)
+# Star schema staat in data/03-output/demo/obt/datamodel/
 ```
 
 ### Eigen data verwerken
@@ -120,13 +103,8 @@ git.
   `RO_*.csv` (h15), `TBGI_*.XML` (h16), `GRONDSLAG_IP_MBO_*.csv` (h17).
 - **Prepared**: genormaliseerde Parquet per recordtype in `data/02-prepared/`,
   één submap per leveringsbestand (`groep/bestandsstam/`).
-- **Output**: vijf OBT-bestanden in `data/03-output/obt/`:
-  - `obt_inschrijvingen` — grain = inschrijvingsperiode (ISP), joins naar ISG/PER/BPV/KZD/GEO ingebakken
-  - `detail_bpv` — alle BPV-overeenkomsten (één rij per overeenkomst)
-  - `detail_kzd_amo` — keuzedelen en AMvB-onderdelen
-  - `detail_bekostiging` — bekostigingsdetail (BII-records / TBGI Teldatum)
-  - `meta_leveringen` — metadata per leveringsbestand
-  - `datamodel/` — optioneel star schema (dim/fact-tabellen, zie [docs/datamodel.md](docs/datamodel.md))
+- **Output**: tien star-schema-tabellen in `data/03-output/obt/datamodel/`
+  (zie [docs/datamodel.md](docs/datamodel.md) voor een volledig overzicht)
 - Echte data staat niet in git; alleen demo-data in `data/*/demo/`.
 
 ## Ontwikkeling

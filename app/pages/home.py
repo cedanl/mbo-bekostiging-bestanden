@@ -9,11 +9,11 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _utils import output_dir, prepared_dir, raw_dir
 
-from mbo_bekostiging_bestanden.export import export_frames
-from mbo_bekostiging_bestanden.obt import build_obt
-from mbo_bekostiging_bestanden.pipeline import detect_bestandstype, run_auto_pipeline
-from mbo_bekostiging_bestanden.stack import stack_prepared
-from mbo_bekostiging_bestanden.star import build_star
+from mbo_bekostiging_bestanden.pipeline import (
+    detect_bestandstype,
+    run_auto_pipeline,
+    run_obt,
+)
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties
@@ -52,7 +52,7 @@ st.markdown(
 </style>
 <div class="hero">
   <h1>MBO-bekostigingsbestanden</h1>
-  <p>Zet ruwe DUO-bekostigingsbestanden automatisch om naar schone OBT-data.</p>
+  <p>Zet ruwe DUO-bekostigingsbestanden automatisch om naar star schema-data.</p>
 </div>""",
     unsafe_allow_html=True,
 )
@@ -70,8 +70,7 @@ if not groepen:
 
 totaal_bestanden = sum(len(v) for v in groepen.values())
 st.write(
-    f"**{totaal_bestanden} bestand(en) gevonden** in `{raw}` "
-    f"— {len(groepen)} map(pen):"
+    f"**{totaal_bestanden} bestand(en) gevonden** in `{raw}` — {len(groepen)} map(pen):"
 )
 
 for periode in sorted(groepen):
@@ -90,7 +89,7 @@ if not done:
         prepared = prepared_dir()
         output = output_dir()
 
-        # +1 voor de gecombineerde OBT-stap aan het eind
+        # +1 voor de star-schema-stap aan het eind
         totaal_stappen = totaal_bestanden + 1
         voortgang = st.progress(0, text="Start…")
         status = st.empty()
@@ -114,32 +113,31 @@ if not done:
                     stap / totaal_stappen, text=f"{stap}/{totaal_stappen}"
                 )
 
-        # Stap 2: alle prepared dirs samen stapelen en één gecombineerde OBT bouwen
-        status.info("Stapel alle leveringen en bouw gecombineerde OBT…")
+        # Stap 2: alle prepared dirs stapelen en star schema bouwen
+        status.info("Stapel alle leveringen en bouw star schema…")
         prep_dirs_met_data = [
-            d for d in alle_prep_dirs
-            if d.exists() and any(d.glob("*.parquet"))
+            d for d in alle_prep_dirs if d.exists() and any(d.glob("*.parquet"))
         ]
         obt_target = output / "obt"
         obt_target.mkdir(parents=True, exist_ok=True)
 
         try:
-            stacked = stack_prepared(prep_dirs_met_data, relative_to=prepared)
-            obt = build_obt(stacked)
-            export_frames(obt, obt_target)
-            star_tables = build_star(obt)
-            export_frames(star_tables, obt_target / "datamodel")
+            obt = run_obt(prep_dirs_met_data, obt_target, relative_to=prepared)
             obt_summary = {
                 "isp_rijen": obt["obt_inschrijvingen"].height,
                 "bekostiging_rijen": obt["detail_bekostiging"].height,
                 "bpv_rijen": obt["detail_bpv"].height,
-                "kzd_amo_rijen": obt["detail_kzd_amo"].height,
                 "leveringen": sorted(
-                    obt["obt_inschrijvingen"]["levering"].unique().to_list()
+                    {
+                        lev
+                        for tbl in obt.values()
+                        if "levering" in tbl.columns and not tbl.is_empty()
+                        for lev in tbl["levering"].drop_nulls().unique().to_list()
+                    }
                 ),
             }
         except Exception as exc:
-            fouten.append(f"OBT: {exc}")
+            fouten.append(f"Star schema: {exc}")
             obt_summary = {}
 
         stap += 1
@@ -163,7 +161,7 @@ if done:
                 st.write(f"• {f}")
 
     if obt_summary:
-        st.success("Verwerkt — gecombineerde OBT klaar")
+        st.success("Verwerkt — star schema klaar")
         col1, col2, col3 = st.columns(3)
         col1.metric("Inschrijvingen (ISP)", obt_summary.get("isp_rijen", "—"))
         col2.metric("Bekostiging detail", obt_summary.get("bekostiging_rijen", "—"))

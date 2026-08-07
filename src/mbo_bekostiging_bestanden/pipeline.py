@@ -141,27 +141,25 @@ def run_obt(
     sources: Sequence[Path | str],
     target: str | Path,
     relative_to: Path | str | None = None,
-    star: bool = False,
 ) -> dict[str, pl.DataFrame]:
-    """Stapel prepared-mappen en bouw vijf OBT-output-tabellen.
+    """Stapel prepared-mappen, bouw OBT en exporteer het star schema.
+
+    OBT is een interne tussenstap; de primaire output is het star schema in
+    ``<target>/datamodel/``.
 
     Args:
         sources:     Lijst van mappen met prepared Parquet-bestanden.
-        target:      Doelmap voor de vijf OBT-bestanden.
+        target:      Doelmap; star schema komt in ``<target>/datamodel/``.
         relative_to: Basispad voor automatische leveringslabels (optioneel).
-        star:        Exporteer ook een dimensionaal model (star schema)
-                     naar ``<target>/datamodel/``.
 
     Returns:
-        Dict met vijf sleutels: ``obt_inschrijvingen``, ``detail_bpv``,
-        ``detail_kzd_amo``, ``detail_bekostiging``, ``meta_leveringen``.
+        Dict met de OBT-tabellen (interne representatie); het star schema
+        is naar ``<target>/datamodel/`` geschreven.
     """
     stacked = stack_prepared(sources, relative_to=relative_to)
     obt = build_obt(stacked)
-    export_frames(obt, Path(target))
-    if star:
-        star_tables = build_star(obt)
-        export_frames(star_tables, Path(target) / "datamodel")
+    star_tables = build_star(obt)
+    export_frames(star_tables, Path(target) / "datamodel")
     return obt
 
 

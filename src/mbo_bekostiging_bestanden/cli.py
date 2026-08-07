@@ -101,7 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         required=True,
-        help="Doelmap voor de vijf OBT-bestanden",
+        help="Doelmap voor de tien star-schema-bestanden",
     )
     p_obt.add_argument(
         "--relative-to",

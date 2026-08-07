@@ -1,23 +1,13 @@
 # Datamodel
 
-De ETL levert twee outputformaten: een platte OBT en een dimensionaal model
-(star schema). Beide bevatten dezelfde data; het star schema splitst de
-dimensie-attributen af in aparte tabellen.
+De ETL produceert een star schema: drie dimensietabellen en zeven feittabellen.
+Het star schema staat in `<output>/datamodel/` en is de primaire output van de
+pipeline. Het OBT (Object Betrokkenheid Tabel) is een interne tussenstap die
+niet naar schijf wordt geschreven.
 
 ---
 
-## OBT (standaard)
-
-Eén brede tabel (`obt_inschrijvingen.parquet`) op ISP-grain met alle
-dimensie-attributen, berekende vlaggen en aggregaten erin gebakken.
-Ideaal voor directe analyse in Excel, Python of Power BI zonder joins.
-
-Aanvullende detailtabellen: `detail_bpv`, `detail_kzd_amo`,
-`detail_bekostiging`, `meta_leveringen`.
-
-## Star schema (optioneel)
-
-Geëxporteerd naar `datamodel/` wanneer `run_obt(..., star=True)`.
+## Star schema
 
 ```
                     ┌──────────────────┐
@@ -50,31 +40,48 @@ Geëxporteerd naar `datamodel/` wanneer `run_obt(..., star=True)`.
                         │_telling  │
                         │_actief.. │
                         │_jr_*     │
+                        │_dr_*     │
                         │_entree_* │
-                        │ ─aggr──  │
-                        │BPV_*     │
-                        │KZD_*     │
-                        │GEO_*     │
                         └─────────┘
 ```
 
 ### Tabellen
 
-| Tabel | Grain | Sleutel | Kolommen |
+| Tabel | Grain | Sleutelkolom(men) | Omschrijving |
 |---|---|---|---|
-| `dim_deelnemer` | Persoon | `_persoon_id` | ~21 |
-| `dim_opleiding` | Opleiding | `Opleidingcode` | ~8 |
-| `dim_instelling` | Instelling | `BRIN` | 3 |
-| `fact_inschrijving` | ISP (inschrijvingsperiode) | `_persoon_id` + `Opleidingcode` + `BRIN` + `levering` | ~92 |
+| `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …) |
+| `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
+| `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats |
+| `fact_inschrijving` | ISP-inschrijvingsperiode | `_persoon_id` + `Opleidingcode` + `BRIN` + `levering` | Centrale feittabel; bevat vlaggen (`_actief_1_oktober`, `_jr_*`, `_dr_*`, `_entree_*`) en aggregaten |
+| `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
+| `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving |
+| `fact_amo` | AMO-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
+| `fact_geo` | GEO-examenonderdeel | `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | Eindcijfers IE/CE per onderdeel in long format |
+| `fact_bekostiging` | TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2) |
+| `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
+
+Alle feittabellen zijn joinbaar met `fact_inschrijving` via `(levering, _persoon_id, Inschrijvingvolgnummer)`.
+`fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
+
+### Indicatoren in fact_inschrijving
+
+| Vlag | Definitie |
+|---|---|
+| `_actief_1_oktober` | Inschrijving actief op 1 oktober (teldatum) |
+| `_hoofdinschrijving` | Eerste inschrijving van de deelnemer bij deze instelling |
+| `_gediplomeerd_in_jaar` | Diploma behaald in het studiejaar |
+| `_jr_noemer` / `_jr_teller` | Populatie en teller voor Jaarresultaat (JR) |
+| `_dr_noemer` / `_dr_teller` | Populatie en teller voor Diplomaresultaat (DR) |
+| `_entree_doorstroom` / `_entree_uitstroom` | Niveau-1 doorstroom- en uitstroomcategorieën |
 
 ### Relatie met QlikView-referentiemodel
-
-Het referentiemodel (zie `ondersteunend-materiaal/`) bevat twee fact-tabellen:
 
 | QlikView | Deze ETL | Status |
 |---|---|---|
 | `Facttabel` | `fact_inschrijving` | Geïmplementeerd |
-| `Studiesucces` (JR/DR/SR) | — | DR/SR vereist cohortlogica over meerdere jaren; gedeferd |
+| `Studiesucces` JR | `_jr_noemer` / `_jr_teller` in `fact_inschrijving` | Geïmplementeerd |
+| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving` | Geïmplementeerd |
+| `Studiesucces` SR | — | Vereist 6-jaar inschrijvingshistorie buiten eigen leveringen; buiten scope |
 | `CREBOs` | `dim_opleiding` | Geïmplementeerd |
 | `Deelnemers` | `dim_deelnemer` | Geïmplementeerd |
 | `Organisatie` | — | Instellingsspecifiek (teams, kostenplaatsen); extensiepunt |

@@ -1,4 +1,4 @@
-"""Haalt de S-BB Mbo-opleidingskoppeltabel en crebolijsten op en slaat ze op als Parquet.
+"""Haalt de S-BB koppeltabel en crebolijsten op en slaat ze op als Parquet.
 
 Gebruik:
     uv run python scripts/update_sbb_koppeltabel.py
@@ -8,7 +8,8 @@ Het script combineert twee bronnen uit S-BB:
 - **Groep 19 (koppeltabel)**: beroepsnaam, niveau en opvolgercode per opleidingscode.
   Output: ``src/mbo_bekostiging_bestanden/metadata/sbb_koppeltabel.parquet``
 
-- **Groep 14 (crebolijsten)**: officiële geldigheidsperioden, prijsfactor en soort opleiding
+- **Groep 14 (crebolijsten)**: officiële geldigheidsperioden, prijsfactor en
+  soort opleiding
   per opleidingscode op basis van de gepubliceerde crebolijsten (2015 t/m heden).
   Output: ``src/mbo_bekostiging_bestanden/metadata/sbb_crebolijst.parquet``
 
@@ -156,7 +157,7 @@ _CREBOLIJST_IDS = [
 # Kolomnamen voor de opleidingscode per versiejaar
 _CODE_COLS = ["Crebonummer", "Erkende opleidingscode", "Opleidingscode"]
 
-# Bestanden met ≥ dit aantal codes zijn volledige lijsten (niet tussentijdse amendements)
+# Bestanden met ≥ dit aantal codes zijn volledige lijsten (geen tussentijdse varianten)
 _FULL_MIN = 200
 
 

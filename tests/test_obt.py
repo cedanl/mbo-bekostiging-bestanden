@@ -7,6 +7,7 @@ import pytest
 
 from mbo_bekostiging_bestanden.obt import (
     _bouw_detail_bekostiging,
+    _bouw_detail_bekostiging_diploma,
     _leid_studiejaar_af,
     _resolve_inschrijving,
     _voeg_afgeleide_velden_toe,
@@ -74,12 +75,14 @@ def test_build_obt_tbgi_fallback_detail_bekostiging_gevuld():
 # ---------------------------------------------------------------------------
 
 
-def test_build_obt_returns_five_tables(demo_obt):
+def test_build_obt_returns_zeven_tables(demo_obt):
     assert set(demo_obt.keys()) == {
         "obt_inschrijvingen",
         "detail_bpv",
         "detail_kzd_amo",
         "detail_bekostiging",
+        "detail_bekostiging_diploma",
+        "detail_geo",
         "meta_leveringen",
     }
 
@@ -205,6 +208,42 @@ def test_detail_bekostiging_bevat_bii_indien_aanwezig():
 def test_detail_bekostiging_bevat_tbgi(demo_obt):
     detail = demo_obt["detail_bekostiging"]
     assert "TBGI" in detail["_bron"].unique().to_list()
+
+
+# ---------------------------------------------------------------------------
+# detail_bekostiging_diploma
+# ---------------------------------------------------------------------------
+
+
+def test_detail_bekostiging_diploma_leeg_zonder_diploma():
+    """Zonder Diploma-sleutel geeft de functie een leeg DataFrame."""
+    assert _bouw_detail_bekostiging_diploma({}).is_empty()
+
+
+def test_detail_bekostiging_diploma_persoon_id_aanwezig():
+    """_persoon_id wordt afgeleid van Burgerservicenummer; BSN zelf verdwijnt."""
+    dip = pl.DataFrame({
+        "levering": ["L1"],
+        "BRIN": ["25LX"],
+        "Burgerservicenummer": ["900000001"],
+        "Inschrijvingvolgnummer": ["001"],
+        "Resultaatvolgnummer": ["1362433"],
+        "BijdrageDiplomawaarde": ["5"],
+        "Bekostigingsstatus": ["true"],
+    })
+    result = _bouw_detail_bekostiging_diploma({"Diploma": dip})
+    assert "_persoon_id" in result.columns
+    assert "Burgerservicenummer" not in result.columns
+    assert result["_persoon_id"][0] == "900000001"
+    assert result["BijdrageDiplomawaarde"][0] == "5"
+
+
+def test_detail_bekostiging_diploma_in_demo_obt(demo_obt):
+    """Demo TBGI levert één Diploma-rij op in detail_bekostiging_diploma."""
+    detail = demo_obt["detail_bekostiging_diploma"]
+    assert not detail.is_empty()
+    assert "BijdrageDiplomawaarde" in detail.columns
+    assert "Burgerservicenummer" not in detail.columns
 
 
 # ---------------------------------------------------------------------------
@@ -709,16 +748,6 @@ def test_jr_teller_true_gediplomeerd():
     result = _voeg_telling_en_jr_vlaggen_toe(obt)
     assert result["_jr_teller"][0] is True
 
-
-def test_jr_teller_true_ingeschreven_jaar_later():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [True],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [True],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
-    assert result["_jr_teller"][0] is True
 
 
 def test_jr_teller_false_niet_in_noemer():

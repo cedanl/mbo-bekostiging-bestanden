@@ -217,7 +217,9 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
         )
         df = (
             df.with_columns(
-                pl.col("Opleidingcode").cast(pl.Int64, strict=False).alias("Opleidingcode_i64")
+                pl.col("Opleidingcode")
+                .cast(pl.Int64, strict=False)
+                .alias("Opleidingcode_i64")
             )
             .join(koppel_lookup, on="Opleidingcode_i64", how="left")
             .drop("Opleidingcode_i64")

@@ -107,14 +107,15 @@ def test_indicator_voldoet_uiterste_waarde_excluded():
 # bereken_oordeel – tabel 3
 # ---------------------------------------------------------------------------
 
-_JR_VOLD = {"waarde": 75.0, "noemer": 15}
-_DR_VOLD = {"waarde": 80.0, "noemer": 15}
-_SR_VOLD = {"waarde": 85.0, "noemer": 15}
-_JR_LAAG = {"waarde": 40.0, "noemer": 15}
-_DR_LAAG = {"waarde": 40.0, "noemer": 15}
-_SR_LAAG = {"waarde": 40.0, "noemer": 15}
-_JR_HOOG = {"waarde": 90.0, "noemer": 15}
-_DR_HOOG = {"waarde": 95.0, "noemer": 15}
+_IND = dict[str, float | int | None]
+_JR_VOLD: _IND = {"waarde": 75.0, "noemer": 15}
+_DR_VOLD: _IND = {"waarde": 80.0, "noemer": 15}
+_SR_VOLD: _IND = {"waarde": 85.0, "noemer": 15}
+_JR_LAAG: _IND = {"waarde": 40.0, "noemer": 15}
+_DR_LAAG: _IND = {"waarde": 40.0, "noemer": 15}
+_SR_LAAG: _IND = {"waarde": 40.0, "noemer": 15}
+_JR_HOOG: _IND = {"waarde": 90.0, "noemer": 15}
+_DR_HOOG: _IND = {"waarde": 95.0, "noemer": 15}
 
 
 def test_oordeel_hoog():
@@ -152,9 +153,9 @@ def test_oordeel_onvoldoende_geen_van_drie():
 
 def test_oordeel_norm_is_niveau_afhankelijk():
     """Niveau 2: JR 67 voldoet aan de norm; op niveau 4 niet."""
-    jr = {"waarde": 67.0, "noemer": 15}
-    dr = {"waarde": 70.0, "noemer": 15}
-    sr = {"waarde": 80.0, "noemer": 15}
+    jr: _IND = {"waarde": 67.0, "noemer": 15}
+    dr: _IND = {"waarde": 70.0, "noemer": 15}
+    sr: _IND = {"waarde": 80.0, "noemer": 15}
     oordeel_2, _, _ = bereken_oordeel(jr, dr, sr, niveau=2)
     oordeel_4, _, _ = bereken_oordeel(jr, dr, sr, niveau=4)
     assert oordeel_2 == "voldoende"
@@ -203,7 +204,7 @@ def test_oordeel_te_kleine_noemer_niet_te_bepalen():
     dezelfde richting uit → voldoende.  Wijzen ze tegenovergesteld, dan
     is er geen oordeel.
     """
-    klein = {"waarde": 80.0, "noemer": _MIN_NOEMER - 1}
+    klein: _IND = {"waarde": 80.0, "noemer": _MIN_NOEMER - 1}
     oordeel, statuses, _ = bereken_oordeel(_JR_VOLD, klein, _SR_VOLD, niveau=3)
     assert statuses[1] is None
     assert oordeel == "voldoende"
@@ -214,7 +215,7 @@ def test_oordeel_te_kleine_noemer_niet_te_bepalen():
 
 def test_oordeel_alle_indicatoren_te_kleine_noemer():
     """Alle noemers te klein → volledig onbeoordeelbaar."""
-    klein = {"waarde": 80.0, "noemer": _MIN_NOEMER - 1}
+    klein: _IND = {"waarde": 80.0, "noemer": _MIN_NOEMER - 1}
     oordeel, statuses, _ = bereken_oordeel(klein, klein, klein, niveau=3)
     assert oordeel == "niet_te_bepalen"
     assert statuses == [None, None, None]
