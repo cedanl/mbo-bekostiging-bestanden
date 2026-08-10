@@ -8,7 +8,7 @@ import pytest
 
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
-from mbo_bekostiging_bestanden.transform import _bouw_obt_tables
+from mbo_bekostiging_bestanden.transform import _bouw_analysetabellen
 
 RAW = Path("data/01-raw/demo")
 
@@ -85,4 +85,4 @@ def demo_stacked(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def demo_tabellen(demo_stacked):
-    return _bouw_obt_tables(demo_stacked)
+    return _bouw_analysetabellen(demo_stacked)

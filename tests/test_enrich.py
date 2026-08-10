@@ -1,4 +1,4 @@
-"""Tests voor enrich.py (OBT-verrijking met decodeertabellen).
+"""Tests voor enrich.py (verrijking van inschrijvingen met decodeertabellen).
 
 Alle tests gebruiken in-memory DataFrames; geen file I/O.
 De lookup-functies worden gemockt zodat de CSV-bestanden niet nodig zijn.
@@ -16,50 +16,62 @@ from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
 
 
 def _nationaliteit_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "code": ["0001", "0002", "1234"],
-        "omschrijving": ["Nederlandse", "Behandeld als Nederlander", "Marokkaanse"],
-        "migratieachtergrond_ln": ["Autochtoon", "Onbekend", "Niet-Westers Afrika"],
-    })
+    return pl.DataFrame(
+        {
+            "code": ["0001", "0002", "1234"],
+            "omschrijving": ["Nederlandse", "Behandeld als Nederlander", "Marokkaanse"],
+            "migratieachtergrond_ln": ["Autochtoon", "Onbekend", "Niet-Westers Afrika"],
+        }
+    )
 
 
 def _landcode_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "code": ["5001", "5002", "6001"],
-        "naam_land": ["Canada", "Frankrijk", "Marokko"],
-        "migratieachtergrond_ln": [
-            "Westers Amerika", "Westers Europa", "Niet-Westers Afrika"
-        ],
-    })
+    return pl.DataFrame(
+        {
+            "code": ["5001", "5002", "6001"],
+            "naam_land": ["Canada", "Frankrijk", "Marokko"],
+            "migratieachtergrond_ln": [
+                "Westers Amerika",
+                "Westers Europa",
+                "Niet-Westers Afrika",
+            ],
+        }
+    )
 
 
 def _postcode_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "postcode": ["1234", "5678"],
-        "gemeentecode": ["0363", "0599"],
-        "gemeentenaam": ["Amsterdam", "Rotterdam"],
-    })
+    return pl.DataFrame(
+        {
+            "postcode": ["1234", "5678"],
+            "gemeentecode": ["0363", "0599"],
+            "gemeentenaam": ["Amsterdam", "Rotterdam"],
+        }
+    )
 
 
 def _brin_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "brin": ["01AA", "02BB"],
-        "naam": ["ROC West-Nederland", "Graafschap College"],
-        "plaats": ["DEN HAAG", "DOETINCHEM"],
-    })
+    return pl.DataFrame(
+        {
+            "brin": ["01AA", "02BB"],
+            "naam": ["ROC West-Nederland", "Graafschap College"],
+            "plaats": ["DEN HAAG", "DOETINCHEM"],
+        }
+    )
 
 
 def _crebo_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "code": ["25655", "23301"],
-        "naam": ["Applicatieontwikkelaar", "Entree"],
-        "leerweg": ["BOL", "BOL"],
-        "hoofdgroep_naam": ["ICT", "Entree"],
-        "subgroep_naam": ["Software development", "Entree"],
-        "dossier_code": ["23001", "23002"],
-        "dossier_naam": ["Software development", "Entree"],
-        "sectorkamer_naam": ["Techniek en gebouwde omgeving", "Entree"],
-    })
+    return pl.DataFrame(
+        {
+            "code": ["25655", "23301"],
+            "naam": ["Applicatieontwikkelaar", "Entree"],
+            "leerweg": ["BOL", "BOL"],
+            "hoofdgroep_naam": ["ICT", "Entree"],
+            "subgroep_naam": ["Software development", "Entree"],
+            "dossier_code": ["23001", "23002"],
+            "dossier_naam": ["Software development", "Entree"],
+            "sectorkamer_naam": ["Techniek en gebouwde omgeving", "Entree"],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -68,24 +80,28 @@ def _crebo_lookup() -> pl.DataFrame:
 
 
 def _sbb_crebolijst_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "kwalificatiecode": ["25655", "23301"],
-        "geldig_van": ["2015-08-01", "2015-08-01"],
-        "geldig_tot": [None, "2023-08-01"],
-        "prijsfactor": ["1.3", "1.0"],
-        "soort_opleiding": ["Vakopleiding", "Entree opleiding"],
-    })
+    return pl.DataFrame(
+        {
+            "kwalificatiecode": ["25655", "23301"],
+            "geldig_van": ["2015-08-01", "2015-08-01"],
+            "geldig_tot": [None, "2023-08-01"],
+            "prijsfactor": ["1.3", "1.0"],
+            "soort_opleiding": ["Vakopleiding", "Entree opleiding"],
+        }
+    )
 
 
 def _sbb_koppeltabel_lookup() -> pl.DataFrame:
-    return pl.DataFrame({
-        "opleidingscode": [25655, 23301],
-        "beroepsnaam": ["Applicatieontwikkelaar", "Entree"],
-        "niveau": ["3", "1"],
-        "opvolger_kwalificatie": [0, 0],
-        "eerste_schooljaar": ["2025-2026", "2025-2026"],
-        "laatste_schooljaar": ["2026-2027", "2026-2027"],
-    })
+    return pl.DataFrame(
+        {
+            "opleidingscode": [25655, 23301],
+            "beroepsnaam": ["Applicatieontwikkelaar", "Entree"],
+            "niveau": ["3", "1"],
+            "opvolger_kwalificatie": [0, 0],
+            "eerste_schooljaar": ["2025-2026", "2025-2026"],
+            "laatste_schooljaar": ["2026-2027", "2026-2027"],
+        }
+    )
 
 
 def _patch_lookups():
@@ -143,16 +159,19 @@ def test_nationaliteit1_naam_en_migratieachtergrond():
     assert "Nationaliteit1_migratieachtergrond" in result.columns
     assert result["Nationaliteit1_naam"].to_list() == ["Nederlandse", "Marokkaanse"]
     assert result["Nationaliteit1_migratieachtergrond"].to_list() == [
-        "Autochtoon", "Niet-Westers Afrika"
+        "Autochtoon",
+        "Niet-Westers Afrika",
     ]
 
 
 def test_nationaliteit2_naam_en_migratieachtergrond():
     """Nationaliteit2 krijgt aparte kolommen, onafhankelijk van Nationaliteit1."""
-    df = pl.DataFrame({
-        "Nationaliteit1": ["0001"],
-        "Nationaliteit2": ["0002"],
-    })
+    df = pl.DataFrame(
+        {
+            "Nationaliteit1": ["0001"],
+            "Nationaliteit2": ["0002"],
+        }
+    )
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
@@ -201,7 +220,8 @@ def test_brin_naar_instelling():
     assert "Instelling_naam" in result.columns
     assert "Instelling_plaats" in result.columns
     assert result["Instelling_naam"].to_list() == [
-        "ROC West-Nederland", "Graafschap College"
+        "ROC West-Nederland",
+        "Graafschap College",
     ]
     assert result["Instelling_plaats"].to_list() == ["DEN HAAG", "DOETINCHEM"]
 
@@ -278,11 +298,13 @@ def test_lege_string_code_geeft_null():
 
 def test_originele_kolommen_ongewijzigd():
     """Bronkolommen blijven onveranderd na verrijking."""
-    df = pl.DataFrame({
-        "BRIN": ["01AA"],
-        "Nationaliteit1": ["0001"],
-        "extra": ["waarde"],
-    })
+    df = pl.DataFrame(
+        {
+            "BRIN": ["01AA"],
+            "Nationaliteit1": ["0001"],
+            "extra": ["waarde"],
+        }
+    )
 
     mocks = _patch_lookups()
     with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
@@ -305,9 +327,7 @@ def test_crebo_verrijking_naam_en_domein():
     assert "Opleiding_domein" in result.columns
     assert "Opleiding_subgroep" in result.columns
     assert "Opleiding_leerweg" in result.columns
-    assert result["Opleiding_naam"].to_list() == [
-        "Applicatieontwikkelaar", "Entree"
-    ]
+    assert result["Opleiding_naam"].to_list() == ["Applicatieontwikkelaar", "Entree"]
     assert result["Opleiding_domein"].to_list() == ["ICT", "Entree"]
 
 
@@ -347,9 +367,7 @@ def test_sbb_koppeltabel_verrijking():
     assert "Opleiding_opvolger" in result.columns
     assert "Opleiding_eerste_schooljaar" in result.columns
     assert "Opleiding_laatste_schooljaar" in result.columns
-    assert result["Opleiding_beroep"].to_list() == [
-        "Applicatieontwikkelaar", "Entree"
-    ]
+    assert result["Opleiding_beroep"].to_list() == ["Applicatieontwikkelaar", "Entree"]
     assert result["Opleiding_niveau"].to_list() == ["3", "1"]
 
 

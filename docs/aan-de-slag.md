@@ -25,7 +25,7 @@ per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De ap
 1. Detecteert automatisch alle herkenbare bestanden in `data/01-raw/`.
 2. Verwerkt elk bestand naar `data/02-prepared/`.
 3. Stapelt alle leveringen en bouwt het star schema.
-4. Schrijft tien Parquet-bestanden naar `data/03-output/star/datamodel/`.
+4. Schrijft elf Parquet-bestanden naar `data/03-output/star/datamodel/`.
 
 Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
 
@@ -46,7 +46,7 @@ uv run mbo star \
     --output data/03-output/demo/star \
     --relative-to data/02-prepared/demo
 
-# (optioneel) stapel prepared-mappen zonder OBT te bouwen
+# (optioneel) stapel prepared-mappen zonder star schema te bouwen
 uv run mbo stapel \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
     data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
@@ -100,6 +100,7 @@ star["fact_inschrijving"]        # één rij per inschrijvingsperiode
 star["fact_bpv"]                 # alle BPV-overeenkomsten
 star["fact_kzd"]                 # keuzedelen per inschrijving
 star["fact_bekostiging"]         # bekostigingsdetail (BII / TBGI Teldatum)
+star["meta_leveringen"]          # VLP + SLR metadata per levering
 star["dim_deelnemer"]            # persoonskenmerken
 star["dim_opleiding"]            # CREBO-attributen
 star["dim_instelling"]           # instellingsnamen
@@ -180,7 +181,8 @@ data/
             ├── fact_amo.parquet
             ├── fact_geo.parquet
             ├── fact_bekostiging.parquet
-            └── fact_bekostiging_diploma.parquet
+            ├── fact_bekostiging_diploma.parquet
+            └── meta_leveringen.parquet
 ```
 
 Echte data zet je in `data/01-raw/` buiten de `demo/`-submap — die staat in `.gitignore`.

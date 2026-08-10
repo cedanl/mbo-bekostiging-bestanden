@@ -94,16 +94,14 @@ def _niveau_num(col: pl.Expr) -> pl.Expr:
 
 
 def populatie_regele_filter(
-    obt: pl.DataFrame,
+    df: pl.DataFrame,
     min_niveau: int = 2,
 ) -> pl.DataFrame:
-    """Filter de OBT op de indicator-populatie (bijlage 3).
+    """Filter de inschrijvingen op de indicator-populatie (bijlage 3).
 
     Behoudt alleen leerwegen anders dan 'ov'/'od' en niveaus vanaf
     ``min_niveau``.  Kolommen die ontbreken worden genegeerd.
     """
-    df = obt
-
     if "Leertraject" in df.columns:
         leerweg = pl.col("Leertraject").str.to_lowercase()
         df = df.filter(
@@ -268,7 +266,7 @@ _ENTREE_CATEGORIEEN = [
 ]
 
 
-def entree_indicatoren(obt: pl.DataFrame) -> pl.DataFrame:
+def entree_indicatoren(df: pl.DataFrame) -> pl.DataFrame:
     """Entree-uitstroom/doorstroom in vier categorieën (hoofdstuk 5).
 
     Categorieën per niveau-1-inschrijving, uitgesplitst naar het
@@ -277,7 +275,7 @@ def entree_indicatoren(obt: pl.DataFrame) -> pl.DataFrame:
     De vier aandelen tellen samen op tot 100% van de niveau-1-populatie.
     """
     vereist = {"Niveau", "_entree_doorstroom", "_entree_uitstroom"}
-    if not vereist.issubset(obt.columns):
+    if not vereist.issubset(df.columns):
         return pl.DataFrame(
             schema={
                 "Categorie": pl.Utf8,
@@ -286,7 +284,7 @@ def entree_indicatoren(obt: pl.DataFrame) -> pl.DataFrame:
             }
         )
 
-    entree = obt.filter(_niveau_num(pl.col("Niveau")) == 1)
+    entree = df.filter(_niveau_num(pl.col("Niveau")) == 1)
 
     if entree.is_empty():
         return pl.DataFrame(
@@ -326,10 +324,8 @@ def entree_indicatoren(obt: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def entree_totaal(obt: pl.DataFrame) -> int:
+def entree_totaal(df: pl.DataFrame) -> int:
     """Aantal niveau-1-inschrijvingen (noemer voor de Entree-indicatoren)."""
-    if "Niveau" not in obt.columns:
+    if "Niveau" not in df.columns:
         return 0
-    return int(
-        obt.filter(_niveau_num(pl.col("Niveau")) == 1).height
-    )
+    return int(df.filter(_niveau_num(pl.col("Niveau")) == 1).height)

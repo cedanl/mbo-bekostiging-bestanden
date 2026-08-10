@@ -32,7 +32,7 @@ mbo-bekostiging-bestanden/
 │   ├── 01-raw/demo/               # Synthetische demo-bron (in git)
 │   ├── 02-prepared/demo/
 │   └── 03-output/demo/
-│       └── star/datamodel/        # Star schema (10 Parquet-bestanden)
+│       └── star/datamodel/        # Star schema (11 Parquet-bestanden)
 ├── src/mbo_bekostiging_bestanden/
 │   ├── ingest.py                  # Ruwe bestanden inlezen
 │   ├── decode.py                  # Codes omzetten via metadata

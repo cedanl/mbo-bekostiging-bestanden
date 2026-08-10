@@ -41,7 +41,7 @@ Datumvelden zijn `Date`, telvelden zijn `Int64`, lege velden zijn `null` (geen l
 
 ### Stap 2 — Star schema (gecombineerd over alle leveringen)
 
-Alle prepared-mappen worden gecombineerd tot tien Parquet-bestanden in `data/03-output/star/datamodel/`:
+Alle prepared-mappen worden gecombineerd tot elf Parquet-bestanden in `data/03-output/star/datamodel/`:
 
 | Bestand | Grain | Inhoud |
 |---|---|---|
@@ -55,6 +55,7 @@ Alle prepared-mappen worden gecombineerd tot tien Parquet-bestanden in `data/03-
 | `fact_geo.parquet` | GEO-examenonderdeel | Eindcijfers IE/CE in long format |
 | `fact_bekostiging.parquet` | TBGI Teldatum | Bekostigingsgrondslagen per teldatum |
 | `fact_bekostiging_diploma.parquet` | TBGI Diploma | Diplomawaarde-bijdragen per diploma |
+| `meta_leveringen.parquet` | Leveringsbestand | VLP + SLR metadata (één rij per bronbestand) |
 
 Zie [Datamodel](datamodel.md) voor een volledig schema-overzicht.
 
@@ -78,7 +79,7 @@ DUO werkt met drie jaarbegrippen die in de data voorkomen:
 
 #### Berekende vlaggen in fact_inschrijving
 
-De OBT voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
+fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
 
 | Groep | Kolom | Type | Betekenis |
 |---|---|---|---|

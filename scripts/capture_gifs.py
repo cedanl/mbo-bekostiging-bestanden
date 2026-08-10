@@ -45,6 +45,7 @@ async def click_tab(page, label):
 # GIF 1 — Home: bestanden ontdekken + verwerken
 # ---------------------------------------------------------------------------
 
+
 async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
     frames: list[tuple[Path, float]] = []
 
@@ -95,6 +96,7 @@ async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
 # GIF 2 — Dashboard: tabs doorlopen
 # ---------------------------------------------------------------------------
 
+
 async def capture_dashboard(page, tmp: Path) -> list[tuple[Path, float]]:
     frames: list[tuple[Path, float]] = []
 
@@ -128,6 +130,7 @@ async def capture_dashboard(page, tmp: Path) -> list[tuple[Path, float]]:
 # GIF 3 — Resultaten: tabel selecteren + preview + download
 # ---------------------------------------------------------------------------
 
+
 async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     frames: list[tuple[Path, float]] = []
 
@@ -155,7 +158,7 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     await wait_streamlit(page)
     await asyncio.sleep(1)
 
-    # Frame 1: tabel-selectie (obt_inschrijvingen standaard geselecteerd)
+    # Frame 1: tabel-selectie (fact_inschrijving standaard geselecteerd)
     p = tmp / "res_00.png"
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.5))
@@ -199,6 +202,7 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
 # ffmpeg: frames → GIF via palette
 # ---------------------------------------------------------------------------
 
+
 def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
     """Gebruik ffmpeg concat-demuxer + palettegen voor een scherpe GIF."""
     tmp_dir = frames[0][0].parent
@@ -217,25 +221,41 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
     # Stap 1: palettegen
     subprocess.run(
         [
-            FFMPEG, "-y",
-            "-f", "concat", "-safe", "0", "-i", str(concat),
-            "-vf", f"scale={width}:-1:flags=lanczos,palettegen=stats_mode=diff",
+            FFMPEG,
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat),
+            "-vf",
+            f"scale={width}:-1:flags=lanczos,palettegen=stats_mode=diff",
             str(palette),
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     # Stap 2: GIF
     subprocess.run(
         [
-            FFMPEG, "-y",
-            "-f", "concat", "-safe", "0", "-i", str(concat),
-            "-i", str(palette),
+            FFMPEG,
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat),
+            "-i",
+            str(palette),
             "-lavfi",
             f"scale={width}:-1:flags=lanczos[s];[s][1:v]paletteuse=dither=bayer",
             str(output),
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
     print(f"  ✓ {output.name}  ({output.stat().st_size // 1024} KB)")
 
@@ -243,6 +263,7 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 async def main():
     import tempfile

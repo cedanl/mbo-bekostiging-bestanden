@@ -103,7 +103,7 @@ git.
   `RO_*.csv` (h15), `TBGI_*.XML` (h16), `GRONDSLAG_IP_MBO_*.csv` (h17).
 - **Prepared**: genormaliseerde Parquet per recordtype in `data/02-prepared/`,
   één submap per leveringsbestand (`groep/bestandsstam/`).
-- **Output**: tien star-schema-tabellen in `data/03-output/star/datamodel/`
+- **Output**: elf star-schema-tabellen in `data/03-output/star/datamodel/`
   (zie [docs/datamodel.md](docs/datamodel.md) voor een volledig overzicht)
 - Echte data staat niet in git; alleen demo-data in `data/*/demo/`.
 

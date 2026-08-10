@@ -1,8 +1,9 @@
 # Datamodel
 
-De ETL produceert een star schema: drie dimensietabellen en zeven feittabellen.
-Het star schema staat in `<output>/datamodel/` en is de enige output van de
-pipeline. Interne analysetabellen worden niet naar schijf geschreven.
+De ETL produceert een star schema: drie dimensietabellen, zeven feittabellen en
+één metadata-tabel. Het star schema staat in `<output>/datamodel/` en is de
+enige output van de pipeline. Interne analysetabellen worden niet naar schijf
+geschreven.
 
 ---
 
@@ -58,6 +59,7 @@ pipeline. Interne analysetabellen worden niet naar schijf geschreven.
 | `fact_geo` | GEO-examenonderdeel | `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | Eindcijfers IE/CE per onderdeel in long format |
 | `fact_bekostiging` | TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2) |
 | `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
+| `meta_leveringen` | Leveringsbestand | `levering` | VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) per bronbestand |
 
 Alle feittabellen zijn joinbaar met `fact_inschrijving` via `(levering, _persoon_id, Inschrijvingvolgnummer)`.
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.

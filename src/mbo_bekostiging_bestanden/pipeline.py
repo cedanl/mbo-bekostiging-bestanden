@@ -149,7 +149,7 @@ def run_star(
         relative_to: Basispad voor automatische leveringslabels (optioneel).
 
     Returns:
-        Dict met de tien star-schema-tabellen; tevens geschreven naar
+        Dict met de elf star-schema-tabellen; tevens geschreven naar
         ``<target>/datamodel/``.
     """
     stacked = stack_prepared(sources, relative_to=relative_to)

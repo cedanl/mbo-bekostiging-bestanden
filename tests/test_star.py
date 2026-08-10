@@ -7,35 +7,43 @@ from mbo_bekostiging_bestanden.star import build_star
 
 def _minimal_stacked() -> dict[str, pl.DataFrame]:
     """Minimale stacked-input voor alle drie dimensies en de feittabel."""
-    isp = pl.DataFrame({
-        "levering": ["h15/RO_X", "h15/RO_X", "h15/RO_X"],
-        "Burgerservicenummer": ["P1", "P1", "P2"],
-        "Inschrijvingvolgnummer": ["001", "002", "003"],
-        "Opleidingcode": ["25655", "23301", "25655"],
-        "Niveau": ["MBO-4", "MBO-1", "MBO-4"],
-        "BRIN": ["01AA", "01AA", "02BB"],
-        "Recordsoort": ["ISP", "ISP", "ISP"],
-    })
-    per = pl.DataFrame({
-        "levering": ["h15/RO_X", "h15/RO_X"],
-        "Burgerservicenummer": ["P1", "P2"],
-        "Geslacht": ["M", "V"],
-        "Recordsoort": ["PER", "PER"],
-    })
-    isg = pl.DataFrame(schema={
-        "levering": pl.Utf8,
-        "Burgerservicenummer": pl.Utf8,
-        "Inschrijvingvolgnummer": pl.Utf8,
-    })
-    vlp = pl.DataFrame({
-        "levering": ["h15/RO_X"],
-        "BRIN": ["01AA"],
-    })
+    isp = pl.DataFrame(
+        {
+            "levering": ["h15/RO_X", "h15/RO_X", "h15/RO_X"],
+            "Burgerservicenummer": ["P1", "P1", "P2"],
+            "Inschrijvingvolgnummer": ["001", "002", "003"],
+            "Opleidingcode": ["25655", "23301", "25655"],
+            "Niveau": ["MBO-4", "MBO-1", "MBO-4"],
+            "BRIN": ["01AA", "01AA", "02BB"],
+            "Recordsoort": ["ISP", "ISP", "ISP"],
+        }
+    )
+    per = pl.DataFrame(
+        {
+            "levering": ["h15/RO_X", "h15/RO_X"],
+            "Burgerservicenummer": ["P1", "P2"],
+            "Geslacht": ["M", "V"],
+            "Recordsoort": ["PER", "PER"],
+        }
+    )
+    isg = pl.DataFrame(
+        schema={
+            "levering": pl.Utf8,
+            "Burgerservicenummer": pl.Utf8,
+            "Inschrijvingvolgnummer": pl.Utf8,
+        }
+    )
+    vlp = pl.DataFrame(
+        {
+            "levering": ["h15/RO_X"],
+            "BRIN": ["01AA"],
+        }
+    )
     return {"ISP": isp, "PER": per, "ISG": isg, "VLP": vlp}
 
 
 def test_star_bevat_alle_tabellen():
-    """build_star retourneert tien tabellen (drie dims + zeven facts)."""
+    """build_star retourneert elf tabellen (drie dims + zeven facts + meta)."""
     result = build_star(_minimal_stacked())
     assert set(result.keys()) == {
         "dim_deelnemer",
@@ -48,6 +56,7 @@ def test_star_bevat_alle_tabellen():
         "fact_geo",
         "fact_bekostiging",
         "fact_bekostiging_diploma",
+        "meta_leveringen",
     }
 
 
@@ -96,3 +105,11 @@ def test_fact_behoudt_alle_rijen():
     """fact_inschrijving verliest geen rijen t.o.v. de ISP-input."""
     result = build_star(_minimal_stacked())
     assert result["fact_inschrijving"].shape[0] == 3
+
+
+def test_meta_leveringen_bevat_vlp():
+    """meta_leveringen bevat één rij per leveringsbestand uit VLP."""
+    result = build_star(_minimal_stacked())
+    meta = result["meta_leveringen"]
+    assert not meta.is_empty()
+    assert meta["levering"].to_list() == ["h15/RO_X"]
