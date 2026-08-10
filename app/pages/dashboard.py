@@ -45,13 +45,13 @@ _GEO_SLAAGGRENS = 5.5  # minimaal eindcijfer om als geslaagd te tellen
 
 
 def _resolve_dir() -> Path | None:
-    for key in ("resultaten_dir", "obt_pad"):
+    for key in ("resultaten_dir", "star_pad"):
         val = st.session_state.get(key)
         if val:
             p = Path(val)
             if (p / "datamodel" / "fact_inschrijving.parquet").exists():
                 return p
-    fallback = output_dir() / "obt"
+    fallback = output_dir() / "star"
     if (fallback / "datamodel" / "fact_inschrijving.parquet").exists():
         return fallback
     return None
@@ -79,7 +79,8 @@ def _lees_star_schema(
     """Laad het star schema en lever (df, fact_geo, fact_bpv, fact_kzd, fact_bek).
 
     ``df`` is fact_inschrijving gejoined met de drie dim-tabellen, wat een
-    vergelijkbaar kolomset geeft als de oude OBT (zonder GEO-pivotkolommen).
+    vergelijkbaar kolomset geeft als de voormalige platte analysetabel
+    (zonder GEO-pivotkolommen).
     De losse fact-tabellen zijn beschikbaar voor gedetailleerde analyses.
     """
     dm = data_dir / "datamodel"
@@ -104,13 +105,17 @@ def _lees_star_schema(
         df = df.join(dim_instelling, on="BRIN", how="left")
 
     fact_bek = _laad("fact_bekostiging")
-    if not fact_bek.is_empty() and not dim_opleiding.is_empty() and (
-        "Opleidingcode" in fact_bek.columns
+    if (
+        not fact_bek.is_empty()
+        and not dim_opleiding.is_empty()
+        and ("Opleidingcode" in fact_bek.columns)
     ):
         fact_bek = fact_bek.join(dim_opleiding, on="Opleidingcode", how="left")
         fact_bek = fact_bek.drop([c for c in fact_bek.columns if c.endswith("_right")])
-    if not fact_bek.is_empty() and not dim_instelling.is_empty() and (
-        "BRIN" in fact_bek.columns
+    if (
+        not fact_bek.is_empty()
+        and not dim_instelling.is_empty()
+        and ("BRIN" in fact_bek.columns)
     ):
         fact_bek = fact_bek.join(dim_instelling, on="BRIN", how="left")
         fact_bek = fact_bek.drop([c for c in fact_bek.columns if c.endswith("_right")])
@@ -180,7 +185,7 @@ data_dir = _resolve_dir()
 if data_dir is None:
     st.warning(
         "Geen data gevonden — verwerk eerst bestanden via Home of zet "
-        "demo-data in `data/03-output/demo/obt/datamodel/`."
+        "demo-data in `data/03-output/demo/star/datamodel/`."
     )
     if st.button("← Home"):
         st.switch_page("pages/home.py")
@@ -257,8 +262,7 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric(
     "Inschrijvingen",
     f"{totaal:,}",
-    help="Aantal rijen in fact_inschrijving na toepassing van de "
-    "studiejaarfilters.",
+    help="Aantal rijen in fact_inschrijving na toepassing van de studiejaarfilters.",
 )
 col2.metric(
     "Bekostigd (indicatie)",
@@ -290,8 +294,14 @@ st.divider()
     tab_examens,
     tab_opl_structuur,
 ) = st.tabs(
-    ["Rendementen", "Bekostiging", "Opleidingen", "Studenten", "Examens",
-     "Opleidingsstructuur"]
+    [
+        "Rendementen",
+        "Bekostiging",
+        "Opleidingen",
+        "Studenten",
+        "Examens",
+        "Opleidingsstructuur",
+    ]
 )
 
 # ---------------------------------------------------------------------------
@@ -442,20 +452,28 @@ with tab_rendementen:
     _heeft_dr = all(c in df.columns for c in ("_dr_noemer", "_dr_teller"))
     if "Niveau" in jr_pop.columns and (_heeft_jr or _heeft_dr):
         oordeel_basis = jr_pop.group_by("Niveau").agg(
-            *([
-                pl.col("_jr_noemer").fill_null(False).sum().alias("_jr_n"),
-                pl.col("_jr_teller").fill_null(False).sum().alias("_jr_t"),
-            ] if _heeft_jr else [
-                pl.lit(0).alias("_jr_n"),
-                pl.lit(0).alias("_jr_t"),
-            ]),
-            *([
-                pl.col("_dr_noemer").fill_null(False).sum().alias("_dr_n"),
-                pl.col("_dr_teller").fill_null(False).sum().alias("_dr_t"),
-            ] if _heeft_dr else [
-                pl.lit(0).alias("_dr_n"),
-                pl.lit(0).alias("_dr_t"),
-            ]),
+            *(
+                [
+                    pl.col("_jr_noemer").fill_null(False).sum().alias("_jr_n"),
+                    pl.col("_jr_teller").fill_null(False).sum().alias("_jr_t"),
+                ]
+                if _heeft_jr
+                else [
+                    pl.lit(0).alias("_jr_n"),
+                    pl.lit(0).alias("_jr_t"),
+                ]
+            ),
+            *(
+                [
+                    pl.col("_dr_noemer").fill_null(False).sum().alias("_dr_n"),
+                    pl.col("_dr_teller").fill_null(False).sum().alias("_dr_t"),
+                ]
+                if _heeft_dr
+                else [
+                    pl.lit(0).alias("_dr_n"),
+                    pl.lit(0).alias("_dr_t"),
+                ]
+            ),
         )
         rows = []
         for r in oordeel_basis.to_dicts():
@@ -1090,16 +1108,18 @@ with tab_examens:
                 continue
             n = len(vals)
             _mean = vals.mean()
-            _geo_stats.append({
-                "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
-                "Gemiddeld eindcijfer": round(
-                    _mean if isinstance(_mean, float) else 0.0, 1
-                ),
-                "Geslaagd (%)": round(
-                    int((vals >= _GEO_SLAAGGRENS).sum()) / n * 100, 1
-                ),
-                "N": n,
-            })
+            _geo_stats.append(
+                {
+                    "Onderdeel": _geo_labels.get(str(code), f"GEO {code}"),
+                    "Gemiddeld eindcijfer": round(
+                        _mean if isinstance(_mean, float) else 0.0, 1
+                    ),
+                    "Geslaagd (%)": round(
+                        int((vals >= _GEO_SLAAGGRENS).sum()) / n * 100, 1
+                    ),
+                    "N": n,
+                }
+            )
 
     st.subheader("GEO-examencijfers")
     chart_help("geo_eindcijfers")
@@ -1308,9 +1328,9 @@ with tab_opl_structuur:
             .unique(subset=["Opleidingcode"])
             .sort("Opleidingcode")
         )
-        inschrijvingen_oud = (
-            df.filter(pl.col("Opleiding_opvolger").is_not_null()).height
-        )
+        inschrijvingen_oud = df.filter(
+            pl.col("Opleiding_opvolger").is_not_null()
+        ).height
         hc1, hc2 = st.columns(2)
         hc1.metric(
             "Unieke codes mét opvolger",

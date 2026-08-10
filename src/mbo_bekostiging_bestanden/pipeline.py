@@ -8,7 +8,6 @@ import polars as pl
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
-from mbo_bekostiging_bestanden.obt import build_obt
 from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
@@ -137,15 +136,12 @@ def run_tbgi_pipeline(
     return _run(read_tbgi, decode_tbgi, validate_tbgi, source, target, fmt)
 
 
-def run_obt(
+def run_star(
     sources: Sequence[Path | str],
     target: str | Path,
     relative_to: Path | str | None = None,
 ) -> dict[str, pl.DataFrame]:
-    """Stapel prepared-mappen, bouw OBT en exporteer het star schema.
-
-    OBT is een interne tussenstap; de primaire output is het star schema in
-    ``<target>/datamodel/``.
+    """Stapel prepared-mappen, bouw het star schema en exporteer het.
 
     Args:
         sources:     Lijst van mappen met prepared Parquet-bestanden.
@@ -153,14 +149,13 @@ def run_obt(
         relative_to: Basispad voor automatische leveringslabels (optioneel).
 
     Returns:
-        Dict met de OBT-tabellen (interne representatie); het star schema
-        is naar ``<target>/datamodel/`` geschreven.
+        Dict met de elf star-schema-tabellen; tevens geschreven naar
+        ``<target>/datamodel/``.
     """
     stacked = stack_prepared(sources, relative_to=relative_to)
-    obt = build_obt(stacked)
-    star_tables = build_star(obt)
+    star_tables = build_star(stacked)
     export_frames(star_tables, Path(target) / "datamodel")
-    return obt
+    return star_tables
 
 
 # Registry van bestandstype-sleutel → pipeline-functie.

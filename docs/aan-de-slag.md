@@ -24,8 +24,8 @@ per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De ap
 
 1. Detecteert automatisch alle herkenbare bestanden in `data/01-raw/`.
 2. Verwerkt elk bestand naar `data/02-prepared/`.
-3. Stapelt alle leveringen en bouwt één gecombineerde OBT.
-4. Schrijft vijf Parquet-bestanden naar `data/03-output/obt/` plus een star schema in `datamodel/`.
+3. Stapelt alle leveringen en bouwt het star schema.
+4. Schrijft elf Parquet-bestanden naar `data/03-output/star/datamodel/`.
 
 Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
 
@@ -38,15 +38,15 @@ Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV
 uv run mbo verwerk data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324
 
-# Stap 2: bouw OBT vanuit prepared-mappen
-uv run mbo obt \
+# Stap 2: bouw star schema vanuit prepared-mappen
+uv run mbo star \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
     data/02-prepared/demo/h16/TBGI_25LX_2027_20251124 \
     data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
-    --output data/03-output/demo/obt \
+    --output data/03-output/demo/star \
     --relative-to data/02-prepared/demo
 
-# (optioneel) stapel prepared-mappen zonder OBT te bouwen
+# (optioneel) stapel prepared-mappen zonder star schema te bouwen
 uv run mbo stapel \
     data/02-prepared/demo/h15/RO_27DV_20240731_20260324 \
     data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025 \
@@ -81,40 +81,42 @@ from mbo_bekostiging_bestanden.pipeline import (
 )
 ```
 
-### OBT bouwen
+### Star schema bouwen
 
 ```python
-from mbo_bekostiging_bestanden.pipeline import run_obt
+from mbo_bekostiging_bestanden.pipeline import run_star
 
-obt = run_obt(
+star = run_star(
     sources=[
         "data/02-prepared/demo/h15/RO_27DV_20240731_20260324",
         "data/02-prepared/demo/h16/TBGI_25LX_2027_20251124",
         "data/02-prepared/demo/h17/GRONDSLAG_IP_MBO_27DV_20251119_2025",
     ],
-    target="data/03-output/demo/obt",
+    target="data/03-output/demo/star",
     relative_to="data/02-prepared/demo",
-    star=True,  # exporteer ook star schema naar datamodel/
 )
 
-obt["obt_inschrijvingen"]  # één rij per inschrijvingsperiode
-obt["detail_bpv"]          # alle BPV-overeenkomsten
-obt["detail_kzd_amo"]      # keuzedelen en AMvB-onderdelen
-obt["detail_bekostiging"]  # bekostigingsdetail (BII / TBGI Teldatum)
-obt["meta_leveringen"]     # VLP-metadata per bronbestand
+star["fact_inschrijving"]        # één rij per inschrijvingsperiode
+star["fact_bpv"]                 # alle BPV-overeenkomsten
+star["fact_kzd"]                 # keuzedelen per inschrijving
+star["fact_bekostiging"]         # bekostigingsdetail (BII / TBGI Teldatum)
+star["meta_leveringen"]          # VLP + SLR metadata per levering
+star["dim_deelnemer"]            # persoonskenmerken
+star["dim_opleiding"]            # CREBO-attributen
+star["dim_instelling"]           # instellingsnamen
 ```
 
-### OBT lezen (zonder herverwerking)
+### Star schema lezen (zonder herverwerking)
 
 ```python
 import polars as pl
 
-isp = pl.read_parquet("data/03-output/demo/obt/obt_inschrijvingen.parquet")
+fact = pl.read_parquet("data/03-output/demo/star/datamodel/fact_inschrijving.parquet")
 
 # Hoeveel bekostigde inschrijvingen per levering?
-isp.filter(pl.col("IndicatieBekostigbaar") == "J") \
-   .group_by("levering") \
-   .len()
+fact.filter(pl.col("IndicatieBekostigbaar") == "J") \
+    .group_by("levering") \
+    .len()
 ```
 
 ### Leveringen stapelen (laag-niveau)
@@ -139,11 +141,11 @@ wordt automatisch afgehandeld — ontbrekende kolommen krijgen `null`.
 
 ## Let op bij Excel-gebruik
 
-De OBT heeft grain = inschrijvingsperiode (ISP). `BPV_Aantal` en `BPV_TotaalOmvang`
-in `obt_inschrijvingen` zijn aggregaten per inschrijving die herhalen op elke ISP-rij.
+`fact_inschrijving` heeft grain = inschrijvingsperiode (ISP). `BPV_Aantal` en
+`BPV_TotaalOmvang` zijn aggregaten per inschrijving.
 Doe in Excel altijd eerst een **groepering op `(levering, _persoon_id, Inschrijvingvolgnummer)`**
 voordat je BPV-kolommen sommeert, anders tel je dubbel.
-Voor afzonderlijke BPV-regels gebruik je `detail_bpv.parquet`.
+Voor afzonderlijke BPV-regels gebruik je `fact_bpv.parquet`.
 
 ---
 
@@ -168,17 +170,19 @@ data/
 │   ├── h16/TBGI_25LX_2027_20251124/
 │   └── h17/GRONDSLAG_IP_MBO_27DV_20251119_2025/
 └── 03-output/demo/
-    └── obt/
-        ├── obt_inschrijvingen.parquet
-        ├── detail_bpv.parquet
-        ├── detail_kzd_amo.parquet
-        ├── detail_bekostiging.parquet
-        ├── meta_leveringen.parquet
+    └── star/
         └── datamodel/
             ├── dim_deelnemer.parquet
             ├── dim_opleiding.parquet
             ├── dim_instelling.parquet
-            └── fact_inschrijving.parquet
+            ├── fact_inschrijving.parquet
+            ├── fact_bpv.parquet
+            ├── fact_kzd.parquet
+            ├── fact_amo.parquet
+            ├── fact_geo.parquet
+            ├── fact_bekostiging.parquet
+            ├── fact_bekostiging_diploma.parquet
+            └── meta_leveringen.parquet
 ```
 
 Echte data zet je in `data/01-raw/` buiten de `demo/`-submap — die staat in `.gitignore`.

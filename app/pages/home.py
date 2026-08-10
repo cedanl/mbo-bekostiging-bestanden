@@ -12,7 +12,7 @@ from _utils import output_dir, prepared_dir, raw_dir
 from mbo_bekostiging_bestanden.pipeline import (
     detect_bestandstype,
     run_auto_pipeline,
-    run_obt,
+    run_star,
 )
 
 # ---------------------------------------------------------------------------
@@ -118,19 +118,19 @@ if not done:
         prep_dirs_met_data = [
             d for d in alle_prep_dirs if d.exists() and any(d.glob("*.parquet"))
         ]
-        obt_target = output / "obt"
-        obt_target.mkdir(parents=True, exist_ok=True)
+        star_output = output / "star"
+        star_output.mkdir(parents=True, exist_ok=True)
 
         try:
-            obt = run_obt(prep_dirs_met_data, obt_target, relative_to=prepared)
-            obt_summary = {
-                "isp_rijen": obt["obt_inschrijvingen"].height,
-                "bekostiging_rijen": obt["detail_bekostiging"].height,
-                "bpv_rijen": obt["detail_bpv"].height,
+            star = run_star(prep_dirs_met_data, star_output, relative_to=prepared)
+            star_summary = {
+                "isp_rijen": star["fact_inschrijving"].height,
+                "bekostiging_rijen": star["fact_bekostiging"].height,
+                "bpv_rijen": star["fact_bpv"].height,
                 "leveringen": sorted(
                     {
                         lev
-                        for tbl in obt.values()
+                        for tbl in star.values()
                         if "levering" in tbl.columns and not tbl.is_empty()
                         for lev in tbl["levering"].drop_nulls().unique().to_list()
                     }
@@ -138,21 +138,21 @@ if not done:
             }
         except Exception as exc:
             fouten.append(f"Star schema: {exc}")
-            obt_summary = {}
+            star_summary = {}
 
         stap += 1
         voortgang.progress(1.0, text="Klaar")
         status.empty()
         st.session_state["alles_verwerkt"] = True
-        st.session_state["obt_pad"] = str(obt_target)
-        st.session_state["obt_summary"] = obt_summary
+        st.session_state["star_pad"] = str(star_output)
+        st.session_state["star_summary"] = star_summary
         if fouten:
             st.session_state["fouten"] = fouten
         st.rerun()
 
 if done:
-    obt_pad = st.session_state.get("obt_pad", "")
-    obt_summary: dict = st.session_state.get("obt_summary", {})
+    star_pad = st.session_state.get("star_pad", "")
+    star_summary: dict = st.session_state.get("star_summary", {})
     fouten: list[str] = st.session_state.get("fouten", [])
 
     if fouten:
@@ -160,15 +160,15 @@ if done:
             for f in fouten:
                 st.write(f"• {f}")
 
-    if obt_summary:
+    if star_summary:
         st.success("Verwerkt — star schema klaar")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Inschrijvingen (ISP)", obt_summary.get("isp_rijen", "—"))
-        col2.metric("Bekostiging detail", obt_summary.get("bekostiging_rijen", "—"))
-        col3.metric("BPV detail", obt_summary.get("bpv_rijen", "—"))
+        col1.metric("Inschrijvingen (ISP)", star_summary.get("isp_rijen", "—"))
+        col2.metric("Bekostiging detail", star_summary.get("bekostiging_rijen", "—"))
+        col3.metric("BPV detail", star_summary.get("bpv_rijen", "—"))
 
         with st.expander("Leveringen opgenomen"):
-            for lev in obt_summary.get("leveringen", []):
+            for lev in star_summary.get("leveringen", []):
                 st.write(f"• `{lev}`")
 
         st.write("")
@@ -177,11 +177,11 @@ if done:
             if st.button(
                 "Bekijk resultaten →", type="primary", use_container_width=True
             ):
-                st.session_state["resultaten_dir"] = obt_pad
+                st.session_state["resultaten_dir"] = star_pad
                 st.switch_page("pages/resultaten.py")
         with col_opnieuw:
             if st.button("Opnieuw verwerken", use_container_width=True):
-                for sleutel in ("alles_verwerkt", "obt_pad", "obt_summary", "fouten"):
+                for sleutel in ("alles_verwerkt", "star_pad", "star_summary", "fouten"):
                     st.session_state.pop(sleutel, None)
                 st.rerun()
 

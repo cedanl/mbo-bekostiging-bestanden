@@ -1,11 +1,12 @@
-"""Tests voor obt.py (OBT-bouwfuncties)."""
+"""Tests voor transform.py (analysetabel-bouwfuncties)."""
 
 from datetime import date
 
 import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.obt import (
+from mbo_bekostiging_bestanden.transform import (
+    _bouw_analysetabellen,
     _bouw_detail_bekostiging,
     _bouw_detail_bekostiging_diploma,
     _leid_studiejaar_af,
@@ -16,68 +17,73 @@ from mbo_bekostiging_bestanden.obt import (
     _voeg_sr_vlaggen_toe,
     _voeg_telling_en_jr_vlaggen_toe,
     _vul_niveau_aan,
-    build_obt,
 )
 
 # ---------------------------------------------------------------------------
-# build_obt – input-validatie
+# _bouw_analysetabellen – input-validatie
 # ---------------------------------------------------------------------------
 
 
-def test_build_obt_raises_without_isp_and_inschrijving():
+def test_bouw_analysetabellen_raises_without_isp_and_inschrijving():
     with pytest.raises(ValueError, match="ISP"):
-        build_obt({"PER": pl.DataFrame()})
+        _bouw_analysetabellen({"PER": pl.DataFrame()})
 
 
-def test_build_obt_raises_with_leeg_isp_en_geen_inschrijving():
+def test_bouw_analysetabellen_raises_with_leeg_isp_en_geen_inschrijving():
     with pytest.raises(ValueError, match="ISP"):
-        build_obt({"ISP": pl.DataFrame()})
+        _bouw_analysetabellen({"ISP": pl.DataFrame()})
 
 
-def test_build_obt_tbgi_fallback_gebruikt_inschrijving_als_grain():
-    """Zonder ISP maar met TBGI Inschrijving → obt_inschrijvingen gevuld."""
-    inschrijving = pl.DataFrame({
-        "levering": ["L1"],
-        "BRIN": ["25LX"],
-        "Burgerservicenummer": ["BSN1"],
-        "Onderwijsnummer": [None],
-        "Inschrijvingvolgnummer": ["001"],
-    })
-    result = build_obt({"Inschrijving": inschrijving})
-    assert result["obt_inschrijvingen"].height == 1
-    assert "_persoon_id" in result["obt_inschrijvingen"].columns
+def test_bouw_analysetabellen_tbgi_fallback_gebruikt_inschrijving_als_grain():
+    """Zonder ISP maar met TBGI Inschrijving → inschrijvingen gevuld."""
+    inschrijving = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "BRIN": ["25LX"],
+            "Burgerservicenummer": ["BSN1"],
+            "Onderwijsnummer": [None],
+            "Inschrijvingvolgnummer": ["001"],
+        }
+    )
+    result = _bouw_analysetabellen({"Inschrijving": inschrijving})
+    assert result["inschrijvingen"].height == 1
+    assert "_persoon_id" in result["inschrijvingen"].columns
 
 
-def test_build_obt_tbgi_fallback_detail_bekostiging_gevuld():
+def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():
     """Teldatum verschijnt in detail_bekostiging ook als ISP ontbreekt."""
-    inschrijving = pl.DataFrame({
-        "levering": ["L1"],
-        "BRIN": ["25LX"],
-        "Burgerservicenummer": ["BSN1"],
-        "Onderwijsnummer": [None],
-        "Inschrijvingvolgnummer": ["001"],
-    })
-    teldatum = pl.DataFrame({
-        "levering": ["L1"],
-        "BRIN": ["25LX"],
-        "Inschrijvingvolgnummer": ["001"],
-        "Teldatum": ["2025-10-01"],
-        "Bekostigingsstatus": ["A"],
-    })
-    result = build_obt({"Inschrijving": inschrijving, "Teldatum": teldatum})
+    inschrijving = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "BRIN": ["25LX"],
+            "Burgerservicenummer": ["BSN1"],
+            "Onderwijsnummer": [None],
+            "Inschrijvingvolgnummer": ["001"],
+        }
+    )
+    teldatum = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "BRIN": ["25LX"],
+            "Inschrijvingvolgnummer": ["001"],
+            "Teldatum": ["2025-10-01"],
+            "Bekostigingsstatus": ["A"],
+        }
+    )
+    result = _bouw_analysetabellen({"Inschrijving": inschrijving, "Teldatum": teldatum})
     detail = result["detail_bekostiging"]
     assert detail.height == 1
     assert "TBGI" in detail["_bron"].to_list()
 
 
 # ---------------------------------------------------------------------------
-# build_obt – output-structuur
+# _bouw_analysetabellen – output-structuur
 # ---------------------------------------------------------------------------
 
 
-def test_build_obt_returns_zeven_tables(demo_obt):
-    assert set(demo_obt.keys()) == {
-        "obt_inschrijvingen",
+def test_bouw_analysetabellen_returns_zeven_tables(demo_tabellen):
+    assert set(demo_tabellen.keys()) == {
+        "inschrijvingen",
         "detail_bpv",
         "detail_kzd_amo",
         "detail_bekostiging",
@@ -87,13 +93,13 @@ def test_build_obt_returns_zeven_tables(demo_obt):
     }
 
 
-def test_obt_inschrijvingen_grain_isp(demo_obt, demo_stacked):
-    """OBT behoudt exact het aantal ISP-rijen."""
-    assert demo_obt["obt_inschrijvingen"].height == demo_stacked["ISP"].height
+def test_inschrijvingen_grain_isp(demo_tabellen, demo_stacked):
+    """inschrijvingen behoudt exact het aantal ISP-rijen."""
+    assert demo_tabellen["inschrijvingen"].height == demo_stacked["ISP"].height
 
 
-def test_obt_inschrijvingen_heeft_persoon_id(demo_obt):
-    assert "_persoon_id" in demo_obt["obt_inschrijvingen"].columns
+def test_inschrijvingen_heeft_persoon_id(demo_tabellen):
+    assert "_persoon_id" in demo_tabellen["inschrijvingen"].columns
 
 
 # ---------------------------------------------------------------------------
@@ -101,10 +107,10 @@ def test_obt_inschrijvingen_heeft_persoon_id(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_kzd_aantal_bsn1_ingevuld(demo_obt):
+def test_kzd_aantal_bsn1_ingevuld(demo_tabellen):
     """BSN1 heeft 2 KZD-records; na DIP-fallback is KZD_Aantal=2 (niet null)."""
-    obt = demo_obt["obt_inschrijvingen"]
-    bsn1 = obt.filter(
+    df = demo_tabellen["inschrijvingen"]
+    bsn1 = df.filter(
         (pl.col("_persoon_id") == "BSN1")
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
     )
@@ -112,19 +118,20 @@ def test_kzd_aantal_bsn1_ingevuld(demo_obt):
     assert bsn1["KZD_Aantal"].to_list()[0] == 2
 
 
-def test_kzd_behaald_bsn1_ingevuld(demo_obt):
-    obt = demo_obt["obt_inschrijvingen"]
-    bsn1 = obt.filter(
+def test_kzd_behaald_bsn1_ingevuld(demo_tabellen):
+    df = demo_tabellen["inschrijvingen"]
+    bsn1 = df.filter(
         (pl.col("_persoon_id") == "BSN1")
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
     )
     assert bsn1["KZD_AantalBehaald"].to_list()[0] == 2
 
 
-def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_obt):
-    """Na DIP-fallback: geen enkel KZD/AMO-record heeft een leeg Inschrijvingvolgnummer.
+def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_tabellen):
+    """Na DIP-fallback: geen enkel KZD/AMO-record heeft een leeg
+    Inschrijvingvolgnummer.
     """
-    detail = demo_obt["detail_kzd_amo"]
+    detail = demo_tabellen["detail_kzd_amo"]
     assert detail["Inschrijvingvolgnummer"].null_count() == 0
     leeg = (detail["Inschrijvingvolgnummer"] == "").sum()
     assert leeg == 0
@@ -135,16 +142,16 @@ def test_detail_kzd_amo_geen_lege_inschrijvingvolgnummer(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_geo_kolommen_aanwezig(demo_obt):
-    obt = demo_obt["obt_inschrijvingen"]
-    geo_cols = [c for c in obt.columns if c.startswith("GEO_")]
+def test_geo_kolommen_aanwezig(demo_tabellen):
+    df = demo_tabellen["inschrijvingen"]
+    geo_cols = [c for c in df.columns if c.startswith("GEO_")]
     assert len(geo_cols) > 0
 
 
-def test_geo_pivot_naam_formaat(demo_obt):
+def test_geo_pivot_naam_formaat(demo_tabellen):
     """GEO-kolomnamen volgen het patroon GEO_{code}_{veld}."""
-    obt = demo_obt["obt_inschrijvingen"]
-    for col in obt.columns:
+    df = demo_tabellen["inschrijvingen"]
+    for col in df.columns:
         if col.startswith("GEO_"):
             parts = col.split("_")
             assert len(parts) >= 3, f"Onverwacht GEO-kolomformaat: {col}"
@@ -155,16 +162,16 @@ def test_geo_pivot_naam_formaat(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_detail_bpv_niet_leeg(demo_obt):
-    assert demo_obt["detail_bpv"].height > 0
+def test_detail_bpv_niet_leeg(demo_tabellen):
+    assert demo_tabellen["detail_bpv"].height > 0
 
 
-def test_detail_bpv_heeft_persoon_id(demo_obt):
-    assert "_persoon_id" in demo_obt["detail_bpv"].columns
+def test_detail_bpv_heeft_persoon_id(demo_tabellen):
+    assert "_persoon_id" in demo_tabellen["detail_bpv"].columns
 
 
-def test_detail_bpv_geen_rijen_verloren(demo_obt, demo_stacked):
-    assert demo_obt["detail_bpv"].height == demo_stacked["BPV"].height
+def test_detail_bpv_geen_rijen_verloren(demo_tabellen, demo_stacked):
+    assert demo_tabellen["detail_bpv"].height == demo_stacked["BPV"].height
 
 
 # ---------------------------------------------------------------------------
@@ -172,19 +179,15 @@ def test_detail_bpv_geen_rijen_verloren(demo_obt, demo_stacked):
 # ---------------------------------------------------------------------------
 
 
-def test_detail_kzd_amo_heeft_bron_kolom(demo_obt):
-    assert "_bron" in demo_obt["detail_kzd_amo"].columns
-
-
-def test_detail_kzd_amo_bron_waarden(demo_obt):
-    bronnen = set(demo_obt["detail_kzd_amo"]["_bron"].unique().to_list())
+def test_detail_kzd_amo_bron_waarden(demo_tabellen):
+    bronnen = set(demo_tabellen["detail_kzd_amo"]["_bron"].unique().to_list())
     assert bronnen <= {"KZD", "AMO"}
 
 
-def test_detail_kzd_amo_alle_records(demo_obt, demo_stacked):
+def test_detail_kzd_amo_alle_records(demo_tabellen, demo_stacked):
     amo = demo_stacked.get("AMO", pl.DataFrame())
     verwacht = demo_stacked["KZD"].height + amo.height
-    assert demo_obt["detail_kzd_amo"].height == verwacht
+    assert demo_tabellen["detail_kzd_amo"].height == verwacht
 
 
 # ---------------------------------------------------------------------------
@@ -194,19 +197,21 @@ def test_detail_kzd_amo_alle_records(demo_obt, demo_stacked):
 
 def test_detail_bekostiging_bevat_bii_indien_aanwezig():
     """BII-records komen in detail_bekostiging als ze aanwezig zijn in stacked."""
-    bii = pl.DataFrame({
-        "levering": ["L1"],
-        "Burgerservicenummer": ["P1"],
-        "Inschrijvingvolgnummer": ["C1"],
-        "Teldatum": ["2024-10-01"],
-        "Recordsoort": ["BII"],
-    })
+    bii = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "Burgerservicenummer": ["P1"],
+            "Inschrijvingvolgnummer": ["C1"],
+            "Teldatum": ["2024-10-01"],
+            "Recordsoort": ["BII"],
+        }
+    )
     detail = _bouw_detail_bekostiging({"BII": bii})
     assert "BII" in detail["_bron"].unique().to_list()
 
 
-def test_detail_bekostiging_bevat_tbgi(demo_obt):
-    detail = demo_obt["detail_bekostiging"]
+def test_detail_bekostiging_bevat_tbgi(demo_tabellen):
+    detail = demo_tabellen["detail_bekostiging"]
     assert "TBGI" in detail["_bron"].unique().to_list()
 
 
@@ -222,15 +227,17 @@ def test_detail_bekostiging_diploma_leeg_zonder_diploma():
 
 def test_detail_bekostiging_diploma_persoon_id_aanwezig():
     """_persoon_id wordt afgeleid van Burgerservicenummer; BSN zelf verdwijnt."""
-    dip = pl.DataFrame({
-        "levering": ["L1"],
-        "BRIN": ["25LX"],
-        "Burgerservicenummer": ["900000001"],
-        "Inschrijvingvolgnummer": ["001"],
-        "Resultaatvolgnummer": ["1362433"],
-        "BijdrageDiplomawaarde": ["5"],
-        "Bekostigingsstatus": ["true"],
-    })
+    dip = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "BRIN": ["25LX"],
+            "Burgerservicenummer": ["900000001"],
+            "Inschrijvingvolgnummer": ["001"],
+            "Resultaatvolgnummer": ["1362433"],
+            "BijdrageDiplomawaarde": ["5"],
+            "Bekostigingsstatus": ["true"],
+        }
+    )
     result = _bouw_detail_bekostiging_diploma({"Diploma": dip})
     assert "_persoon_id" in result.columns
     assert "Burgerservicenummer" not in result.columns
@@ -238,9 +245,9 @@ def test_detail_bekostiging_diploma_persoon_id_aanwezig():
     assert result["BijdrageDiplomawaarde"][0] == "5"
 
 
-def test_detail_bekostiging_diploma_in_demo_obt(demo_obt):
+def test_detail_bekostiging_diploma_in_demo_tabellen(demo_tabellen):
     """Demo TBGI levert één Diploma-rij op in detail_bekostiging_diploma."""
-    detail = demo_obt["detail_bekostiging_diploma"]
+    detail = demo_tabellen["detail_bekostiging_diploma"]
     assert not detail.is_empty()
     assert "BijdrageDiplomawaarde" in detail.columns
     assert "Burgerservicenummer" not in detail.columns
@@ -251,10 +258,10 @@ def test_detail_bekostiging_diploma_in_demo_obt(demo_obt):
 # ---------------------------------------------------------------------------
 
 
-def test_meta_leveringen_bevat_alle_leveringen(demo_obt, demo_stacked):
-    leveringen_obt = set(demo_obt["meta_leveringen"]["levering"].unique().to_list())
+def test_meta_leveringen_bevat_alle_leveringen(demo_tabellen, demo_stacked):
+    leveringen = set(demo_tabellen["meta_leveringen"]["levering"].unique().to_list())
     leveringen_stacked = set(demo_stacked["VLP"]["levering"].unique().to_list())
-    assert leveringen_stacked <= leveringen_obt
+    assert leveringen_stacked <= leveringen
 
 
 # ---------------------------------------------------------------------------
@@ -264,64 +271,78 @@ def test_meta_leveringen_bevat_alle_leveringen(demo_obt, demo_stacked):
 
 def test_resolve_inschrijving_vult_via_dip():
     """Lege Inschrijvingvolgnummer wordt via ResultaatvolgnummerDiploma → DIP gevuld."""
-    kzd = pl.DataFrame({
-        "levering": ["L1"],
-        "_persoon_id": ["P1"],
-        "Inschrijvingvolgnummer": [""],
-        "ResultaatvolgnummerDiploma": ["REF1"],
-    })
-    dip = pl.DataFrame({
-        "levering": ["L1"],
-        "Burgerservicenummer": ["P1"],
-        "Resultaatvolgnummer": ["REF1"],
-        "Inschrijvingvolgnummer": ["C3"],
-    })
+    kzd = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": [""],
+            "ResultaatvolgnummerDiploma": ["REF1"],
+        }
+    )
+    dip = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "Burgerservicenummer": ["P1"],
+            "Resultaatvolgnummer": ["REF1"],
+            "Inschrijvingvolgnummer": ["C3"],
+        }
+    )
     result = _resolve_inschrijving(kzd, dip)
     assert result["Inschrijvingvolgnummer"].to_list() == ["C3"]
 
 
 def test_resolve_inschrijving_behoudt_ingevuld_volgnummer():
     """Al ingevuld Inschrijvingvolgnummer wordt niet overschreven."""
-    kzd = pl.DataFrame({
-        "levering": ["L1"],
-        "_persoon_id": ["P1"],
-        "Inschrijvingvolgnummer": ["A1"],
-        "ResultaatvolgnummerDiploma": ["REF1"],
-    })
-    dip = pl.DataFrame({
-        "levering": ["L1"],
-        "Burgerservicenummer": ["P1"],
-        "Resultaatvolgnummer": ["REF1"],
-        "Inschrijvingvolgnummer": ["C9"],
-    })
+    kzd = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": ["A1"],
+            "ResultaatvolgnummerDiploma": ["REF1"],
+        }
+    )
+    dip = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "Burgerservicenummer": ["P1"],
+            "Resultaatvolgnummer": ["REF1"],
+            "Inschrijvingvolgnummer": ["C9"],
+        }
+    )
     result = _resolve_inschrijving(kzd, dip)
     assert result["Inschrijvingvolgnummer"].to_list() == ["A1"]
 
 
 def test_resolve_inschrijving_zonder_dip():
     """Zonder DIP-tabel blijft de DataFrame ongewijzigd (geen crash)."""
-    df = pl.DataFrame({
-        "levering": ["L1"],
-        "_persoon_id": ["P1"],
-        "Inschrijvingvolgnummer": [""],
-    })
+    df = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": [""],
+        }
+    )
     result = _resolve_inschrijving(df, None)
     assert result["Inschrijvingvolgnummer"].to_list() == [None]
 
 
 def test_resolve_inschrijving_zonder_resultaatvolgnummer_kolom():
     """DataFrame zonder ResultaatvolgnummerDiploma wordt ongewijzigd teruggegeven."""
-    df = pl.DataFrame({
-        "levering": ["L1"],
-        "_persoon_id": ["P1"],
-        "Inschrijvingvolgnummer": ["A1"],
-    })
-    dip = pl.DataFrame({
-        "levering": ["L1"],
-        "Burgerservicenummer": ["P1"],
-        "Resultaatvolgnummer": ["REF1"],
-        "Inschrijvingvolgnummer": ["C9"],
-    })
+    df = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": ["A1"],
+        }
+    )
+    dip = pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "Burgerservicenummer": ["P1"],
+            "Resultaatvolgnummer": ["REF1"],
+            "Inschrijvingvolgnummer": ["C9"],
+        }
+    )
     result = _resolve_inschrijving(df, dip)
     assert result["Inschrijvingvolgnummer"].to_list() == ["A1"]
 
@@ -331,170 +352,172 @@ def test_resolve_inschrijving_zonder_resultaatvolgnummer_kolom():
 # ---------------------------------------------------------------------------
 
 
-def _obt_rij(**kwargs) -> pl.DataFrame:
+def _rij(**kwargs) -> pl.DataFrame:
     return pl.DataFrame({"Studiejaar": [2025], **kwargs})
 
 
 def test_actief_1_oktober_true():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is True
 
 
 def test_actief_1_oktober_false_na_1okt_ingeschreven():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is False
 
 
 def test_actief_1_oktober_false_uitgeschreven_voor_1okt():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 8, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([date(2025, 9, 15)], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is False
 
 
 def test_actief_1_oktober_true_uitgeschreven_na_1okt():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 8, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([date(2025, 11, 1)], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is True
 
 
 def test_bekostigd_eerste_1okt_true():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_bekostigd_eerste_1okt"][0] is True
 
 
 def test_bekostigd_eerste_1okt_false_niet_bekostigbaar():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["N"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_bekostigd_eerste_1okt"][0] is False
 
 
 def test_bekostigd_eerste_1okt_false_niet_actief():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_bekostigd_eerste_1okt"][0] is False
 
 
 def test_gediplomeerd_in_jaar_true():
-    obt = _obt_rij(
+    df = _rij(
         DIP_DatumResultaat=pl.Series([date(2025, 6, 15)], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is True
 
 
 def test_gediplomeerd_in_jaar_true_grenswaarden():
-    obt = pl.DataFrame({
-        "Studiejaar": [2025, 2025],
-        "DIP_DatumResultaat": pl.Series(
-            [date(2024, 8, 1), date(2025, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "Studiejaar": [2025, 2025],
+            "DIP_DatumResultaat": pl.Series(
+                [date(2024, 8, 1), date(2025, 7, 31)], dtype=pl.Date
+            ),
+        }
+    )
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"].to_list() == [True, True]
 
 
 def test_gediplomeerd_in_jaar_false_buiten_jaar():
-    obt = _obt_rij(
+    df = _rij(
         DIP_DatumResultaat=pl.Series([date(2025, 8, 1)], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_gediplomeerd_in_jaar_false_null_datum():
-    obt = _obt_rij(
+    df = _rij(
         DIP_DatumResultaat=pl.Series([None], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_gediplomeerd_in_jaar_false_kolom_ontbreekt():
-    obt = _obt_rij()
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = _rij()
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_ingeschreven_jaar_later_true():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_ingeschreven_jaar_later"][0] is True
 
 
 def test_ingeschreven_jaar_later_false():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_ingeschreven_jaar_later"][0] is False
 
 
 def test_ingeschreven_jaar_later_false_op_1okt():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 10, 1)], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_ingeschreven_jaar_later"][0] is False
 
 
 def test_ingeschreven_jaar_later_false_bij_null_datum():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([None], dtype=pl.Date),
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_ingeschreven_jaar_later"][0] is False
 
 
 def test_ontbrekend_studiejaar_geeft_none_vlaggen():
-    obt = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is None
     assert result["_bekostigd_eerste_1okt"][0] is None
     assert result["_ingeschreven_jaar_later"][0] is None
 
 
 def test_ontbrekend_studiejaar_gediplomeerd_false():
-    obt = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_ontbrekende_datuminschrijving_geeft_none():
-    obt = _obt_rij(IndicatieBekostigbaar=["J"])
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = _rij(IndicatieBekostigbaar=["J"])
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is None
     assert result["_ingeschreven_jaar_later"][0] is None
 
@@ -505,45 +528,47 @@ def test_ontbrekende_datuminschrijving_geeft_none():
 
 
 def test_opbrengstjaar_uitsplitsing_gelijk_aan_studiejaar():
-    obt = _obt_rij()
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = _rij()
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["Opbrengstjaar_uitsplitsing"][0] == 2025
 
 
 def test_driejaars_teljaar_true_binnen_periode():
-    obt = pl.DataFrame({"Studiejaar": [2023, 2024, 2025]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame({"Studiejaar": [2023, 2024, 2025]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_driejaars_teljaar"].to_list() == [True, True, True]
 
 
 def test_driejaars_teljaar_false_buiten_periode():
-    obt = pl.DataFrame({"Studiejaar": [2021, 2022, 2023, 2024, 2025]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame({"Studiejaar": [2021, 2022, 2023, 2024, 2025]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_driejaars_teljaar"].to_list() == [False, False, True, True, True]
 
 
 def test_opbrengstjaar_3jaars_voortschrijdend_label():
-    obt = pl.DataFrame({"Studiejaar": [2023, 2024, 2025]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame({"Studiejaar": [2023, 2024, 2025]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["Opbrengstjaar_3jaars_voortschrijdend"][0] == "2023-2025"
 
 
 def test_num_opbrengstjaar_3jr_rang():
-    obt = pl.DataFrame({"Studiejaar": [2025, 2023, 2024]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
-    rang = dict(zip(
-        result["Studiejaar"].to_list(),
-        result["_num_opbrengstjaar_3jr"].to_list(),
-        strict=True,
-    ))
+    df = pl.DataFrame({"Studiejaar": [2025, 2023, 2024]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
+    rang = dict(
+        zip(
+            result["Studiejaar"].to_list(),
+            result["_num_opbrengstjaar_3jr"].to_list(),
+            strict=True,
+        )
+    )
     assert rang[2023] == 1
     assert rang[2024] == 2
     assert rang[2025] == 3
 
 
 def test_opbrengstjaar_ontbreekt_studiejaar_geeft_none():
-    obt = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    df = pl.DataFrame({"IndicatieBekostigbaar": ["J"]})
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["Opbrengstjaar_uitsplitsing"][0] is None
     assert result["_driejaars_teljaar"][0] is None
     assert result["Opbrengstjaar_3jaars_voortschrijdend"][0] is None
@@ -556,32 +581,32 @@ def test_opbrengstjaar_ontbreekt_studiejaar_geeft_none():
 
 
 def test_deelnemer_niet_bekostigd_eerste_1okt_true():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["N"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_deelnemer_niet_bekostigd_eerste_1okt"][0] is True
 
 
 def test_deelnemer_niet_bekostigd_eerste_1okt_false_als_bekostigd():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_deelnemer_niet_bekostigd_eerste_1okt"][0] is False
 
 
 def test_deelnemer_niet_bekostigd_eerste_1okt_false_niet_actief():
-    obt = _obt_rij(
+    df = _rij(
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["N"],
     )
-    result = _voeg_bekostigingsvlaggen_toe(obt)
+    result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_deelnemer_niet_bekostigd_eerste_1okt"][0] is False
 
 
@@ -591,47 +616,57 @@ def test_deelnemer_niet_bekostigd_eerste_1okt_false_niet_actief():
 
 
 def test_sr_hoogste_niveau():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1"],
-        "Studiejaar": [2025, 2025],
-        "Niveau": ["4", "3"],
-        "Opleidingcode": ["A", "B"],
-    })
-    result = _voeg_sr_vlaggen_toe(obt)
-    hoofd = dict(zip(
-        result["Niveau"].to_list(),
-        result["_hoogste_niveau"].to_list(),
-        strict=True,
-    ))
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "Studiejaar": [2025, 2025],
+            "Niveau": ["4", "3"],
+            "Opleidingcode": ["A", "B"],
+        }
+    )
+    result = _voeg_sr_vlaggen_toe(df)
+    hoofd = dict(
+        zip(
+            result["Niveau"].to_list(),
+            result["_hoogste_niveau"].to_list(),
+            strict=True,
+        )
+    )
     assert hoofd["4"] is True
     assert hoofd["3"] is False
 
 
 def test_sr_laagste_crebo():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1"],
-        "Studiejaar": [2025, 2025],
-        "Niveau": ["4", "4"],
-        "Opleidingcode": ["A", "B"],
-    })
-    result = _voeg_sr_vlaggen_toe(obt)
-    crebo = dict(zip(
-        result["Opleidingcode"].to_list(),
-        result["_laagste_CREBO"].to_list(),
-        strict=True,
-    ))
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "Studiejaar": [2025, 2025],
+            "Niveau": ["4", "4"],
+            "Opleidingcode": ["A", "B"],
+        }
+    )
+    result = _voeg_sr_vlaggen_toe(df)
+    crebo = dict(
+        zip(
+            result["Opleidingcode"].to_list(),
+            result["_laagste_CREBO"].to_list(),
+            strict=True,
+        )
+    )
     assert crebo["A"] is True
     assert crebo["B"] is False
 
 
 def test_sr_hoofdinschrijving_selecteert_juiste_rij():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1", "P2"],
-        "Studiejaar": [2025, 2025, 2025],
-        "Niveau": ["4", "3", "2"],
-        "Opleidingcode": ["X", "Y", "Z"],
-    })
-    result = _voeg_sr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1", "P2"],
+            "Studiejaar": [2025, 2025, 2025],
+            "Niveau": ["4", "3", "2"],
+            "Opleidingcode": ["X", "Y", "Z"],
+        }
+    )
+    result = _voeg_sr_vlaggen_toe(df)
     hoofd = result.filter(pl.col("_hoofdinschrijving")).to_dicts()
     assert len(hoofd) == 2
     p1 = [r for r in hoofd if r["_persoon_id"] == "P1"]
@@ -640,21 +675,23 @@ def test_sr_hoofdinschrijving_selecteert_juiste_rij():
 
 
 def test_sr_hoofdinschrijving_gelijke_niveaus_kiest_laagste_crebo():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1"],
-        "Studiejaar": [2025, 2025],
-        "Niveau": ["4", "4"],
-        "Opleidingcode": ["C002", "C001"],
-    })
-    result = _voeg_sr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "Studiejaar": [2025, 2025],
+            "Niveau": ["4", "4"],
+            "Opleidingcode": ["C002", "C001"],
+        }
+    )
+    result = _voeg_sr_vlaggen_toe(df)
     hoofd = result.filter(pl.col("_hoofdinschrijving")).to_dicts()
     assert len(hoofd) == 1
     assert hoofd[0]["Opleidingcode"] == "C001"
 
 
 def test_sr_vlaggen_ontbrekende_kolommen_geeft_none():
-    obt = pl.DataFrame({"Studiejaar": [2025], "Niveau": ["4"]})
-    result = _voeg_sr_vlaggen_toe(obt)
+    df = pl.DataFrame({"Studiejaar": [2025], "Niveau": ["4"]})
+    result = _voeg_sr_vlaggen_toe(df)
     assert result["_hoogste_niveau"][0] is None
     assert result["_laagste_CREBO"][0] is None
     assert result["_hoofdinschrijving"][0] is None
@@ -662,18 +699,22 @@ def test_sr_vlaggen_ontbrekende_kolommen_geeft_none():
 
 def test_sr_niveau_numeriek_mbo_prefix():
     """Niveau "MBO-4" moet hoger zijn dan "MBO-3" via numerieke extractie."""
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1"],
-        "Studiejaar": [2025, 2025],
-        "Niveau": ["MBO-4", "MBO-3"],
-        "Opleidingcode": ["A", "B"],
-    })
-    result = _voeg_sr_vlaggen_toe(obt)
-    hoofd = dict(zip(
-        result["Niveau"].to_list(),
-        result["_hoogste_niveau"].to_list(),
-        strict=True,
-    ))
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "Studiejaar": [2025, 2025],
+            "Niveau": ["MBO-4", "MBO-3"],
+            "Opleidingcode": ["A", "B"],
+        }
+    )
+    result = _voeg_sr_vlaggen_toe(df)
+    hoofd = dict(
+        zip(
+            result["Niveau"].to_list(),
+            result["_hoogste_niveau"].to_list(),
+            strict=True,
+        )
+    )
     assert hoofd["MBO-4"] is True
     assert hoofd["MBO-3"] is False
 
@@ -684,91 +725,106 @@ def test_sr_niveau_numeriek_mbo_prefix():
 
 
 def test_telling_true_actief_en_hoofdinschrijving():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [True],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [True],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [True],
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [False],
+            "_ingeschreven_jaar_later": [True],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_telling"][0] is True
 
 
 def test_telling_false_niet_actief():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [False],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [False],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [False],
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [False],
+            "_ingeschreven_jaar_later": [False],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_telling"][0] is False
 
 
 def test_telling_false_niet_hoofdinschrijving():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [True],
-        "_hoofdinschrijving": [False],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [False],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [True],
+            "_hoofdinschrijving": [False],
+            "_gediplomeerd_in_jaar": [False],
+            "_ingeschreven_jaar_later": [False],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_telling"][0] is False
 
 
 def test_telling_false_bij_null_actief():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": pl.Series([None], dtype=pl.Boolean),
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [False],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": pl.Series([None], dtype=pl.Boolean),
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [False],
+            "_ingeschreven_jaar_later": [False],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_telling"][0] is False
 
 
 def test_jr_noemer_gelijk_aan_telling():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [True],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [False],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [True],
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [False],
+            "_ingeschreven_jaar_later": [False],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_jr_noemer"][0] == result["_telling"][0]
 
 
 def test_jr_teller_true_gediplomeerd():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [True],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [True],
-        "_ingeschreven_jaar_later": [False],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [True],
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [True],
+            "_ingeschreven_jaar_later": [False],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_jr_teller"][0] is True
 
 
-
 def test_jr_teller_false_niet_in_noemer():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [False],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [True],
-        "_ingeschreven_jaar_later": [True],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [False],
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [True],
+            "_ingeschreven_jaar_later": [True],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_jr_teller"][0] is False
 
 
 def test_jr_teller_false_geen_resultaat():
-    obt = pl.DataFrame({
-        "_actief_1_oktober": [True],
-        "_hoofdinschrijving": [True],
-        "_gediplomeerd_in_jaar": [False],
-        "_ingeschreven_jaar_later": [False],
-    })
-    result = _voeg_telling_en_jr_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_actief_1_oktober": [True],
+            "_hoofdinschrijving": [True],
+            "_gediplomeerd_in_jaar": [False],
+            "_ingeschreven_jaar_later": [False],
+        }
+    )
+    result = _voeg_telling_en_jr_vlaggen_toe(df)
     assert result["_jr_teller"][0] is False
 
 
@@ -777,16 +833,12 @@ def test_jr_teller_false_geen_resultaat():
 # ---------------------------------------------------------------------------
 
 
-def test_indicatie_bekostigbaar_normalisatie_in_obt(demo_obt):
-    """Na decode-normalisatie bevat de OBT alleen 'J' of 'N' (of null)."""
-    obt = demo_obt["obt_inschrijvingen"]
-    if "IndicatieBekostigbaar" in obt.columns:
-        waarden = set(
-            obt["IndicatieBekostigbaar"].drop_nulls().unique().to_list()
-        )
-        assert waarden <= {"J", "N"}, (
-            f"Onverwachte waarden: {waarden}"
-        )
+def test_indicatie_bekostigbaar_normalisatie_in_demo(demo_tabellen):
+    """Na decode-normalisatie bevat inschrijvingen alleen 'J' of 'N' (of null)."""
+    df = demo_tabellen["inschrijvingen"]
+    if "IndicatieBekostigbaar" in df.columns:
+        waarden = set(df["IndicatieBekostigbaar"].drop_nulls().unique().to_list())
+        assert waarden <= {"J", "N"}, f"Onverwachte waarden: {waarden}"
 
 
 # ---------------------------------------------------------------------------
@@ -795,115 +847,115 @@ def test_indicatie_bekostigbaar_normalisatie_in_obt(demo_obt):
 
 
 def test_entree_uitstroom_true_mbo1_uitgeschreven():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1"],
-        "Niveau": ["MBO-1"],
-        "DatumUitschrijvingWerkelijk": pl.Series(
-            [date(2025, 6, 1)], dtype=pl.Date
-        ),
-        "DatumUitschrijvingGepland": pl.Series(
-            [date(2025, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_entree_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1"],
+            "Niveau": ["MBO-1"],
+            "DatumUitschrijvingWerkelijk": pl.Series([date(2025, 6, 1)], dtype=pl.Date),
+            "DatumUitschrijvingGepland": pl.Series([date(2025, 7, 31)], dtype=pl.Date),
+        }
+    )
+    result = _voeg_entree_vlaggen_toe(df)
     assert result["_entree_uitstroom"][0] is True
 
 
 def test_entree_uitstroom_false_mbo4():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1"],
-        "Niveau": ["MBO-4"],
-        "DatumUitschrijvingWerkelijk": pl.Series(
-            [date(2025, 6, 1)], dtype=pl.Date
-        ),
-        "DatumUitschrijvingGepland": pl.Series(
-            [date(2025, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_entree_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1"],
+            "Niveau": ["MBO-4"],
+            "DatumUitschrijvingWerkelijk": pl.Series([date(2025, 6, 1)], dtype=pl.Date),
+            "DatumUitschrijvingGepland": pl.Series([date(2025, 7, 31)], dtype=pl.Date),
+        }
+    )
+    result = _voeg_entree_vlaggen_toe(df)
     assert result["_entree_uitstroom"][0] is False
 
 
 def test_entree_uitstroom_false_niet_uitgeschreven():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1"],
-        "Niveau": ["MBO-1"],
-        "DatumUitschrijvingWerkelijk": pl.Series(
-            [None], dtype=pl.Date
-        ),
-        "DatumUitschrijvingGepland": pl.Series(
-            [date(2025, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_entree_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1"],
+            "Niveau": ["MBO-1"],
+            "DatumUitschrijvingWerkelijk": pl.Series([None], dtype=pl.Date),
+            "DatumUitschrijvingGepland": pl.Series([date(2025, 7, 31)], dtype=pl.Date),
+        }
+    )
+    result = _voeg_entree_vlaggen_toe(df)
     assert result["_entree_uitstroom"][0] is False
 
 
 def test_entree_doorstroom_true():
     """MBO-1 student met ook een MBO-4 inschrijving bij dezelfde instelling."""
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1"],
-        "BRIN": ["01AA", "01AA"],
-        "Niveau": ["MBO-1", "MBO-4"],
-        "DatumUitschrijvingWerkelijk": pl.Series(
-            [date(2025, 6, 1), None], dtype=pl.Date
-        ),
-        "DatumUitschrijvingGepland": pl.Series(
-            [date(2025, 7, 31), date(2026, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_entree_vlaggen_toe(obt)
-    doorstroom = dict(zip(
-        result["Niveau"].to_list(),
-        result["_entree_doorstroom"].to_list(),
-        strict=True,
-    ))
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "BRIN": ["01AA", "01AA"],
+            "Niveau": ["MBO-1", "MBO-4"],
+            "DatumUitschrijvingWerkelijk": pl.Series(
+                [date(2025, 6, 1), None], dtype=pl.Date
+            ),
+            "DatumUitschrijvingGepland": pl.Series(
+                [date(2025, 7, 31), date(2026, 7, 31)], dtype=pl.Date
+            ),
+        }
+    )
+    result = _voeg_entree_vlaggen_toe(df)
+    doorstroom = dict(
+        zip(
+            result["Niveau"].to_list(),
+            result["_entree_doorstroom"].to_list(),
+            strict=True,
+        )
+    )
     assert doorstroom["MBO-1"] is True
     assert doorstroom["MBO-4"] is False
 
 
 def test_entree_doorstroom_false_andere_instelling():
     """MBO-1 bij instelling A, MBO-4 bij instelling B → geen doorstroom."""
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1"],
-        "BRIN": ["01AA", "02BB"],
-        "Niveau": ["MBO-1", "MBO-4"],
-        "DatumUitschrijvingWerkelijk": pl.Series(
-            [date(2025, 6, 1), None], dtype=pl.Date
-        ),
-        "DatumUitschrijvingGepland": pl.Series(
-            [date(2025, 7, 31), date(2026, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_entree_vlaggen_toe(obt)
-    doorstroom = dict(zip(
-        result["Niveau"].to_list(),
-        result["_entree_doorstroom"].to_list(),
-        strict=True,
-    ))
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "BRIN": ["01AA", "02BB"],
+            "Niveau": ["MBO-1", "MBO-4"],
+            "DatumUitschrijvingWerkelijk": pl.Series(
+                [date(2025, 6, 1), None], dtype=pl.Date
+            ),
+            "DatumUitschrijvingGepland": pl.Series(
+                [date(2025, 7, 31), date(2026, 7, 31)], dtype=pl.Date
+            ),
+        }
+    )
+    result = _voeg_entree_vlaggen_toe(df)
+    doorstroom = dict(
+        zip(
+            result["Niveau"].to_list(),
+            result["_entree_doorstroom"].to_list(),
+            strict=True,
+        )
+    )
     assert doorstroom["MBO-1"] is False
 
 
 def test_entree_doorstroom_false_geen_vervolg():
     """MBO-1 student zonder hoger niveau → geen doorstroom."""
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1"],
-        "BRIN": ["01AA"],
-        "Niveau": ["MBO-1"],
-        "DatumUitschrijvingWerkelijk": pl.Series(
-            [date(2025, 6, 1)], dtype=pl.Date
-        ),
-        "DatumUitschrijvingGepland": pl.Series(
-            [date(2025, 7, 31)], dtype=pl.Date
-        ),
-    })
-    result = _voeg_entree_vlaggen_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1"],
+            "BRIN": ["01AA"],
+            "Niveau": ["MBO-1"],
+            "DatumUitschrijvingWerkelijk": pl.Series([date(2025, 6, 1)], dtype=pl.Date),
+            "DatumUitschrijvingGepland": pl.Series([date(2025, 7, 31)], dtype=pl.Date),
+        }
+    )
+    result = _voeg_entree_vlaggen_toe(df)
     assert result["_entree_doorstroom"][0] is False
 
 
 def test_entree_vlaggen_ontbrekende_kolommen():
-    obt = pl.DataFrame({"Studiejaar": [2025]})
-    result = _voeg_entree_vlaggen_toe(obt)
+    df = pl.DataFrame({"Studiejaar": [2025]})
+    result = _voeg_entree_vlaggen_toe(df)
     assert result["_entree_uitstroom"][0] is None
     assert result["_entree_doorstroom"][0] is None
 
@@ -914,45 +966,51 @@ def test_entree_vlaggen_ontbrekende_kolommen():
 
 
 def test_niveau_gecombineerd():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1"],
-        "Inschrijvingvolgnummer": ["1"],
-        "Niveau": ["MBO-4"],
-        "Leertraject": ["BOL"],
-    })
-    result = _voeg_afgeleide_velden_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": ["1"],
+            "Niveau": ["MBO-4"],
+            "Leertraject": ["BOL"],
+        }
+    )
+    result = _voeg_afgeleide_velden_toe(df)
     assert result["Niveau_gecombineerd"][0] == "MBO-4 BOL"
 
 
 def test_niveau_gecombineerd_null_leertraject():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1"],
-        "Inschrijvingvolgnummer": ["1"],
-        "Niveau": ["MBO-4"],
-        "Leertraject": pl.Series([None], dtype=pl.Utf8),
-    })
-    result = _voeg_afgeleide_velden_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": ["1"],
+            "Niveau": ["MBO-4"],
+            "Leertraject": pl.Series([None], dtype=pl.Utf8),
+        }
+    )
+    result = _voeg_afgeleide_velden_toe(df)
     assert result["Niveau_gecombineerd"][0] is None
 
 
 def test_tellingen_aanwezig():
-    obt = pl.DataFrame({
-        "_persoon_id": ["P1", "P1", "P2"],
-        "Inschrijvingvolgnummer": ["1", "1", "1"],
-        "levering": ["L1", "L2", "L1"],
-    })
-    result = _voeg_afgeleide_velden_toe(obt)
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1", "P2"],
+            "Inschrijvingvolgnummer": ["1", "1", "1"],
+            "levering": ["L1", "L2", "L1"],
+        }
+    )
+    result = _voeg_afgeleide_velden_toe(df)
     p1 = result.filter(pl.col("_persoon_id") == "P1")
     assert p1["_tellingen_aanwezig"][0] == 2
     p2 = result.filter(pl.col("_persoon_id") == "P2")
     assert p2["_tellingen_aanwezig"][0] == 1
 
 
-def test_afgeleide_velden_in_demo_obt(demo_obt):
-    """Afgeleide velden zijn aanwezig in de OBT."""
-    obt = demo_obt["obt_inschrijvingen"]
-    assert "Niveau_gecombineerd" in obt.columns
-    assert "_tellingen_aanwezig" in obt.columns
+def test_afgeleide_velden_in_demo(demo_tabellen):
+    """Afgeleide velden zijn aanwezig in de inschrijvingen-tabel."""
+    df = demo_tabellen["inschrijvingen"]
+    assert "Niveau_gecombineerd" in df.columns
+    assert "_tellingen_aanwezig" in df.columns
 
 
 # ---------------------------------------------------------------------------
@@ -962,10 +1020,12 @@ def test_afgeleide_velden_in_demo_obt(demo_obt):
 
 def test_vul_niveau_aan_vanuit_crebo():
     """Null Niveau wordt aangevuld via Opleidingcode → CREBO-tabel."""
-    df = pl.DataFrame({
-        "Opleidingcode": ["25655", "23301"],
-        "Niveau": [None, "MBO-1"],
-    })
+    df = pl.DataFrame(
+        {
+            "Opleidingcode": ["25655", "23301"],
+            "Niveau": [None, "MBO-1"],
+        }
+    )
     result = _vul_niveau_aan(df)
     assert result["Niveau"][0] == "MBO-4"
     assert result["Niveau"][1] == "MBO-1"
@@ -973,28 +1033,32 @@ def test_vul_niveau_aan_vanuit_crebo():
 
 def test_vul_niveau_aan_behoudt_bestaand():
     """Bestaand Niveau wordt niet overschreven door CREBO."""
-    df = pl.DataFrame({
-        "Opleidingcode": ["25655"],
-        "Niveau": ["MBO-3"],
-    })
+    df = pl.DataFrame(
+        {
+            "Opleidingcode": ["25655"],
+            "Niveau": ["MBO-3"],
+        }
+    )
     result = _vul_niveau_aan(df)
     assert result["Niveau"][0] == "MBO-3"
 
 
 def test_vul_niveau_aan_onbekende_code():
     """Onbekende Opleidingcode laat Niveau op null."""
-    df = pl.DataFrame({
-        "Opleidingcode": ["99999"],
-        "Niveau": [None],
-    })
+    df = pl.DataFrame(
+        {
+            "Opleidingcode": ["99999"],
+            "Niveau": [None],
+        }
+    )
     result = _vul_niveau_aan(df)
     assert result["Niveau"][0] is None
 
 
-def test_vul_niveau_in_demo_obt(demo_obt):
+def test_vul_niveau_in_demo(demo_tabellen):
     """Na Niveau-aanvulling hebben de meeste rijen een Niveau."""
-    obt = demo_obt["obt_inschrijvingen"]
-    filled = obt["Niveau"].drop_nulls().len()
+    df = demo_tabellen["inschrijvingen"]
+    filled = df["Niveau"].drop_nulls().len()
     assert filled > 2
 
 
@@ -1005,68 +1069,82 @@ def test_vul_niveau_in_demo_obt(demo_obt):
 
 def test_studiejaar_afgeleid_uit_datumbegin_augustus():
     """DatumBegin in augustus → studiejaar = jaar van DatumBegin."""
-    obt = pl.DataFrame({
-        "DatumBegin": pl.Series([date(2025, 8, 1)], dtype=pl.Date),
-    })
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame(
+        {
+            "DatumBegin": pl.Series([date(2025, 8, 1)], dtype=pl.Date),
+        }
+    )
+    result = _leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2025
 
 
 def test_studiejaar_afgeleid_uit_datumbegin_januari():
     """DatumBegin in januari → studiejaar = jaar - 1."""
-    obt = pl.DataFrame({
-        "DatumBegin": pl.Series([date(2026, 1, 15)], dtype=pl.Date),
-    })
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame(
+        {
+            "DatumBegin": pl.Series([date(2026, 1, 15)], dtype=pl.Date),
+        }
+    )
+    result = _leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2025
 
 
 def test_studiejaar_afgeleid_uit_datumbegin_juli():
     """DatumBegin in juli → studiejaar = jaar - 1 (nog vorig studiejaar)."""
-    obt = pl.DataFrame({
-        "DatumBegin": pl.Series([date(2026, 7, 31)], dtype=pl.Date),
-    })
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame(
+        {
+            "DatumBegin": pl.Series([date(2026, 7, 31)], dtype=pl.Date),
+        }
+    )
+    result = _leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2025
 
 
 def test_studiejaar_behoudt_bestaande_waarde():
     """Bestaand Studiejaar wordt niet overschreven."""
-    obt = pl.DataFrame({
-        "DatumBegin": pl.Series([date(2025, 9, 1)], dtype=pl.Date),
-        "Studiejaar": pl.Series([2024], dtype=pl.Int64),
-    })
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame(
+        {
+            "DatumBegin": pl.Series([date(2025, 9, 1)], dtype=pl.Date),
+            "Studiejaar": pl.Series([2024], dtype=pl.Int64),
+        }
+    )
+    result = _leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2024
 
 
 def test_studiejaar_vult_null_aan():
     """Null Studiejaar wordt aangevuld, bestaande waarden blijven."""
-    obt = pl.DataFrame({
-        "DatumBegin": pl.Series([date(2025, 9, 1), date(2024, 10, 1)], dtype=pl.Date),
-        "Studiejaar": pl.Series([None, 2024], dtype=pl.Int64),
-    })
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame(
+        {
+            "DatumBegin": pl.Series(
+                [date(2025, 9, 1), date(2024, 10, 1)], dtype=pl.Date
+            ),
+            "Studiejaar": pl.Series([None, 2024], dtype=pl.Int64),
+        }
+    )
+    result = _leid_studiejaar_af(df)
     assert result["Studiejaar"].to_list() == [2025, 2024]
 
 
 def test_studiejaar_uit_datuminschrijving():
     """Zonder DatumBegin wordt DatumInschrijving gebruikt (TBGI-pad)."""
-    obt = pl.DataFrame({
-        "DatumInschrijving": pl.Series([date(2024, 2, 1)], dtype=pl.Date),
-    })
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame(
+        {
+            "DatumInschrijving": pl.Series([date(2024, 2, 1)], dtype=pl.Date),
+        }
+    )
+    result = _leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2023
 
 
 def test_studiejaar_geen_datum_geen_crash():
     """Zonder datumvelden en zonder Studiejaar → geen crash, geen kolom."""
-    obt = pl.DataFrame({"_persoon_id": ["P1"]})
-    result = _leid_studiejaar_af(obt)
+    df = pl.DataFrame({"_persoon_id": ["P1"]})
+    result = _leid_studiejaar_af(df)
     assert "Studiejaar" not in result.columns
 
 
-def test_studiejaar_afgeleid_in_demo_obt(demo_obt):
+def test_studiejaar_afgeleid_in_demo(demo_tabellen):
     """Na afleiding heeft elke rij een Studiejaar (geen nulls meer)."""
-    obt = demo_obt["obt_inschrijvingen"]
-    assert obt["Studiejaar"].null_count() == 0
+    df = demo_tabellen["inschrijvingen"]
+    assert df["Studiejaar"].null_count() == 0

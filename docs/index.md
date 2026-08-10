@@ -2,7 +2,7 @@
 
 DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan controleren of haar studenten bekostigd worden en op welke grondslag. Deze bestanden zijn technisch van opzet: meerdere recordtypes per bestand, gecodeerde velden, geen kolomkoppen.
 
-**Deze tool leest die ruwe bestanden in, normaliseert ze en bouwt er één platte analysetabel (OBT) van** — direct bruikbaar in Excel, Python, R of Power BI. Optioneel wordt ook een dimensionaal model (star schema) geëxporteerd; zie [Datamodel](datamodel.md).
+**Deze tool leest die ruwe bestanden in, normaliseert ze en bouwt er een star schema van** — direct bruikbaar in Excel, Python, R of Power BI; zie [Datamodel](datamodel.md).
 
 ---
 
@@ -39,18 +39,25 @@ data/02-prepared/demo/h15/RO_27DV_20240731_20260324/
 
 Datumvelden zijn `Date`, telvelden zijn `Int64`, lege velden zijn `null` (geen lege strings).
 
-### Stap 2 — OBT (gecombineerd over alle leveringen)
+### Stap 2 — Star schema (gecombineerd over alle leveringen)
 
-Alle prepared-mappen worden gecombineerd tot vijf bestanden in `data/03-output/obt/`:
+Alle prepared-mappen worden gecombineerd tot elf Parquet-bestanden in `data/03-output/star/datamodel/`:
 
 | Bestand | Grain | Inhoud |
 |---|---|---|
-| `obt_inschrijvingen.parquet` | inschrijvingsperiode (ISP) | kern van de OBT; ISG/PER/BPV-aggregaat/KZD-aggregaat/GEO-pivot ingebakken |
-| `detail_bpv.parquet` | BPV-overeenkomst | alle afzonderlijke BPV-records |
-| `detail_kzd_amo.parquet` | keuzedeel / AMvB-onderdeel | alle KZD- en AMO-records |
-| `detail_bekostiging.parquet` | teldatum | bekostigingsdetail (BII-records / TBGI Teldatum) |
-| `meta_leveringen.parquet` | leveringsbestand | VLP-metadata per bron |
-| `datamodel/*.parquet` | (star schema) | Dimensie- en feitstabellen — zie [Datamodel](datamodel.md) |
+| `dim_deelnemer.parquet` | Persoon | Persoonskenmerken (geslacht, geboorteland, gemeente …) |
+| `dim_opleiding.parquet` | Opleiding | CREBO-attributen incl. S-BB koppeltabel |
+| `dim_instelling.parquet` | Instelling | Naam en vestigingsplaats |
+| `fact_inschrijving.parquet` | ISP-inschrijvingsperiode | Centrale feittabel met vlaggen en aggregaten |
+| `fact_bpv.parquet` | BPV-overeenkomst | Alle BPV-periodes per inschrijving |
+| `fact_kzd.parquet` | Keuzedeel-resultaat | KZD-resultaten per inschrijving |
+| `fact_amo.parquet` | AMO-resultaat | AMvB-onderdelen per inschrijving |
+| `fact_geo.parquet` | GEO-examenonderdeel | Eindcijfers IE/CE in long format |
+| `fact_bekostiging.parquet` | TBGI Teldatum | Bekostigingsgrondslagen per teldatum |
+| `fact_bekostiging_diploma.parquet` | TBGI Diploma | Diplomawaarde-bijdragen per diploma |
+| `meta_leveringen.parquet` | Leveringsbestand | VLP + SLR metadata (één rij per bronbestand) |
+
+Zie [Datamodel](datamodel.md) voor een volledig schema-overzicht.
 
 Een `levering`-kolom in elke tabel geeft aan uit welk bronbestand een rij afkomstig is (bijv. `h15/RO_27DV_20240731_20260324`).
 
@@ -62,17 +69,17 @@ Een `levering`-kolom in elke tabel geeft aan uit welk bronbestand een rij afkoms
 
 DUO werkt met drie jaarbegrippen die in de data voorkomen:
 
-| Concept | Definitie | In de OBT |
+| Concept | Definitie | In het star schema |
 |---|---|---|
-| **Studiejaar** | 1 aug jaar *S* – 31 jul jaar *S+1* | Kolom `Studiejaar` (int); expliciet uit GRONDSLAG, afgeleid voor RO/TBGI |
+| **Studiejaar** | 1 aug jaar *S* – 31 jul jaar *S+1* | Kolom `Studiejaar` (int) in `fact_inschrijving`; expliciet uit GRONDSLAG, afgeleid voor RO/TBGI |
 | **Bekostigingsjaar** | Kalenderjaar *T*; refereert aan studiejaar *T−2* voor inschrijvingen | Niet als aparte kolom; `Bekostigingsjaar = Studiejaar + 2` |
 | **Kalenderjaar** | Gebruikt door DUO voor diplomaselectie (diploma's in jaar *T−2* voor bekostigingsjaar *T*) | Af te leiden uit `DIP_DatumResultaat` |
 
 "Boekjaar" (fiscaal jaar) is geen DUO-concept en wordt niet gebruikt.
 
-#### Berekende vlaggen op obt_inschrijvingen
+#### Berekende vlaggen in fact_inschrijving
 
-De OBT voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
+fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
 
 | Groep | Kolom | Type | Betekenis |
 |---|---|---|---|

@@ -1,7 +1,7 @@
-"""Verrijking van obt_inschrijvingen met leesbare labels uit decodeertabellen.
+"""Verrijking van inschrijvingen met leesbare labels uit decodeertabellen.
 
 Publieke API:
-    enrich_obt(obt_inschrijvingen) -> pl.DataFrame
+    enrich_inschrijvingen(df) -> pl.DataFrame
 
 Voegt leesbare namen en migratieachtergronden toe via LEFT JOINs op de CSV-
 bestanden in de ``metadata/``-map naast dit bestand.  Alle lookups worden
@@ -60,27 +60,45 @@ def _laad_crebo() -> pl.DataFrame:
     return pl.read_csv(
         _METADATA / "crebo.csv",
         infer_schema_length=0,
-    ).select([
-        "code", "naam", "leerweg",
-        "hoofdgroep_naam", "subgroep_naam",
-        "dossier_code", "dossier_naam", "sectorkamer_naam",
-    ])
+    ).select(
+        [
+            "code",
+            "naam",
+            "leerweg",
+            "hoofdgroep_naam",
+            "subgroep_naam",
+            "dossier_code",
+            "dossier_naam",
+            "sectorkamer_naam",
+        ]
+    )
 
 
 @functools.cache
 def _laad_sbb_koppeltabel() -> pl.DataFrame:
-    return pl.read_parquet(_METADATA / "sbb_koppeltabel.parquet").select([
-        "opleidingscode", "beroepsnaam", "niveau",
-        "opvolger_kwalificatie", "eerste_schooljaar", "laatste_schooljaar",
-    ])
+    return pl.read_parquet(_METADATA / "sbb_koppeltabel.parquet").select(
+        [
+            "opleidingscode",
+            "beroepsnaam",
+            "niveau",
+            "opvolger_kwalificatie",
+            "eerste_schooljaar",
+            "laatste_schooljaar",
+        ]
+    )
 
 
 @functools.cache
 def _laad_sbb_crebolijst() -> pl.DataFrame:
-    return pl.read_parquet(_METADATA / "sbb_crebolijst.parquet").select([
-        "kwalificatiecode", "geldig_van", "geldig_tot",
-        "prijsfactor", "soort_opleiding",
-    ])
+    return pl.read_parquet(_METADATA / "sbb_crebolijst.parquet").select(
+        [
+            "kwalificatiecode",
+            "geldig_van",
+            "geldig_tot",
+            "prijsfactor",
+            "soort_opleiding",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -95,11 +113,13 @@ def _join_nationaliteit(
     """Voeg naam en migratieachtergrond toe voor één nationaliteitskolom."""
     if src_col not in df.columns:
         return df
-    lookup = _laad_nationaliteitscode().rename({
-        "code": src_col,
-        "omschrijving": f"{src_col}_naam",
-        "migratieachtergrond_ln": f"{src_col}_migratieachtergrond",
-    })
+    lookup = _laad_nationaliteitscode().rename(
+        {
+            "code": src_col,
+            "omschrijving": f"{src_col}_naam",
+            "migratieachtergrond_ln": f"{src_col}_migratieachtergrond",
+        }
+    )
     right = lookup.unique(subset=[src_col], keep="first", maintain_order=True)
     return df.join(right, on=src_col, how="left")
 
@@ -111,11 +131,13 @@ def _join_landcode(
     """Voeg naam en migratieachtergrond toe voor één geboortelandkolom."""
     if src_col not in df.columns:
         return df
-    lookup = _laad_landcode().rename({
-        "code": src_col,
-        "naam_land": f"{src_col}_naam",
-        "migratieachtergrond_ln": f"{src_col}_migratieachtergrond",
-    })
+    lookup = _laad_landcode().rename(
+        {
+            "code": src_col,
+            "naam_land": f"{src_col}_naam",
+            "migratieachtergrond_ln": f"{src_col}_migratieachtergrond",
+        }
+    )
     right = lookup.unique(subset=[src_col], keep="first", maintain_order=True)
     return df.join(right, on=src_col, how="left")
 
@@ -125,8 +147,8 @@ def _join_landcode(
 # ---------------------------------------------------------------------------
 
 
-def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
-    """Verrijk ``obt_inschrijvingen`` met leesbare labels uit decodeertabellen.
+def enrich_inschrijvingen(df: pl.DataFrame) -> pl.DataFrame:
+    """Verrijk inschrijvingen met leesbare labels uit decodeertabellen.
 
     Toegevoegde kolommen (alleen als de bronkolom aanwezig is):
 
@@ -158,13 +180,12 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
         ``Instelling_naam``, ``Instelling_plaats``
 
     Args:
-        obt_inschrijvingen: Resultaat van ``_bouw_obt_inschrijvingen`` of
-            ``_bouw_tbgi_inschrijvingen`` uit ``obt.py``.
+        df: Resultaat van ``_bouw_inschrijvingen`` of
+            ``_bouw_tbgi_inschrijvingen`` uit ``transform.py``.
 
     Returns:
         Verrijkte DataFrame; originele kolommen blijven onaangepast.
     """
-    df = obt_inschrijvingen
 
     # ── Nationaliteit ────────────────────────────────────────────────────────
     df = _join_nationaliteit(df, "Nationaliteit1")
@@ -177,11 +198,13 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
     if "Postcodecijfers" in df.columns:
         postcode_lookup = (
             _laad_postcodecijfers()
-            .rename({
-                "postcode": "Postcodecijfers",
-                "gemeentenaam": "Gemeente",
-                "gemeentecode": "Gemeentecode",
-            })
+            .rename(
+                {
+                    "postcode": "Postcodecijfers",
+                    "gemeentenaam": "Gemeente",
+                    "gemeentecode": "Gemeentecode",
+                }
+            )
             .unique(subset=["Postcodecijfers"], keep="first", maintain_order=True)
         )
         df = df.join(postcode_lookup, on="Postcodecijfers", how="left")
@@ -190,30 +213,31 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
     if "Opleidingcode" in df.columns:
         crebo_lookup = (
             _laad_crebo()
-            .rename({
-                "code": "Opleidingcode",
-                "naam": "Opleiding_naam",
-                "leerweg": "Opleiding_leerweg",
-                "hoofdgroep_naam": "Opleiding_domein",
-                "subgroep_naam": "Opleiding_subgroep",
-                "dossier_code": "Opleiding_dossiercode",
-                "dossier_naam": "Opleiding_dossier",
-                "sectorkamer_naam": "Opleiding_sectorkamer",
-            })
+            .rename(
+                {
+                    "code": "Opleidingcode",
+                    "naam": "Opleiding_naam",
+                    "leerweg": "Opleiding_leerweg",
+                    "hoofdgroep_naam": "Opleiding_domein",
+                    "subgroep_naam": "Opleiding_subgroep",
+                    "dossier_code": "Opleiding_dossiercode",
+                    "dossier_naam": "Opleiding_dossier",
+                    "sectorkamer_naam": "Opleiding_sectorkamer",
+                }
+            )
             .unique(subset=["Opleidingcode"], keep="first", maintain_order=True)
         )
         df = df.join(crebo_lookup, on="Opleidingcode", how="left")
 
-        koppel_lookup = (
-            _laad_sbb_koppeltabel()
-            .rename({
+        koppel_lookup = _laad_sbb_koppeltabel().rename(
+            {
                 "opleidingscode": "Opleidingcode_i64",
                 "beroepsnaam": "Opleiding_beroep",
                 "niveau": "Opleiding_niveau",
                 "opvolger_kwalificatie": "Opleiding_opvolger",
                 "eerste_schooljaar": "Opleiding_eerste_schooljaar",
                 "laatste_schooljaar": "Opleiding_laatste_schooljaar",
-            })
+            }
         )
         df = (
             df.with_columns(
@@ -227,13 +251,15 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
 
         crebolijst_lookup = (
             _laad_sbb_crebolijst()
-            .rename({
-                "kwalificatiecode": "Opleidingcode",
-                "geldig_van": "Opleiding_geldig_van",
-                "geldig_tot": "Opleiding_geldig_tot",
-                "prijsfactor": "Opleiding_prijsfactor",
-                "soort_opleiding": "Opleiding_soort_opleiding",
-            })
+            .rename(
+                {
+                    "kwalificatiecode": "Opleidingcode",
+                    "geldig_van": "Opleiding_geldig_van",
+                    "geldig_tot": "Opleiding_geldig_tot",
+                    "prijsfactor": "Opleiding_prijsfactor",
+                    "soort_opleiding": "Opleiding_soort_opleiding",
+                }
+            )
             .unique(subset=["Opleidingcode"], keep="first", maintain_order=True)
         )
         df = df.join(crebolijst_lookup, on="Opleidingcode", how="left")
@@ -242,11 +268,13 @@ def enrich_obt(obt_inschrijvingen: pl.DataFrame) -> pl.DataFrame:
     if "BRIN" in df.columns:
         brin_lookup = (
             _laad_brinnummer()
-            .rename({
-                "brin": "BRIN",
-                "naam": "Instelling_naam",
-                "plaats": "Instelling_plaats",
-            })
+            .rename(
+                {
+                    "brin": "BRIN",
+                    "naam": "Instelling_naam",
+                    "plaats": "Instelling_plaats",
+                }
+            )
             .unique(subset=["BRIN"], keep="first", maintain_order=True)
         )
         df = df.join(brin_lookup, on="BRIN", how="left")

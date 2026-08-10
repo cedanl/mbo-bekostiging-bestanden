@@ -5,29 +5,46 @@ import polars as pl
 from mbo_bekostiging_bestanden.star import build_star
 
 
-def _minimal_obt() -> dict[str, pl.DataFrame]:
-    """Minimale OBT met velden voor alle drie dimensies."""
-    return {
-        "obt_inschrijvingen": pl.DataFrame({
+def _minimal_stacked() -> dict[str, pl.DataFrame]:
+    """Minimale stacked-input voor alle drie dimensies en de feittabel."""
+    isp = pl.DataFrame(
+        {
             "levering": ["h15/RO_X", "h15/RO_X", "h15/RO_X"],
-            "_persoon_id": ["P1", "P1", "P2"],
-            "Geboortedatum": [None, None, None],
-            "Geslacht": ["M", "M", "V"],
+            "Burgerservicenummer": ["P1", "P1", "P2"],
+            "Inschrijvingvolgnummer": ["001", "002", "003"],
             "Opleidingcode": ["25655", "23301", "25655"],
             "Niveau": ["MBO-4", "MBO-1", "MBO-4"],
-            "Opleiding_naam": ["App-ontwikkelaar", "Entree", "App-ontwikkelaar"],
             "BRIN": ["01AA", "01AA", "02BB"],
-            "Instelling_naam": ["ROC West", "ROC West", "Graafschap"],
-            "Instelling_plaats": ["Den Haag", "Den Haag", "Doetinchem"],
-            "_telling": [True, False, True],
-            "_actief_1_oktober": [True, False, True],
-        }),
-    }
+            "Recordsoort": ["ISP", "ISP", "ISP"],
+        }
+    )
+    per = pl.DataFrame(
+        {
+            "levering": ["h15/RO_X", "h15/RO_X"],
+            "Burgerservicenummer": ["P1", "P2"],
+            "Geslacht": ["M", "V"],
+            "Recordsoort": ["PER", "PER"],
+        }
+    )
+    isg = pl.DataFrame(
+        schema={
+            "levering": pl.Utf8,
+            "Burgerservicenummer": pl.Utf8,
+            "Inschrijvingvolgnummer": pl.Utf8,
+        }
+    )
+    vlp = pl.DataFrame(
+        {
+            "levering": ["h15/RO_X"],
+            "BRIN": ["01AA"],
+        }
+    )
+    return {"ISP": isp, "PER": per, "ISG": isg, "VLP": vlp}
 
 
 def test_star_bevat_alle_tabellen():
-    """build_star retourneert tien tabellen (drie dims + zeven facts)."""
-    result = build_star(_minimal_obt())
+    """build_star retourneert elf tabellen (drie dims + zeven facts + meta)."""
+    result = build_star(_minimal_stacked())
     assert set(result.keys()) == {
         "dim_deelnemer",
         "dim_opleiding",
@@ -39,12 +56,13 @@ def test_star_bevat_alle_tabellen():
         "fact_geo",
         "fact_bekostiging",
         "fact_bekostiging_diploma",
+        "meta_leveringen",
     }
 
 
 def test_dim_deelnemer_uniek_op_persoon():
     """dim_deelnemer heeft één rij per _persoon_id."""
-    result = build_star(_minimal_obt())
+    result = build_star(_minimal_stacked())
     dim = result["dim_deelnemer"]
     assert dim.shape[0] == 2
     assert dim["_persoon_id"].to_list() == ["P1", "P2"]
@@ -53,7 +71,7 @@ def test_dim_deelnemer_uniek_op_persoon():
 
 def test_dim_opleiding_uniek_op_code():
     """dim_opleiding heeft één rij per Opleidingcode."""
-    result = build_star(_minimal_obt())
+    result = build_star(_minimal_stacked())
     dim = result["dim_opleiding"]
     assert dim.shape[0] == 2
     assert set(dim["Opleidingcode"].to_list()) == {"25655", "23301"}
@@ -63,7 +81,7 @@ def test_dim_opleiding_uniek_op_code():
 
 def test_dim_instelling_uniek_op_brin():
     """dim_instelling heeft één rij per BRIN."""
-    result = build_star(_minimal_obt())
+    result = build_star(_minimal_stacked())
     dim = result["dim_instelling"]
     assert dim.shape[0] == 2
     assert set(dim["BRIN"].to_list()) == {"01AA", "02BB"}
@@ -71,7 +89,7 @@ def test_dim_instelling_uniek_op_brin():
 
 def test_fact_bevat_fks_en_measures():
     """fact_inschrijving bevat foreign keys en measures, niet de dimensie-attributen."""
-    result = build_star(_minimal_obt())
+    result = build_star(_minimal_stacked())
     fact = result["fact_inschrijving"]
     assert fact.shape[0] == 3
     assert "_persoon_id" in fact.columns
@@ -84,7 +102,14 @@ def test_fact_bevat_fks_en_measures():
 
 
 def test_fact_behoudt_alle_rijen():
-    """fact_inschrijving verliest geen rijen t.o.v. de OBT."""
-    obt = _minimal_obt()
-    result = build_star(obt)
-    assert result["fact_inschrijving"].shape[0] == obt["obt_inschrijvingen"].shape[0]
+    """fact_inschrijving verliest geen rijen t.o.v. de ISP-input."""
+    result = build_star(_minimal_stacked())
+    assert result["fact_inschrijving"].shape[0] == 3
+
+
+def test_meta_leveringen_bevat_vlp():
+    """meta_leveringen bevat één rij per leveringsbestand uit VLP."""
+    result = build_star(_minimal_stacked())
+    meta = result["meta_leveringen"]
+    assert not meta.is_empty()
+    assert meta["levering"].to_list() == ["h15/RO_X"]

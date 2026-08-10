@@ -1,6 +1,6 @@
 [project]
 name = "mbo-bekostiging-bestanden"
-version = "0.1.0"
+version = "2.0.0"
 description = "Leest DUO MBO-bekostigingsbestanden in en zet ze om naar schone, onderzoeksklare data."
 readme = "README.md"
 requires-python = ">=3.13"

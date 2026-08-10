@@ -256,32 +256,38 @@ def test_bepaal_oordeel_twee_ontbreken():
 # ---------------------------------------------------------------------------
 
 
-def _obt_met_leerweg_niveau():
-    return pl.DataFrame({
-        "Leertraject": ["BOL", "BBL", "ODT", "OV", "OD"],
-        "Niveau": ["MBO-2", "MBO-3", "MBO-4", "MBO-2", "MBO-2"],
-    })
+def _inschrijvingen_met_leerweg_niveau():
+    return pl.DataFrame(
+        {
+            "Leertraject": ["BOL", "BBL", "ODT", "OV", "OD"],
+            "Niveau": ["MBO-2", "MBO-3", "MBO-4", "MBO-2", "MBO-2"],
+        }
+    )
 
 
 def test_populatie_filter_verwijdert_ov_od():
-    result = populatie_regele_filter(_obt_met_leerweg_niveau())
+    result = populatie_regele_filter(_inschrijvingen_met_leerweg_niveau())
     assert result["Leertraject"].to_list() == ["BOL", "BBL", "ODT"]
 
 
 def test_populatie_filter_verwijdert_niveau_1():
-    df = pl.DataFrame({
-        "Leertraject": ["BOL", "BOL", "BOL"],
-        "Niveau": ["MBO-1", "MBO-2", "MBO-4"],
-    })
+    df = pl.DataFrame(
+        {
+            "Leertraject": ["BOL", "BOL", "BOL"],
+            "Niveau": ["MBO-1", "MBO-2", "MBO-4"],
+        }
+    )
     result = populatie_regele_filter(df)
     assert result["Niveau"].to_list() == ["MBO-2", "MBO-4"]
 
 
 def test_populatie_filter_min_niveau():
-    df = pl.DataFrame({
-        "Leertraject": ["BOL", "BOL", "BOL"],
-        "Niveau": ["MBO-3", "MBO-4", "MBO-2"],
-    })
+    df = pl.DataFrame(
+        {
+            "Leertraject": ["BOL", "BOL", "BOL"],
+            "Niveau": ["MBO-3", "MBO-4", "MBO-2"],
+        }
+    )
     result = populatie_regele_filter(df, min_niveau=3)
     assert result["Niveau"].to_list() == ["MBO-3", "MBO-4"]
 
@@ -293,10 +299,12 @@ def test_populatie_filter_ontbrekende_kolommen_geen_crash():
 
 
 def test_populatie_filter_leerweg_case_insensitief():
-    df = pl.DataFrame({
-        "Leertraject": ["bol", "OV"],
-        "Niveau": ["MBO-2", "MBO-2"],
-    })
+    df = pl.DataFrame(
+        {
+            "Leertraject": ["bol", "OV"],
+            "Niveau": ["MBO-2", "MBO-2"],
+        }
+    )
     result = populatie_regele_filter(df)
     assert result["Leertraject"].to_list() == ["bol"]
 
@@ -306,18 +314,20 @@ def test_populatie_filter_leerweg_case_insensitief():
 # ---------------------------------------------------------------------------
 
 
-def _entree_obt():
+def _entree_inschrijvingen():
     """Vier niveau-1 studenten in de vier categorieën + één niveau-2 rij."""
-    return pl.DataFrame({
-        "Niveau": ["MBO-1", "MBO-1", "MBO-1", "MBO-1", "MBO-2"],
-        "_entree_doorstroom": [True, True, False, False, False],
-        "_entree_uitstroom": [False, False, True, True, False],
-        "_gediplomeerd_in_jaar": [True, False, True, False, False],
-    })
+    return pl.DataFrame(
+        {
+            "Niveau": ["MBO-1", "MBO-1", "MBO-1", "MBO-1", "MBO-2"],
+            "_entree_doorstroom": [True, True, False, False, False],
+            "_entree_uitstroom": [False, False, True, True, False],
+            "_gediplomeerd_in_jaar": [True, False, True, False, False],
+        }
+    )
 
 
 def test_entree_indicatoren_vier_categorieen():
-    result = entree_indicatoren(_entree_obt())
+    result = entree_indicatoren(_entree_inschrijvingen())
     assert result.height == 4
     cats = dict(
         zip(
@@ -335,21 +345,23 @@ def test_entree_indicatoren_vier_categorieen():
 
 
 def test_entree_indicatoren_aandelen_tellen_op_100():
-    result = entree_indicatoren(_entree_obt())
+    result = entree_indicatoren(_entree_inschrijvingen())
     assert result["Aandeel (%)"].round().sum() == 100
 
 
 def test_entree_totaal():
-    assert entree_totaal(_entree_obt()) == 4
+    assert entree_totaal(_entree_inschrijvingen()) == 4
 
 
 def test_entree_indicatoren_geen_niveau_1():
-    df = pl.DataFrame({
-        "Niveau": ["MBO-2", "MBO-3"],
-        "_entree_doorstroom": [False, False],
-        "_entree_uitstroom": [False, False],
-        "_gediplomeerd_in_jaar": [False, False],
-    })
+    df = pl.DataFrame(
+        {
+            "Niveau": ["MBO-2", "MBO-3"],
+            "_entree_doorstroom": [False, False],
+            "_entree_uitstroom": [False, False],
+            "_gediplomeerd_in_jaar": [False, False],
+        }
+    )
     assert entree_indicatoren(df).is_empty()
 
 
@@ -362,12 +374,14 @@ def test_entree_indicatoren_ontbrekende_kolommen():
 
 def test_entree_indicatoren_ongeclassificeerde_rijen_vallen_in_uitstroom():
     """Rij die nergens een vlag heeft (geen doorstroom/uitstroom) → uitval."""
-    df = pl.DataFrame({
-        "Niveau": ["MBO-1"],
-        "_entree_doorstroom": [False],
-        "_entree_uitstroom": [False],
-        "_gediplomeerd_in_jaar": [False],
-    })
+    df = pl.DataFrame(
+        {
+            "Niveau": ["MBO-1"],
+            "_entree_doorstroom": [False],
+            "_entree_uitstroom": [False],
+            "_gediplomeerd_in_jaar": [False],
+        }
+    )
     result = entree_indicatoren(df)
     row = result.filter(pl.col("Categorie") == "Uitstroom zonder diploma")
     assert row["Aantal"].to_list() == [1]
@@ -378,13 +392,13 @@ def test_entree_indicatoren_ongeclassificeerde_rijen_vallen_in_uitstroom():
 # ---------------------------------------------------------------------------
 
 
-def test_normen_en_populatie_in_demo_obt(demo_obt):
-    obt = demo_obt["obt_inschrijvingen"]
-    populatie = populatie_regele_filter(obt)
+def test_normen_en_populatie_in_demo_tabellen(demo_tabellen):
+    df = demo_tabellen["inschrijvingen"]
+    populatie = populatie_regele_filter(df)
     assert "OV" not in populatie["Leertraject"].to_list()
     assert "MBO-1" not in populatie["Niveau"].to_list()
 
-    entree = entree_indicatoren(obt)
+    entree = entree_indicatoren(df)
     if not entree.is_empty():
         assert set(entree["Categorie"].to_list()) <= {
             "Doorstroom met diploma",
