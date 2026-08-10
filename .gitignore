@@ -26,6 +26,10 @@ data/03-output/**
 .idea/
 .vscode/
 
+# Make dev/stop (Streamlit)
+.streamlit/.dev.pid
+.streamlit/.dev.log
+
 # Ruwe .asc bronbestanden decodeertabellen (te groot; CSV-versies staan in metadata/)
 src/mbo_bekostiging_bestanden/metadata/*.asc
 src/mbo_bekostiging_bestanden/metadata/Bestandsbeschrijving_Dec-bestanden.txt
