@@ -38,6 +38,45 @@ def _prepared_subdir(raw_file: Path, raw: Path, prepared: Path) -> Path:
     return prepared / groep / raw_file.stem
 
 
+def _instelling_per_levering(star: dict) -> dict[str, str]:
+    """Map elke levering naar 'Instellingsnaam (BRIN)'.
+
+    Bron: elke star-tabel met zowel ``levering`` als ``BRIN`` — RO/GRONDSLAG
+    via o.a. ``meta_leveringen``, TBGI (h16) via de bekostigingsfeiten die
+    geen VLP-record leveren. BRIN wordt verrijkt met de naam uit
+    ``dim_instelling`` (BRIN → Instelling_naam); zonder herkenbare naam valt
+    het label terug op de losse BRIN.
+    """
+    dim = star.get("dim_instelling")
+    naam_per_brin: dict[str, str] = {}
+    if (
+        dim is not None
+        and not dim.is_empty()
+        and {"BRIN", "Instelling_naam"} <= set(dim.columns)
+    ):
+        naam_per_brin = {
+            rij["BRIN"]: rij["Instelling_naam"]
+            for rij in dim.select(["BRIN", "Instelling_naam"]).iter_rows(named=True)
+        }
+
+    labels_per_levering: dict[str, set[str]] = defaultdict(set)
+    for tbl in star.values():
+        if tbl.is_empty() or "levering" not in tbl.columns or "BRIN" not in tbl.columns:
+            continue
+        koppels = tbl.select(["levering", "BRIN"]).drop_nulls().unique()
+        for rij in koppels.iter_rows(named=True):
+            brin = rij["BRIN"]
+            naam = naam_per_brin.get(brin)
+            labels_per_levering[rij["levering"]].add(
+                f"{naam} ({brin})" if naam else brin
+            )
+
+    return {
+        levering: ", ".join(sorted(labels))
+        for levering, labels in labels_per_levering.items()
+    }
+
+
 # ---------------------------------------------------------------------------
 # Pagina
 # ---------------------------------------------------------------------------
@@ -135,6 +174,7 @@ if not done:
                         for lev in tbl["levering"].drop_nulls().unique().to_list()
                     }
                 ),
+                "instelling_per_levering": _instelling_per_levering(star),
             }
         except Exception as exc:
             fouten.append(f"Star schema: {exc}")
@@ -168,8 +208,13 @@ if done:
         col3.metric("BPV detail", star_summary.get("bpv_rijen", "—"))
 
         with st.expander("Leveringen opgenomen"):
+            inst_per_lev = star_summary.get("instelling_per_levering", {})
             for lev in star_summary.get("leveringen", []):
-                st.write(f"• `{lev}`")
+                instelling = inst_per_lev.get(lev)
+                if instelling:
+                    st.write(f"• `{lev}` — {instelling}")
+                else:
+                    st.write(f"• `{lev}`")
 
         st.write("")
         col_bekijk, col_opnieuw = st.columns(2)
