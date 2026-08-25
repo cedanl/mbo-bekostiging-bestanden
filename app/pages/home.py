@@ -41,16 +41,12 @@ def _prepared_subdir(raw_file: Path, raw: Path, prepared: Path) -> Path:
 def _instelling_per_levering(star: dict) -> dict[str, str]:
     """Map elke levering naar 'Instellingsnaam (BRIN)'.
 
-    Bron: ``meta_leveringen`` (levering → BRIN) verrijkt met de naam uit
-    ``dim_instelling`` (BRIN → Instelling_naam). Leveringen zonder herkenbare
-    BRIN of naam vallen terug op de losse BRIN, of ontbreken.
+    Bron: elke star-tabel met zowel ``levering`` als ``BRIN`` — RO/GRONDSLAG
+    via o.a. ``meta_leveringen``, TBGI (h16) via de bekostigingsfeiten die
+    geen VLP-record leveren. BRIN wordt verrijkt met de naam uit
+    ``dim_instelling`` (BRIN → Instelling_naam); zonder herkenbare naam valt
+    het label terug op de losse BRIN.
     """
-    meta = star.get("meta_leveringen")
-    if meta is None or meta.is_empty():
-        return {}
-    if "levering" not in meta.columns or "BRIN" not in meta.columns:
-        return {}
-
     dim = star.get("dim_instelling")
     naam_per_brin: dict[str, str] = {}
     if (
@@ -64,10 +60,16 @@ def _instelling_per_levering(star: dict) -> dict[str, str]:
         }
 
     labels_per_levering: dict[str, set[str]] = defaultdict(set)
-    for rij in meta.select(["levering", "BRIN"]).drop_nulls().iter_rows(named=True):
-        brin = rij["BRIN"]
-        naam = naam_per_brin.get(brin)
-        labels_per_levering[rij["levering"]].add(f"{naam} ({brin})" if naam else brin)
+    for tbl in star.values():
+        if tbl.is_empty() or "levering" not in tbl.columns or "BRIN" not in tbl.columns:
+            continue
+        koppels = tbl.select(["levering", "BRIN"]).drop_nulls().unique()
+        for rij in koppels.iter_rows(named=True):
+            brin = rij["BRIN"]
+            naam = naam_per_brin.get(brin)
+            labels_per_levering[rij["levering"]].add(
+                f"{naam} ({brin})" if naam else brin
+            )
 
     return {
         levering: ", ".join(sorted(labels))
