@@ -1,4 +1,9 @@
-"""Resultaten — blader door de star-schema-tabellen en download."""
+"""Resultaten — blader door de verwerkte tabellen en download.
+
+Toont bij voorkeur het star-schema-datamodel. Kon dat niet gebouwd worden
+(bijv. een bestand zonder inschrijvingen), dan valt de pagina terug op de
+losse prepared tabellen per bestand, zodat de data alsnog te bekijken is.
+"""
 
 import sys
 from pathlib import Path
@@ -22,6 +27,30 @@ def _tabel_csv(pad: str, mtime: float) -> str:
     return _lees_tabel(pad, mtime).write_csv()
 
 
+def _verzamel_tabellen() -> tuple[dict[str, Path], str]:
+    """Bepaal de te tonen tabellen en de bron ('star' of 'prepared').
+
+    Voorkeur: het star-datamodel. Ontbreekt dat, dan de losse prepared
+    tabellen per bestand als fallback.
+    """
+    tabellen: dict[str, Path] = {}
+
+    resultaten_dir = st.session_state.get("resultaten_dir")
+    if resultaten_dir:
+        datamodel = Path(resultaten_dir) / "datamodel"
+        if datamodel.exists():
+            for parquet in sorted(datamodel.glob("*.parquet")):
+                tabellen[parquet.stem] = parquet
+    if tabellen:
+        return tabellen, "star"
+
+    for prep in st.session_state.get("prepared_dirs", []):
+        prep_pad = Path(prep)
+        for parquet in sorted(prep_pad.glob("*.parquet")):
+            tabellen[f"{prep_pad.name} / {parquet.stem}"] = parquet
+    return tabellen, "prepared"
+
+
 st.markdown(
     '<span style="font-size:.75rem;font-weight:700;color:#7b8ab8;'
     'text-transform:uppercase;letter-spacing:.08em">Resultaten</span>',
@@ -31,32 +60,30 @@ st.title("Resultaten")
 
 st.info(PAGINA_INTRO)
 
-resultaten_dir: str | None = st.session_state.get("resultaten_dir")
-if not resultaten_dir:
+tabellen, bron = _verzamel_tabellen()
+
+if not tabellen:
     st.warning(
-        "Geen resultatenmap ingesteld — verwerk eerst een bestand of stapel leveringen."
+        "Geen resultaten — verwerk eerst een of meer bestanden op de Home-pagina."
     )
     if st.button("← Home"):
         st.switch_page("pages/home.py")
     st.stop()
 
-datamodel_path = Path(resultaten_dir) / "datamodel"
-parquets = sorted(datamodel_path.glob("*.parquet")) if datamodel_path.exists() else []
+if bron == "prepared":
+    st.warning(
+        "Nog geen star schema gebouwd. Hieronder de losse verwerkte tabellen per "
+        "bestand (recordtypes), zodat je de data alsnog kunt bekijken en downloaden."
+    )
 
-if not parquets:
-    st.error(f"Geen Parquet-bestanden gevonden in `{datamodel_path}`.")
-    if st.button("← Home"):
-        st.switch_page("pages/home.py")
-    st.stop()
-
-tabel_namen = [p.stem for p in parquets]
-
-gekozen = st.selectbox("Kies tabel", tabel_namen, key="resultaten_tabel")
+gekozen = st.selectbox("Kies tabel", list(tabellen), key="resultaten_tabel")
 
 if gekozen:
-    tabel_help(gekozen)
+    parquet_pad = tabellen[gekozen]
 
-    parquet_pad = datamodel_path / f"{gekozen}.parquet"
+    if bron == "star":
+        tabel_help(gekozen)
+
     mtime = parquet_pad.stat().st_mtime
     df = _lees_tabel(str(parquet_pad), mtime)
 
@@ -70,9 +97,9 @@ if gekozen:
         st.caption(f"Eerste 1 000 van {df.height:,} rijen getoond.")
 
     st.download_button(
-        label=f"Download `{gekozen}.csv`",
+        label=f"Download `{parquet_pad.stem}.csv`",
         data=_tabel_csv(str(parquet_pad), mtime),
-        file_name=f"{gekozen}.csv",
+        file_name=f"{parquet_pad.stem}.csv",
         mime="text/csv",
         use_container_width=True,
     )

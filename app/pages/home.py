@@ -38,6 +38,18 @@ def _prepared_subdir(raw_file: Path, raw: Path, prepared: Path) -> Path:
     return prepared / groep / raw_file.stem
 
 
+def _reset_verwerking() -> None:
+    """Wis de verwerkings-state zodat een nieuwe run schoon begint."""
+    for sleutel in (
+        "alles_verwerkt",
+        "star_pad",
+        "prepared_dirs",
+        "star_summary",
+        "fouten",
+    ):
+        st.session_state.pop(sleutel, None)
+
+
 def _instelling_per_levering(star: dict) -> dict[str, str]:
     """Map elke levering naar 'Instellingsnaam (BRIN)'.
 
@@ -177,7 +189,15 @@ if not done:
                 "instelling_per_levering": _instelling_per_levering(star),
             }
         except Exception as exc:
-            fouten.append(f"Star schema: {exc}")
+            melding = str(exc)
+            if "ISP- of Inschrijving" in melding:
+                melding = (
+                    "Geen inschrijvingen (ISP) in de verwerkte bestanden. Het "
+                    "star schema wordt rond inschrijvingen gebouwd en vereist "
+                    "een RO-bestand (h15). De losse verwerkte tabellen van dit "
+                    "bestand staan wél onder Resultaten."
+                )
+            fouten.append(f"Star schema: {melding}")
             star_summary = {}
 
         stap += 1
@@ -185,6 +205,7 @@ if not done:
         status.empty()
         st.session_state["alles_verwerkt"] = True
         st.session_state["star_pad"] = str(star_output)
+        st.session_state["prepared_dirs"] = [str(d) for d in prep_dirs_met_data]
         st.session_state["star_summary"] = star_summary
         if fouten:
             st.session_state["fouten"] = fouten
@@ -226,8 +247,26 @@ if done:
                 st.switch_page("pages/resultaten.py")
         with col_opnieuw:
             if st.button("Opnieuw verwerken", use_container_width=True):
-                for sleutel in ("alles_verwerkt", "star_pad", "star_summary", "fouten"):
-                    st.session_state.pop(sleutel, None)
+                _reset_verwerking()
+                st.rerun()
+    elif st.session_state.get("prepared_dirs"):
+        # Geen star schema, maar de losse tabellen zijn wel verwerkt.
+        st.info(
+            "Geen star schema gebouwd, maar de bestanden zijn wél verwerkt. "
+            "Bekijk de losse tabellen per bestand onder Resultaten."
+        )
+        col_bekijk, col_opnieuw = st.columns(2)
+        with col_bekijk:
+            if st.button(
+                "Bekijk verwerkte tabellen →",
+                type="primary",
+                use_container_width=True,
+            ):
+                st.session_state["resultaten_dir"] = star_pad
+                st.switch_page("pages/resultaten.py")
+        with col_opnieuw:
+            if st.button("Opnieuw verwerken", use_container_width=True):
+                _reset_verwerking()
                 st.rerun()
 
 st.divider()
