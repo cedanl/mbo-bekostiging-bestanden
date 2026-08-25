@@ -1,9 +1,13 @@
 """Resultaten — blader door de star-schema-tabellen en download."""
 
+import sys
 from pathlib import Path
 
 import polars as pl
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from _tabel_docs import PAGINA_INTRO, tabel_help
 
 
 @st.cache_resource(show_spinner=False)
@@ -24,6 +28,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.title("Resultaten")
+
+st.info(PAGINA_INTRO)
 
 resultaten_dir: str | None = st.session_state.get("resultaten_dir")
 if not resultaten_dir:
@@ -48,6 +54,8 @@ tabel_namen = [p.stem for p in parquets]
 gekozen = st.selectbox("Kies tabel", tabel_namen, key="resultaten_tabel")
 
 if gekozen:
+    tabel_help(gekozen)
+
     parquet_pad = datamodel_path / f"{gekozen}.parquet"
     mtime = parquet_pad.stat().st_mtime
     df = _lees_tabel(str(parquet_pad), mtime)
