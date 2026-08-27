@@ -106,6 +106,26 @@ def _laad_sbb_crebolijst() -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+# Nationaliteits- en landcodes zijn in de codeboeken 4-cijferig, links met
+# nullen opgevuld (bijv. "0001"). Sommige bronnen leveren ze als kaal getal
+# ("1", "262") — bijv. na een Excel-export die voorloopnullen strippt. Zonder
+# normalisatie mist de join en blijven naam/migratieachtergrond leeg.
+_CODE_BREEDTE = 4
+
+
+def _normaliseer_code(df: pl.DataFrame, col: str) -> pl.DataFrame:
+    """Vul een codekolom links met nullen tot ``_CODE_BREEDTE`` (leeg blijft leeg)."""
+    if col not in df.columns:
+        return df
+    genormaliseerd = (
+        pl.when(pl.col(col).str.len_chars().fill_null(0) == 0)
+        .then(pl.col(col))
+        .otherwise(pl.col(col).str.zfill(_CODE_BREEDTE))
+        .alias(col)
+    )
+    return df.with_columns(genormaliseerd)
+
+
 def _join_nationaliteit(
     df: pl.DataFrame,
     src_col: str,
@@ -113,6 +133,7 @@ def _join_nationaliteit(
     """Voeg naam en migratieachtergrond toe voor één nationaliteitskolom."""
     if src_col not in df.columns:
         return df
+    df = _normaliseer_code(df, src_col)
     lookup = _laad_nationaliteitscode().rename(
         {
             "code": src_col,
@@ -131,6 +152,7 @@ def _join_landcode(
     """Voeg naam en migratieachtergrond toe voor één geboortelandkolom."""
     if src_col not in df.columns:
         return df
+    df = _normaliseer_code(df, src_col)
     lookup = _laad_landcode().rename(
         {
             "code": src_col,

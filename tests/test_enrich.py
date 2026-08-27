@@ -164,6 +164,23 @@ def test_nationaliteit1_naam_en_migratieachtergrond():
     ]
 
 
+def test_nationaliteit_zonder_voorloopnullen_matcht():
+    """Codes zonder voorloopnullen (bijv. na Excel-export) worden gepad en matchen."""
+    df = pl.DataFrame({"Nationaliteit1": ["1", "1234", ""]})
+
+    mocks = _patch_lookups()
+    with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5], mocks[6]:
+        result = enrich_inschrijvingen(df)
+
+    # "1" -> "0001" -> Nederlandse; "1234" blijft; "" blijft leeg (geen match).
+    assert result["Nationaliteit1"].to_list() == ["0001", "1234", ""]
+    assert result["Nationaliteit1_naam"].to_list() == [
+        "Nederlandse",
+        "Marokkaanse",
+        None,
+    ]
+
+
 def test_nationaliteit2_naam_en_migratieachtergrond():
     """Nationaliteit2 krijgt aparte kolommen, onafhankelijk van Nationaliteit1."""
     df = pl.DataFrame(
