@@ -2,7 +2,7 @@
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.star import build_star
+from mbo_bekostiging_bestanden.star import _build_dim, build_star
 
 
 def _minimal_stacked() -> dict[str, pl.DataFrame]:
@@ -67,6 +67,26 @@ def test_dim_deelnemer_uniek_op_persoon():
     assert dim.shape[0] == 2
     assert dim["_persoon_id"].to_list() == ["P1", "P2"]
     assert "Geslacht" in dim.columns
+
+
+def test_build_dim_coalesceert_velden_over_leveringen():
+    """Een veld dat maar in één levering staat, gaat niet verloren.
+
+    Persoon P1 zit in twee leveringen: de ene heeft Geboortedatum (RO), de andere
+    de demografie (GRONDSLAG). De dim-rij moet beide bevatten.
+    """
+    df = pl.DataFrame(
+        {
+            "_persoon_id": ["P1", "P1"],
+            "Geboortedatum": ["1990-01-01", None],
+            "Gemeente": [None, "Apeldoorn"],
+        }
+    )
+    dim = _build_dim(df, ["_persoon_id", "Geboortedatum", "Gemeente"], "_persoon_id")
+    assert dim.shape[0] == 1
+    rij = dim.row(0, named=True)
+    assert rij["Geboortedatum"] == "1990-01-01"
+    assert rij["Gemeente"] == "Apeldoorn"
 
 
 def test_dim_opleiding_uniek_op_code():
