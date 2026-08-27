@@ -241,21 +241,28 @@ def _build_dim(
     cols: list[str],
     key: str,
 ) -> pl.DataFrame:
-    """Bouw een dimensietabel: selecteer kolommen, houd de meest complete rij."""
+    """Bouw een dimensietabel: één rij per key, per veld de eerste niet-lege waarde.
+
+    Coalesceert per kolom over de leveringen van dezelfde key, zodat een veld dat
+    alleen in de ene levering staat (bijv. ``Geboortedatum`` uit RO) niet verloren
+    gaat wanneer een andere levering (bijv. GRONDSLAG) meer velden vult. De rijen
+    worden op vulling gesorteerd zodat de meest complete levering vooropstaat en
+    ontbrekende velden uit de overige leveringen worden aangevuld.
+    """
     beschikbaar = [c for c in cols if c in df.columns]
     if key not in beschikbaar:
         return pl.DataFrame()
     subset = df.select(beschikbaar)
     non_key = [c for c in beschikbaar if c != key]
-    if non_key:
-        subset = subset.with_columns(
-            pl.sum_horizontal([pl.col(c).is_not_null() for c in non_key]).alias(
-                "_vulling"
-            ),
-        )
-        subset = subset.sort("_vulling", descending=True)
-        subset = subset.unique(subset=[key], keep="first", maintain_order=False)
-        subset = subset.drop("_vulling").sort(key)
-    else:
-        subset = subset.unique(subset=[key], keep="first", maintain_order=True)
-    return subset
+    if not non_key:
+        return subset.unique(subset=[key], keep="first", maintain_order=True)
+
+    subset = subset.with_columns(
+        pl.sum_horizontal([pl.col(c).is_not_null() for c in non_key]).alias("_vulling")
+    ).sort("_vulling", descending=True)
+    return (
+        subset.group_by(key, maintain_order=True)
+        .agg([pl.col(c).drop_nulls().first().alias(c) for c in non_key])
+        .select(beschikbaar)
+        .sort(key)
+    )
