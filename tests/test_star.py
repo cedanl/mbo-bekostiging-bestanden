@@ -132,6 +132,24 @@ def test_fact_behoudt_alle_rijen():
     assert result["fact_inschrijving"].shape[0] == 3
 
 
+def test_fact_inschrijving_grain_uniek():
+    """fact_inschrijving is uniek op zijn grain-sleutel.
+
+    Grain: (levering, _persoon_id, Inschrijvingvolgnummer, _inschrijving_periode_id)
+    Dit zorgt ervoor dat joins met detail-feiten (BPV, KZD) geen fan-out veroorzaken.
+    """
+    result = build_star(_minimal_stacked())
+    fact = result["fact_inschrijving"]
+    grain_key = ["levering", "_persoon_id", "Inschrijvingvolgnummer",
+                 "_inschrijving_periode_id"]
+    assert "_inschrijving_periode_id" in fact.columns
+    unieke_sleutels = fact.select(grain_key).unique().shape[0]
+    assert fact.shape[0] == unieke_sleutels, (
+        f"fact_inschrijving is niet uniek op grain-sleutel: "
+        f"{fact.shape[0]} rijen, {unieke_sleutels} unieke sleutels"
+    )
+
+
 def test_meta_leveringen_bevat_vlp():
     """meta_leveringen bevat één rij per leveringsbestand uit VLP."""
     result = build_star(_minimal_stacked())

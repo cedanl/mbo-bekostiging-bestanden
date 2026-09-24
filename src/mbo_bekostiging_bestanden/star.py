@@ -110,7 +110,7 @@ def build_star(
           ``dim_instelling``             — uniek per ``BRIN``
 
         Feiten:
-          ``fact_inschrijving``          — ISP-grain, FK's + vlaggen, zonder GEO-pivot
+          ``fact_inschrijving``          — ISP-periode-grain, uniek per sleutel
           ``fact_bpv``                   — BPV-periodes per inschrijving
           ``fact_kzd``                   — Keuzedelen per inschrijving
           ``fact_amo``                   — AMO-onderdelen per inschrijving
@@ -168,7 +168,8 @@ def _build_fact_bpv(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """fact_bpv: BPV-periodes per inschrijving.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Volgnummer).
-    Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen.
+    Joinbaar met fact_inschrijving via de volledige sleutel of via deduplicatie:
+      (levering, _persoon_id, Inschrijvingvolgnummer, _inschrijving_periode_id)
     Persoonsidentificerende gegevens (BSN, ONr) worden verwijderd.
     """
     detail = tables.get("detail_bpv", pl.DataFrame())
