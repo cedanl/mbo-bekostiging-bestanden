@@ -32,7 +32,7 @@ def test_missing_slr_returns_unknown_status():
 def test_slr_mapping_includes_ise_bii_bid():
     """SLR mapping moet ISE, BII, BID bevatten."""
     frames = {
-        "VLP": pl.DataFrame({"Recordsoort": ["GRONDSLAG"]}),
+        "VLP": pl.DataFrame({"Recordsoort": ["VLP"]}),
         "SLR": pl.DataFrame({
             "AantalBII": [100],
             "AantalBID": [50],
@@ -98,3 +98,36 @@ def test_slr_status_icoon_valt_veilig_terug():
     """None of onbekende waarde mag nooit crashen en toont ⚠️."""
     assert slr_status_icoon(None) == "⚠️"
     assert slr_status_icoon("niet-bestaand") == "⚠️"
+
+
+def test_grondslag_bestand_krijgt_schema_type_grondslag():
+    """GRONDSLAG-files mogen niet als 'ro' gelabeld worden.
+
+    Regressie: de oude check zocht "GRONDSLAG" in ``VLP.Recordsoort``, maar die
+    kolom bevat altijd "VLP".  Het onderscheid zit in de aanwezigheid van
+    GRONDSLAG-only recordtypes (BII/BID).
+    """
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["VLP"], "Bekostiging": ["V"]}),
+        "SLR": pl.DataFrame({"AantalBII": [1]}),
+        "BII": pl.DataFrame({"dummy": [1]}),
+    }
+
+    report = check_slr_reconciliation(frames, "grondslag_test")
+
+    assert report.schema_type == "grondslag", (
+        f"Expected 'grondslag', got {report.schema_type!r}"
+    )
+
+
+def test_ro_bestand_krijgt_schema_type_ro():
+    """RO-files zonder GRONDSLAG-only records worden 'ro'."""
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["VLP"]}),
+        "SLR": pl.DataFrame({"AantalPER": [1]}),
+        "PER": pl.DataFrame({"dummy": [1]}),
+    }
+
+    report = check_slr_reconciliation(frames, "ro_test")
+
+    assert report.schema_type == "ro"

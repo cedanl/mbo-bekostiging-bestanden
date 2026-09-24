@@ -157,28 +157,67 @@ def test_fact_inschrijving_grain_uniek():
     )
 
 
-def test_inschrijving_periode_id_is_stable_and_data_derived():
-    """_inschrijving_periode_id derived from data hash (stable, reproducible, FK-ready).
+def test_inschrijving_periode_id_is_deterministic():
+    """Zelfde data → zelfde _inschrijving_periode_id (stable, reproduceerbaar).
 
-    Hash of (levering, _persoon_id, Inschrijvingvolgnummer, DatumBegin).
-    - Stable: same data → same hash
-    - Reproducible: order-independent
-    - Usable as FK: depends on data content, not row position
+    Hash van (levering, _persoon_id, Inschrijvingvolgnummer, DatumBegin).
+    Vervangt de flaky 'niet-sequentiële volgorde'-assertie: de volgorde van een
+    hash is geen eigenschap van de hash, determinisme wel.
     """
-    result = build_star(_minimal_stacked())
-    fact = result["fact_inschrijving"]
-    periode_ids = fact["_inschrijving_periode_id"].to_list()
+    ids_a = build_star(_minimal_stacked())["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ]
+    ids_b = build_star(_minimal_stacked())["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ]
 
-    # Hash-based IDs are non-sequential (hashes won't sort in data order)
-    is_sequential = periode_ids == sorted(periode_ids)
-    assert not is_sequential, (
-        "_inschrijving_periode_id should be hash-derived (non-sequential), "
-        f"not pl.int_range. Got: {periode_ids}"
+    assert ids_a.equals(ids_b)
+    assert ids_a.null_count() == 0
+    assert ids_a.len() == 3
+
+
+def test_inschrijving_periode_id_is_rijvolgorde_onafhankelijk():
+    """Herordenen van invoerrijen verandert de identifiers niet.
+
+    Door rijen te herordenen wijzigt alleen de volgorde, niet de content van elke
+    grain-sleutel; de set identifiers moet gelijk blijven (positioneel onafh.).
+    """
+    stacked = _minimal_stacked()
+    herordend = {
+        key: df.reverse() if df.height > 1 else df
+        for key, df in stacked.items()
+    }
+
+    ids_a = sorted(build_star(_minimal_stacked())["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ])
+    ids_b = sorted(build_star(herordend)["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ])
+
+    assert ids_a == ids_b
+
+
+def test_inschrijving_periode_id_volgt_uit_brondata():
+    """Andere brondata (bjv. ander DatumBegin) geeft een andere identifier."""
+    stacked = _minimal_stacked()
+    isp = stacked["ISP"].with_columns(
+        pl.when(pl.col("Inschrijvingvolgnummer") == "002")
+        .then(pl.lit(date(2024, 2, 1)))
+        .otherwise(pl.col("DatumBegin"))
+        .alias("DatumBegin")
     )
+    gewijzigd = {**stacked, "ISP": isp}
 
-    # All IDs present and non-null
-    assert len(periode_ids) == fact.shape[0]
-    assert all(id is not None for id in periode_ids)
+    ids_a = sorted(build_star(_minimal_stacked())["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ])
+    ids_b = sorted(build_star(gewijzigd)["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ])
+
+    assert ids_a != ids_b
+    assert len(ids_a) == len(ids_b)
 
 
 def test_meta_leveringen_bevat_vlp():

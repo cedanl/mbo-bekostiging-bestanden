@@ -45,6 +45,10 @@ def _hash_periode_key(
     Output: eerste 16 tekens van hex digest (UUID-achtig, uniek per periode).
 
     Reproduceert dezelfde hash op dezelfde data, ongeacht rij-volgorde.
+
+    Let op: dit is een ongekeyde SHA-256 content-hash (geen HMAC, geen geheim).
+    Het dient als stabiele FK-sleutel, niet als pseudonimisering van
+    persoonsgegevens — daarvoor is `_persoon_id` via HMAC-SHA256 bedoeld.
     """
     key_str = f"{levering}|{persoon_id}|{inschrijving_nr}|{datum_begin}"
     digest = hashlib.sha256(key_str.encode()).hexdigest()

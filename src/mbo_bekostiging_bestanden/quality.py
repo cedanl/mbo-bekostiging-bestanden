@@ -23,6 +23,22 @@ def slr_status_icoon(status: str | None) -> str:
     return _SLR_STATUS_ICONS.get(status, "⚠️")
 
 
+# Recordtypes die alleen in GRONDSLAG IP MBO voorkomen; VLP.Recordsoort is altijd
+# "VLP" en kan een GRONDSLAG-bestand dus niet onderscheiden van een RO-bestand.
+_GRONDSLAG_ONLY_RECORDTYPES = ("BII", "BID")
+
+
+def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
+    """Leid het schema-type (ro|grondslag) af uit de aanwezige recordtypes."""
+    if any(
+        frames.get(rt) is not None and not frames[rt].is_empty()
+        for rt in _GRONDSLAG_ONLY_RECORDTYPES
+    ):
+        return "grondslag"
+    if frames.get("VLP") is not None and not frames["VLP"].is_empty():
+        return "ro"
+    return "unknown"
+
 @dataclass
 class QualityReport:
     """Gestructureerd kwaliteitsrapport per leveringsbestand."""
@@ -65,16 +81,8 @@ def check_slr_reconciliation(
     """
     report = QualityReport(
         levering=levering,
-        schema_type="unknown",
+        schema_type=_bepaal_schema_type(frames),
     )
-
-    # Bepaal schema-type op basis van beschikbare recordtypes
-    if "VLP" in frames and frames["VLP"].shape[0] > 0:
-        vlp = frames["VLP"].row(0, named=True) if frames["VLP"].shape[0] > 0 else {}
-        if "GRONDSLAG" in vlp.get("Recordsoort", ""):
-            report.schema_type = "grondslag"
-        else:
-            report.schema_type = "ro"
 
     # Haal SLR op
     slr = frames.get("SLR")
