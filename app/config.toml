@@ -4,8 +4,9 @@ raw = "data/01-raw/demo"
 prepared = "data/02-prepared/demo"
 output = "data/03-output/demo"
 
-# Pseudonimisering: salt voor HMAC-hashing van persoons-identifiers.
-# WAARSCHUWING: verander deze salt niet zonder herverwerking van alle output!
-# Voor productie: zet een sterke, willekeurige salt in environment var MBO_PSEUDONIMISERING_SALT
+# Pseudonimisering: HMAC-sleutel voor hashing van persoons-identifiers.
+# WAARSCHUWING: de sleutel is SECRET en mag NOOIT in version control staan.
+# Voor alle omgevingen: zet een sterke, willekeurige sleutel in env var MBO_PSEUDONIMISERING_SALT
+# De applicatie faalt als deze sleutel niet is ingesteld (fail-closed).
 [security]
-pseudonimisering_salt = "demo-salt-niet-voor-productie"
+# pseudonimisering_salt intentionally removed — set MBO_PSEUDONIMISERING_SALT environment variable instead
