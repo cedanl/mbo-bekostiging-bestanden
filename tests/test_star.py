@@ -199,7 +199,7 @@ def test_inschrijving_periode_id_is_rijvolgorde_onafhankelijk():
 
 
 def test_inschrijving_periode_id_volgt_uit_brondata():
-    """Andere brondata (bjv. ander DatumBegin) geeft een andere identifier."""
+    """Andere brondata (bijv. ander DatumBegin) geeft een andere identifier."""
     stacked = _minimal_stacked()
     isp = stacked["ISP"].with_columns(
         pl.when(pl.col("Inschrijvingvolgnummer") == "002")

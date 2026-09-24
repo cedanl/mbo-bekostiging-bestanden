@@ -38,11 +38,10 @@ def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
     VLP-variant met ``BekostigingsType`` — zo blijft een (demo)subset herkend
     worden, zelfs als daar geen BII/BID-records in zitten.
     """
-    if any(
-        frames.get(rt) is not None and not frames[rt].is_empty()
-        for rt in _GRONDSLAG_ONLY_RECORDTYPES
-    ):
-        return "grondslag"
+    for rt in _GRONDSLAG_ONLY_RECORDTYPES:
+        gronds_lag_frame = frames.get(rt)
+        if gronds_lag_frame is not None and not gronds_lag_frame.is_empty():
+            return "grondslag"
     vlp = frames.get("VLP")
     if vlp is not None and not vlp.is_empty():
         if _GRONDSLAG_VLP_KOLOM in vlp.columns:
@@ -140,22 +139,3 @@ def check_slr_reconciliation(
         report.warnings.append("SLR-reconciliatie: OK")
 
     return report
-
-
-def quality_report_summary(reports: list[QualityReport]) -> str:
-    """Maak tekstsamenvatting van kwaliteitsrapporten."""
-    lines = []
-    for r in reports:
-        status_icon = (
-            "✓" if r.slr_status == "match"
-            else "⚠" if r.slr_status == "unknown"
-            else "✗"
-        )
-        lines.append(
-            f"{status_icon} {r.levering}: {len(r.warnings)} waarschuwing(en)"
-        )
-        for w in r.warnings:
-            lines.append(f"  ⚠ {w}")
-        for e in r.errors:
-            lines.append(f"  ✗ {e}")
-    return "\n".join(lines)
