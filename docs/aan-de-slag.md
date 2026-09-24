@@ -47,6 +47,12 @@ Zonder geldige salt faalt de pipeline (fail-closed).
 uv run streamlit run app/main.py
 ```
 
+!!! warning "Alleen lokaal"
+    De app is een lokale, single-user analysetool en wordt bewust niet gehost
+    (ook niet op SURF). Er is geen login, geen rolgebaseerd exportrecht en geen
+    audit-log. Bij downloaden worden persoonsgegevens standaard verwijderd; wie
+    de app draait kan dat uitzetten en is dan zelf verantwoordelijk voor de export.
+
 Open daarna `http://localhost:8501`. Zet ruwe bestanden in `data/01-raw/` (in een submap
 per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De app:
 

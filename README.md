@@ -32,6 +32,11 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 > wilt kunnen koppelen. Bewaar echte salts nooit in git — een
 > `app/config.toml`-fallback is puur voor demo en bevat geen salt meer.
 
+> **Alleen lokaal gebruiken:** de app is een lokale, single-user analysetool en
+> wordt bewust níet gehost (ook niet op SURF). Er is geen login, geen
+> rolgebaseerd exportrecht en geen audit-log: wie de app draait, kan een tabel
+> desgewenst mét persoonsgegevens downloaden (standaard staan die uit).
+
 ---
 
 ### Stap 1 — Bestanden verwerken
