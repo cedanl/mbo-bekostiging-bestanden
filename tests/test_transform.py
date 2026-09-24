@@ -49,6 +49,8 @@ def test_bouw_analysetabellen_tbgi_fallback_gebruikt_inschrijving_als_grain():
     result = _bouw_analysetabellen({"Inschrijving": inschrijving})
     assert result["inschrijvingen"].height == 1
     assert "_persoon_id" in result["inschrijvingen"].columns
+    # Ook zonder begindatum een sleutel (#109): de inschrijving is de periode.
+    assert result["inschrijvingen"]["_inschrijving_periode_id"].null_count() == 0
 
 
 def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():

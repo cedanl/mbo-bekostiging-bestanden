@@ -111,6 +111,9 @@ _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 _PERIODE_ID = "_inschrijving_periode_id"
+# Begindatum van een inschrijvingsperiode, in voorkeursvolgorde: de ISP-periode
+# (RO/GRONDSLAG), anders de TBGI-inschrijving als geheel (TBGI-only: geen ISP).
+_PERIODE_BEGIN_KOLOMMEN = ("DatumBegin", "DatumInschrijving")
 # Per detailtabel de datum die bepaalt in welke ISP-periode een rij valt.
 _PERIODE_REFERENTIEDATUM = {
     "detail_bpv": "DatumBegin",
@@ -229,16 +232,32 @@ def _resolve_inschrijving(
     ).drop("_isg_via_dip")
 
 
+def _periode_begin_kolom(df: pl.DataFrame) -> str | None:
+    """Kolom met de begindatum van een inschrijvingsperiode, of ``None``."""
+    return next((c for c in _PERIODE_BEGIN_KOLOMMEN if c in df.columns), None)
+
+
+def _periode_begin(df: pl.DataFrame) -> pl.Expr:
+    """Begindatum van de periode; leeg als geen begindatumkolom bestaat.
+
+    Een lege begin geldt als onbekend (zoals een lege ``DatumBegin``): de
+    sleutel blijft uniek zolang een inschrijving één periode heeft.
+    """
+    begin = _periode_begin_kolom(df)
+    return pl.col(begin) if begin else pl.lit(None, dtype=pl.Date)
+
+
 def _koppel_periode_id(
     detail: pl.DataFrame,
     inschrijvingen: pl.DataFrame,
     datum_kolom: str,
 ) -> pl.DataFrame:
-    """Voeg ``_inschrijving_periode_id`` toe: de ISP-periode van elke detailrij.
+    """Voeg ``_inschrijving_periode_id`` toe: de periode van elke detailrij.
 
     Een detailrij hoort bij de periode van dezelfde inschrijving met de laatste
-    ``DatumBegin`` op of vóór ``datum_kolom``.  Valt de datum vóór de eerste
-    periode, of ontbreekt hij, dan wordt de eerste periode gekozen.  Rijen
+    begindatum (zie :func:`_periode_begin_kolom`) op of vóór ``datum_kolom``.
+    Valt de datum vóór de eerste periode, of ontbreekt hij, dan wordt de
+    eerste periode gekozen.  Rijen
     zonder bijbehorende inschrijving (of zonder koppelkolommen) krijgen een
     lege sleutel.  Rijvolgorde en rijtal blijven behouden.
     """
@@ -248,8 +267,12 @@ def _koppel_periode_id(
         return detail.with_columns(pl.lit(None, dtype=pl.Utf8).alias(_PERIODE_ID))
 
     perioden = inschrijvingen.select(
-        [*_JOIN_INSCHRIJVING, "DatumBegin", _PERIODE_ID]
-    ).rename({"DatumBegin": "_periode_begin"})
+        [
+            *_JOIN_INSCHRIJVING,
+            _periode_begin(inschrijvingen).alias("_periode_begin"),
+            _PERIODE_ID,
+        ]
+    )
     eerste = (
         perioden.sort("_periode_begin", nulls_last=True)
         .unique(subset=_JOIN_INSCHRIJVING, keep="first")
@@ -369,10 +392,7 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
 
     Behoudt Studiejaar (coalesce voor backwards-compat).
     """
-    datum_col = next(
-        (c for c in ("DatumBegin", "DatumInschrijving") if c in df.columns),
-        None,
-    )
+    datum_col = _periode_begin_kolom(df)
 
     def _studiejaar_expr(col_naam: str) -> pl.Expr:
         return (
@@ -758,14 +778,15 @@ def _voeg_afgeleide_velden_toe(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _voeg_periode_id_toe(df: pl.DataFrame) -> pl.DataFrame:
-    """Voeg de stabiele surrogaatsleutel per ISP-periode-rij toe.
+    """Voeg de stabiele surrogaatsleutel per inschrijvingsperiode toe.
 
-    (levering, _persoon_id, Inschrijvingvolgnummer) kan meerdere perioden
-    hebben; ``DatumBegin`` maakt de sleutel uniek.
+    (levering, _persoon_id, Inschrijvingvolgnummer) kan meerdere ISP-perioden
+    hebben; de begindatum (zie :func:`_periode_begin_kolom`) maakt de sleutel
+    uniek.  Zonder ISP (TBGI-only) is de inschrijving zelf de periode.
     """
-    sleutel = [*_JOIN_INSCHRIJVING, "DatumBegin"]
+    sleutel = [*_JOIN_INSCHRIJVING, "_periode_begin"]
     return df.with_columns(
-        pl.struct(sleutel)
+        pl.struct(*_JOIN_INSCHRIJVING, _periode_begin(df).alias("_periode_begin"))
         .map_elements(
             lambda rij: _hash_periode_key(*(rij[k] for k in sleutel)),
             return_dtype=pl.Utf8,
@@ -1058,11 +1079,13 @@ def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """Inschrijving-grain voor TBGI-only input (geen ISP beschikbaar).
 
-    Gebruikt TBGI Inschrijving als vervanging voor ISP; verrijkt met Teldatum
-    aggregaat zodat de grain bruikbaar is voor analyse.
+    Gebruikt TBGI Inschrijving als vervanging voor ISP; elke inschrijving is
+    één periode vanaf ``DatumInschrijving`` en krijgt zo dezelfde
+    ``_inschrijving_periode_id`` als in de ISP-route.
     """
-    df = _add_persoon_id(stacked["Inschrijving"])
-    df = _drop(df, "Recordsoort")
+    df = _voeg_periode_id_toe(
+        _drop(_add_persoon_id(stacked["Inschrijving"]), "Recordsoort")
+    )
     df = _leid_studiejaar_af(df)
     df = _vul_niveau_aan(df)
     df = _voeg_bekostigingsvlaggen_toe(df)
