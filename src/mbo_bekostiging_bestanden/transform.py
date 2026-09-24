@@ -122,6 +122,15 @@ _PERIODE_REFERENTIEDATUM = {
     "detail_bekostiging_diploma": "DatumBehaald",
     "detail_geo": "DatumResultaat",
 }
+# Koppelsleutels naar de inschrijvingsperiode, in voorkeursvolgorde (#112).
+# Bekostiging (TBGI) komt altijd uit een andere levering dan de RO-perioden;
+# lukt koppelen binnen de eigen levering niet, dan — alleen als er een passende
+# inschrijving is — via instelling, persoon en inschrijving.
+_JOIN_INSTELLING_INSCHRIJVING = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer"]
+_PERIODE_KOPPELSLEUTELS = {
+    "detail_bekostiging": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
+    "detail_bekostiging_diploma": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
+}
 
 # Domeinconstanten (DUO-bekostigingsregels).
 _TELDATUM_MONTH = 10  # telling op 1 oktober
@@ -251,32 +260,41 @@ def _koppel_periode_id(
     detail: pl.DataFrame,
     inschrijvingen: pl.DataFrame,
     datum_kolom: str,
+    sleutel: list[str] = _JOIN_INSCHRIJVING,
 ) -> pl.DataFrame:
     """Voeg ``_inschrijving_periode_id`` toe: de periode van elke detailrij.
 
-    Een detailrij hoort bij de periode van dezelfde inschrijving met de laatste
-    begindatum (zie :func:`_periode_begin_kolom`) op of vóór ``datum_kolom``.
-    Valt de datum vóór de eerste periode, of ontbreekt hij, dan wordt de
-    eerste periode gekozen.  Rijen
-    zonder bijbehorende inschrijving (of zonder koppelkolommen) krijgen een
-    lege sleutel.  Rijvolgorde en rijtal blijven behouden.
+    Een detailrij hoort bij de periode van dezelfde inschrijving (volgens
+    ``sleutel``) met de laatste begindatum (zie :func:`_periode_begin_kolom`)
+    op of vóór ``datum_kolom``.  Valt de datum vóór de eerste periode, of
+    ontbreekt hij, dan wordt de eerste periode gekozen.  Rijen zonder
+    bijbehorende inschrijving (of zonder koppelkolommen) krijgen een lege
+    sleutel.  Rijvolgorde en rijtal blijven behouden.
+
+    Zonder ``levering`` in ``sleutel`` kan dezelfde periode in meerdere
+    leveringen voorkomen; dan wint de levering die alfabetisch als laatste komt
+    (leveringsnamen eindigen op hun datums), zodat er nooit fan-out ontstaat.
     """
     if detail.is_empty() or _PERIODE_ID not in inschrijvingen.columns:
         return detail
-    if not set(_JOIN_INSCHRIJVING) <= set(detail.columns):
+    if not set(sleutel) <= set(detail.columns) & set(inschrijvingen.columns):
         return detail.with_columns(pl.lit(None, dtype=pl.Utf8).alias(_PERIODE_ID))
 
-    perioden = inschrijvingen.select(
-        [
-            *_JOIN_INSCHRIJVING,
+    perioden = (
+        inschrijvingen.select(
+            *sleutel,
+            pl.col("levering").alias("_levering"),
             _periode_begin(inschrijvingen).alias("_periode_begin"),
             _PERIODE_ID,
-        ]
+        )
+        .sort("_levering")
+        .unique(subset=[*sleutel, "_periode_begin"], keep="last")
+        .drop("_levering")
     )
     eerste = (
         perioden.sort("_periode_begin", nulls_last=True)
-        .unique(subset=_JOIN_INSCHRIJVING, keep="first")
-        .select([*_JOIN_INSCHRIJVING, pl.col(_PERIODE_ID).alias("_eerste_periode")])
+        .unique(subset=sleutel, keep="first")
+        .select([*sleutel, pl.col(_PERIODE_ID).alias("_eerste_periode")])
     )
 
     rij = "_rij"
@@ -291,18 +309,40 @@ def _koppel_periode_id(
         perioden.drop_nulls("_periode_begin").sort("_periode_begin"),
         left_on="_referentie",
         right_on="_periode_begin",
-        by=_JOIN_INSCHRIJVING,
+        by=sleutel,
         strategy="backward",
         check_sortedness=False,  # beide kanten zijn hierboven gesorteerd
     ).select(rij, _PERIODE_ID)
 
     return (
         links.join(binnen, on=rij, how="left")
-        .join(eerste, on=_JOIN_INSCHRIJVING, how="left")
+        .join(eerste, on=sleutel, how="left")
         .with_columns(pl.coalesce(_PERIODE_ID, "_eerste_periode").alias(_PERIODE_ID))
         .sort(rij)
         .drop(rij, "_referentie", "_eerste_periode")
     )
+
+
+def _koppel_periode_id_met_terugval(
+    detail: pl.DataFrame,
+    inschrijvingen: pl.DataFrame,
+    datum_kolom: str,
+    sleutels: tuple[list[str], ...],
+) -> pl.DataFrame:
+    """Koppel via de eerste sleutel die voor een rij een periode oplevert."""
+    kandidaten = [
+        gekoppeld[_PERIODE_ID]
+        for sleutel in sleutels
+        if _PERIODE_ID
+        in (
+            gekoppeld := _koppel_periode_id(
+                detail, inschrijvingen, datum_kolom, sleutel
+            )
+        )
+    ]
+    if not kandidaten:
+        return detail
+    return detail.with_columns(pl.coalesce(kandidaten).alias(_PERIODE_ID))
 
 
 def _geo_pivot(
@@ -1154,8 +1194,11 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
     return {
         "inschrijvingen": inschrijvingen,
         **{
-            naam: _koppel_periode_id(
-                detail, inschrijvingen, _PERIODE_REFERENTIEDATUM[naam]
+            naam: _koppel_periode_id_met_terugval(
+                detail,
+                inschrijvingen,
+                _PERIODE_REFERENTIEDATUM[naam],
+                _PERIODE_KOPPELSLEUTELS.get(naam, (_JOIN_INSCHRIJVING,)),
             )
             for naam, detail in details.items()
         },
