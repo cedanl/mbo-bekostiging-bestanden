@@ -66,6 +66,8 @@ Die sleutel wijst per detailrij de ISP-periode aan waarin de referentiedatum val
 (`DatumBegin` voor BPV, `DatumResultaat` voor KZD/AMO/GEO, `Teldatum` voor bekostiging,
 `DatumBehaald` voor bekostiging_diploma); valt die datum vóór de eerste periode of ontbreekt
 hij, dan geldt de eerste periode. Rijen zonder bijbehorende inschrijving hebben een lege sleutel.
+Bij TBGI-only input (geen ISP) is elke TBGI-inschrijving één periode vanaf `DatumInschrijving`;
+de sleutel en de koppelregel zijn verder gelijk, zodat het schema in beide routes uniform is.
 Joinen op alleen `(levering, _persoon_id, Inschrijvingvolgnummer)` dupliceert rijen zodra een
 inschrijving meerdere ISP-perioden heeft.
 Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere

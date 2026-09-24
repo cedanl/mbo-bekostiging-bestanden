@@ -109,3 +109,13 @@ def demo_tabellen(demo_stacked):
 def demo_star(demo_stacked):
     """Star schema gebouwd uit de demo-data (echte productie-transformaties)."""
     return build_star(demo_stacked)
+
+
+@pytest.fixture(scope="session")
+def tbgi_star(tmp_path_factory):
+    """Star schema uit alleen de TBGI-demo (h16): de route zonder ISP-perioden."""
+    prepared = tmp_path_factory.mktemp("prepared_tbgi")
+    for raw_file in sorted((RAW / "h16").glob("*")):
+        run_auto_pipeline(raw_file, prepared / "h16" / raw_file.stem)
+    dirs = [d for d in sorted(prepared.glob("*/*")) if d.is_dir()]
+    return build_star(stack_prepared(dirs, relative_to=prepared))
