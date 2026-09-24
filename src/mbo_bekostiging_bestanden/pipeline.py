@@ -1,5 +1,6 @@
 """Orkestratie van de ingestion-pipeline: ingest > decode > validate > export."""
 
+import json
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import polars as pl
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
+from mbo_bekostiging_bestanden.quality import check_slr_reconciliation
 from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
@@ -73,10 +75,24 @@ def _run(
     target: str | Path,
     fmt: OutputFormat,
 ) -> dict[str, pl.DataFrame]:
-    frames = reader(Path(source))
+    source_path = Path(source)
+    target_path = Path(target)
+
+    frames = reader(source_path)
     frames = decoder(frames)
     validator(frames)
-    export_frames(frames, Path(target), fmt=fmt)
+
+    # Genereer kwaliteitsrapport (SLR-reconciliatie, etc.)
+    levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
+    quality_report = check_slr_reconciliation(frames, levering)
+
+    # Sla rapport op als JSON
+    report_path = target_path / "quality.json"
+    target_path.mkdir(parents=True, exist_ok=True)
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(quality_report.as_dict(), f, indent=2, ensure_ascii=False)
+
+    export_frames(frames, target_path, fmt=fmt)
     return frames
 
 
