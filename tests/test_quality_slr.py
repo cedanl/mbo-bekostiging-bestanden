@@ -1,0 +1,83 @@
+"""Tests voor SLR-reconciliatie tri-state status."""
+
+import polars as pl
+
+from mbo_bekostiging_bestanden.quality import QualityReport, check_slr_reconciliation
+
+
+def test_slr_status_is_tri_state():
+    """SLR status moet tri-state zijn: match/mismatch/unknown."""
+    report = QualityReport(levering="test", schema_type="ro")
+    assert hasattr(report, "slr_status"), (
+        "QualityReport must have slr_status attribute"
+    )
+    assert report.slr_status in ["match", "mismatch", "unknown"]
+
+
+def test_missing_slr_returns_unknown_status():
+    """Ontbrekende SLR record → status 'unknown'."""
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
+        "PER": pl.DataFrame({"dummy": [1]}),
+    }
+
+    report = check_slr_reconciliation(frames, "test_levering")
+    assert report.slr_status == "unknown"
+
+
+def test_slr_mapping_includes_ise_bii_bid():
+    """SLR mapping moet ISE, BII, BID bevatten."""
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["GRONDSLAG"]}),
+        "SLR": pl.DataFrame({
+            "AantalBII": [100],
+            "AantalBID": [50],
+            "AantalISE": [20],
+        }),
+        "BII": pl.DataFrame({"dummy": [1] * 100}),
+        "BID": pl.DataFrame({"dummy": [1] * 50}),
+        "ISE": pl.DataFrame({"dummy": [1] * 20}),
+    }
+
+    report = check_slr_reconciliation(frames, "grondslag_test")
+    expected_types = {"BII", "BID", "ISE"}
+    found_types = set(report.slr_checks.keys()) & expected_types
+    assert len(found_types) >= 1, (
+        f"SLR reconciliation should check BII/BID/ISE. Found: {found_types}"
+    )
+
+
+def test_slr_match_status_when_numbers_agree():
+    """SLR match: expected == actual → status 'match'."""
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
+        "SLR": pl.DataFrame({
+            "AantalPER": [10],
+            "AantalISP": [20],
+        }),
+        "PER": pl.DataFrame({"dummy": [1] * 10}),
+        "ISP": pl.DataFrame({"dummy": [1] * 20}),
+    }
+
+    report = check_slr_reconciliation(frames, "ro_match")
+    assert report.slr_status == "match", (
+        f"Expected 'match', got {report.slr_status}"
+    )
+
+
+def test_slr_mismatch_status():
+    """SLR mismatch: expected != actual → status 'mismatch'."""
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
+        "SLR": pl.DataFrame({
+            "AantalPER": [100],
+            "AantalISP": [50],
+        }),
+        "PER": pl.DataFrame({"dummy": [1] * 10}),
+        "ISP": pl.DataFrame({"dummy": [1] * 50}),
+    }
+
+    report = check_slr_reconciliation(frames, "ro_mismatch")
+    assert report.slr_status == "mismatch", (
+        f"Expected 'mismatch', got {report.slr_status}"
+    )

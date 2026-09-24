@@ -18,7 +18,7 @@ class QualityReport:
     levering: str
     schema_type: str
     slr_checks: dict[str, dict[str, int]] = None  # type: ignore
-    slr_match: bool = True
+    slr_status: str = "unknown"  # match | mismatch | unknown
     warnings: list[str] = None  # type: ignore
     errors: list[str] = None  # type: ignore
 
@@ -35,7 +35,7 @@ class QualityReport:
         return {
             "levering": self.levering,
             "schema_type": self.schema_type,
-            "slr_match": self.slr_match,
+            "slr_status": self.slr_status,
             "slr_details": self.slr_checks,
             "warnings": self.warnings,
             "errors": self.errors,
@@ -69,11 +69,12 @@ def check_slr_reconciliation(
     if slr is None or slr.is_empty():
         msg = "SLR (sluitrecord) niet gevonden; kan niet reconciliëren"
         report.warnings.append(msg)
+        report.slr_status = "unknown"
         return report
 
     slr_row = slr.row(0, named=True)
 
-    # Mapping: SLR-veldnaam -> recordtype
+    # Mapping: SLR-veldnaam -> recordtype (RO + GRONDSLAG recordtypes)
     slr_mapping = {
         "AantalPER": "PER",
         "AantalISG": "ISG",
@@ -83,6 +84,9 @@ def check_slr_reconciliation(
         "AantalAMO": "AMO",
         "AantalGEO": "GEO",
         "AantalKZD": "KZD",
+        "AantalISE": "ISE",  # GRONDSLAG
+        "AantalBII": "BII",  # GRONDSLAG
+        "AantalBID": "BID",  # GRONDSLAG
     }
 
     mismatches = []
@@ -96,11 +100,12 @@ def check_slr_reconciliation(
             mismatches.append(f"{rt}: verwacht {expected}, gelezen {actual}")
 
     if mismatches:
-        report.slr_match = False
+        report.slr_status = "mismatch"
         report.warnings.append(
             f"SLR-mismatch: {'; '.join(mismatches)}"
         )
     else:
+        report.slr_status = "match"
         report.warnings.append("SLR-reconciliatie: OK")
 
     return report
@@ -110,8 +115,14 @@ def quality_report_summary(reports: list[QualityReport]) -> str:
     """Maak tekstsamenvatting van kwaliteitsrapporten."""
     lines = []
     for r in reports:
-        status = "✓" if r.slr_match else "✗"
-        lines.append(f"{status} {r.levering}: {len(r.warnings)} waarschuwing(en)")
+        status_icon = (
+            "✓" if r.slr_status == "match"
+            else "⚠" if r.slr_status == "unknown"
+            else "✗"
+        )
+        lines.append(
+            f"{status_icon} {r.levering}: {len(r.warnings)} waarschuwing(en)"
+        )
         for w in r.warnings:
             lines.append(f"  ⚠ {w}")
         for e in r.errors:
