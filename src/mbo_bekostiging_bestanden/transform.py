@@ -2,7 +2,7 @@
 
 Zeven output-tabellen (nul informatieverlies):
   inschrijvingen      ISP-grain, alles flat + dynamische GEO-pivot +
-                      BPV/KZD/AMO geaggregeerd
+                      BPV/KZD/AMO geaggregeerd per ISP-periode
   detail_bpv          BPV volledig uitgesplitst
   detail_kzd_amo      KZD en AMO volledig, kolom _bron geeft herkomst aan
   detail_bekostiging  BII (GRONDSLAG) + TBGI-Teldatum per
@@ -757,10 +757,47 @@ def _voeg_afgeleide_velden_toe(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
-    """Aggregeer BPV per inschrijving: tellers en datumbereik."""
-    bpv = _add_persoon_id(bpv)
-    return bpv.group_by(_JOIN_INSCHRIJVING).agg(
+def _voeg_periode_id_toe(df: pl.DataFrame) -> pl.DataFrame:
+    """Voeg de stabiele surrogaatsleutel per ISP-periode-rij toe.
+
+    (levering, _persoon_id, Inschrijvingvolgnummer) kan meerdere perioden
+    hebben; ``DatumBegin`` maakt de sleutel uniek.
+    """
+    sleutel = [*_JOIN_INSCHRIJVING, "DatumBegin"]
+    return df.with_columns(
+        pl.struct(sleutel)
+        .map_elements(
+            lambda rij: _hash_periode_key(*(rij[k] for k in sleutel)),
+            return_dtype=pl.Utf8,
+        )
+        .alias(_PERIODE_ID)
+    )
+
+
+def _per_periode(
+    detail: pl.DataFrame,
+    perioden: pl.DataFrame,
+    datum_kolom: str,
+    *aggregaten: pl.Expr,
+) -> pl.DataFrame:
+    """Aggregeer detailrijen per ISP-periode (zelfde toewijzing als de detail-feiten).
+
+    Rijen zonder bijbehorende periode tellen niet mee.
+    """
+    return (
+        _koppel_periode_id(detail, perioden, datum_kolom)
+        .drop_nulls(_PERIODE_ID)
+        .group_by(_PERIODE_ID)
+        .agg(*aggregaten)
+    )
+
+
+def _bpv_aggregaat(bpv: pl.DataFrame, perioden: pl.DataFrame) -> pl.DataFrame:
+    """Aggregeer BPV per ISP-periode: tellers en datumbereik."""
+    return _per_periode(
+        _add_persoon_id(bpv),
+        perioden,
+        _PERIODE_REFERENTIEDATUM["detail_bpv"],
         pl.len().alias("BPV_Aantal"),
         pl.col("Omvang").cast(pl.Float64, strict=False).sum().alias("BPV_TotaalOmvang"),
         pl.col("DatumBegin").min().alias("BPV_DatumBeginEerste"),
@@ -770,13 +807,15 @@ def _bpv_aggregaat(bpv: pl.DataFrame) -> pl.DataFrame:
 
 def _kzd_aggregaat(
     kzd: pl.DataFrame,
+    perioden: pl.DataFrame,
     dip: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
-    """Aggregeer KZD per inschrijving: totaal en behaald."""
-    kzd = _add_persoon_id(kzd)
-    kzd = _resolve_inschrijving(kzd, dip)
+    """Aggregeer KZD per ISP-periode: totaal en behaald."""
     behaald = pl.col("Resultaat").str.to_uppercase().str.contains(_RESULTAAT_BEHAALD)
-    return kzd.group_by(_JOIN_INSCHRIJVING).agg(
+    return _per_periode(
+        _resolve_inschrijving(_add_persoon_id(kzd), dip),
+        perioden,
+        _PERIODE_REFERENTIEDATUM["detail_kzd_amo"],
         pl.len().alias("KZD_Aantal"),
         behaald.sum().cast(pl.Int64).alias("KZD_AantalBehaald"),
     )
@@ -784,12 +823,16 @@ def _kzd_aggregaat(
 
 def _amo_aggregaat(
     amo: pl.DataFrame,
+    perioden: pl.DataFrame,
     dip: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
-    """Aggregeer AMO per inschrijving: teller."""
-    amo = _add_persoon_id(amo)
-    amo = _resolve_inschrijving(amo, dip)
-    return amo.group_by(_JOIN_INSCHRIJVING).agg(pl.len().alias("AMO_Aantal"))
+    """Aggregeer AMO per ISP-periode: teller."""
+    return _per_periode(
+        _resolve_inschrijving(_add_persoon_id(amo), dip),
+        perioden,
+        _PERIODE_REFERENTIEDATUM["detail_kzd_amo"],
+        pl.len().alias("AMO_Aantal"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -801,8 +844,10 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """ISP-grain: alle record-types samengevoegd tot één platte analysetabel."""
 
     # ── Basis: ISP ───────────────────────────────────────────────────────────
-    df = _add_persoon_id(stacked["ISP"])
-    df = _drop(df, "Recordsoort")
+    df = _voeg_periode_id_toe(_drop(_add_persoon_id(stacked["ISP"]), "Recordsoort"))
+    # Periodes waarop BPV/KZD/AMO-aantallen worden geaggregeerd, zodat een
+    # inschrijving met meerdere perioden haar aantallen niet herhaalt (#105).
+    perioden = df.select([*_JOIN_INSCHRIJVING, "DatumBegin", _PERIODE_ID])
 
     # ── PER: persoonskenmerken ────────────────────────────────────────────────
     per = _add_persoon_id(stacked["PER"])
@@ -884,20 +929,22 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
         if geo_pivot is not None:
             df = _join_left(df, geo_pivot, on=_JOIN_INSCHRIJVING)
 
-    # ── BPV aggregaat ─────────────────────────────────────────────────────────
+    # ── BPV/KZD/AMO-aggregaten per ISP-periode ───────────────────────────────
     if "BPV" in stacked and not stacked["BPV"].is_empty():
-        df = _join_left(df, _bpv_aggregaat(stacked["BPV"]), on=_JOIN_INSCHRIJVING)
-
-    # ── KZD aggregaat ─────────────────────────────────────────────────────────
-    if "KZD" in stacked and not stacked["KZD"].is_empty():
-        df = _join_left(
-            df, _kzd_aggregaat(stacked["KZD"], dip=dip_raw), on=_JOIN_INSCHRIJVING
+        df = df.join(
+            _bpv_aggregaat(stacked["BPV"], perioden), on=_PERIODE_ID, how="left"
         )
-
-    # ── AMO aggregaat ─────────────────────────────────────────────────────────
+    if "KZD" in stacked and not stacked["KZD"].is_empty():
+        df = df.join(
+            _kzd_aggregaat(stacked["KZD"], perioden, dip=dip_raw),
+            on=_PERIODE_ID,
+            how="left",
+        )
     if "AMO" in stacked and not stacked["AMO"].is_empty():
-        df = _join_left(
-            df, _amo_aggregaat(stacked["AMO"], dip=dip_raw), on=_JOIN_INSCHRIJVING
+        df = df.join(
+            _amo_aggregaat(stacked["AMO"], perioden, dip=dip_raw),
+            on=_PERIODE_ID,
+            how="left",
         )
 
     df = _leid_studiejaar_af(df)
@@ -908,18 +955,6 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     df = _voeg_dr_vlaggen_toe(df)
     df = _voeg_entree_vlaggen_toe(df)
     df = _voeg_afgeleide_velden_toe(df)
-
-    # Stabiele surrogaatsleutel per ISP-periode-rij: (levering, _persoon_id,
-    # Inschrijvingvolgnummer) kan meerdere perioden hebben; DatumBegin maakt uniek.
-    sleutel = [*_JOIN_INSCHRIJVING, "DatumBegin"]
-    df = df.with_columns(
-        pl.struct(sleutel)
-        .map_elements(
-            lambda rij: _hash_periode_key(*(rij[k] for k in sleutel)),
-            return_dtype=pl.Utf8,
-        )
-        .alias(_PERIODE_ID)
-    )
 
     return df
 
