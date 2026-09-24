@@ -1,5 +1,6 @@
 """Tests voor de GRONDSLAG-pipeline (end-to-end, TDD)."""
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -93,3 +94,21 @@ def test_run_grondslag_pipeline_parquet_preserves_int(tmp_path):
     run_grondslag_pipeline(GRONDSLAG, tmp_path)
     slr = pl.read_parquet(tmp_path / "SLR.parquet")
     assert slr["AantalPER"].dtype == pl.Int64
+
+
+# ---------------------------------------------------------------------------
+# Kwaliteitsrapport
+# ---------------------------------------------------------------------------
+
+
+def test_grondslag_quality_report_krijgt_schema_type_grondslag(tmp_path):
+    """De demo-`GRONDSLAG` mag niet als 'ro' in het kwaliteitsrapport staan.
+
+    De demo-subset bevat geen BII/BID-records; herkenning moet daarom ook via de
+    VLP-variant (`BekostigingsType`) werken (regressie #74).
+    """
+    run_grondslag_pipeline(GRONDSLAG, tmp_path)
+    report = json.loads((tmp_path / "quality.json").read_text(encoding="utf-8"))
+    assert report["schema_type"] == "grondslag", (
+        f"Expected 'grondslag', got {report['schema_type']!r}"
+    )

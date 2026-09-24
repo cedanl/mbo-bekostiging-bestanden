@@ -23,6 +23,32 @@ def slr_status_icoon(status: str | None) -> str:
     return _SLR_STATUS_ICONS.get(status, "⚠️")
 
 
+# Recordtypes die alleen in GRONDSLAG IP MBO voorkomen; VLP.Recordsoort is altijd
+# "VLP" en kan een GRONDSLAG-bestand dus niet onderscheiden van een RO-bestand.
+_GRONDSLAG_ONLY_RECORDTYPES = ("BII", "BID")
+# VLP-veld dat alleen in de GRONDSLAG-variant voorkomt
+# (zie metadata/grondslag_schema.toml).
+_GRONDSLAG_VLP_KOLOM = "BekostigingsType"
+
+
+def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
+    """Leid het schema-type (ro|grondslag) af uit de aanwezige recordtypes.
+
+    Twee onafhankelijke signalen: GRONDSLAG-only recordtypes (BII/BID) óf de
+    VLP-variant met ``BekostigingsType`` — zo blijft een (demo)subset herkend
+    worden, zelfs als daar geen BII/BID-records in zitten.
+    """
+    for rt in _GRONDSLAG_ONLY_RECORDTYPES:
+        gronds_lag_frame = frames.get(rt)
+        if gronds_lag_frame is not None and not gronds_lag_frame.is_empty():
+            return "grondslag"
+    vlp = frames.get("VLP")
+    if vlp is not None and not vlp.is_empty():
+        if _GRONDSLAG_VLP_KOLOM in vlp.columns:
+            return "grondslag"
+        return "ro"
+    return "unknown"
+
 @dataclass
 class QualityReport:
     """Gestructureerd kwaliteitsrapport per leveringsbestand."""
@@ -65,16 +91,8 @@ def check_slr_reconciliation(
     """
     report = QualityReport(
         levering=levering,
-        schema_type="unknown",
+        schema_type=_bepaal_schema_type(frames),
     )
-
-    # Bepaal schema-type op basis van beschikbare recordtypes
-    if "VLP" in frames and frames["VLP"].shape[0] > 0:
-        vlp = frames["VLP"].row(0, named=True) if frames["VLP"].shape[0] > 0 else {}
-        if "GRONDSLAG" in vlp.get("Recordsoort", ""):
-            report.schema_type = "grondslag"
-        else:
-            report.schema_type = "ro"
 
     # Haal SLR op
     slr = frames.get("SLR")
@@ -121,22 +139,3 @@ def check_slr_reconciliation(
         report.warnings.append("SLR-reconciliatie: OK")
 
     return report
-
-
-def quality_report_summary(reports: list[QualityReport]) -> str:
-    """Maak tekstsamenvatting van kwaliteitsrapporten."""
-    lines = []
-    for r in reports:
-        status_icon = (
-            "✓" if r.slr_status == "match"
-            else "⚠" if r.slr_status == "unknown"
-            else "✗"
-        )
-        lines.append(
-            f"{status_icon} {r.levering}: {len(r.warnings)} waarschuwing(en)"
-        )
-        for w in r.warnings:
-            lines.append(f"  ⚠ {w}")
-        for e in r.errors:
-            lines.append(f"  ✗ {e}")
-    return "\n".join(lines)
