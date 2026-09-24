@@ -10,6 +10,12 @@ Bewust géén bedrijfslogica; de berekeningen leven in ``dashboard.py`` zelf.
 
 import streamlit as st
 
+# Gedeelde uitleg voor grafieken op detail-feiten (fact_bpv, fact_kzd, fact_geo).
+_DETAIL_SELECTIE = (
+    "  Alleen rijen uit de ISP-perioden in de gekozen studiejaren tellen mee; de "
+    "koppeling met de inschrijving loopt via `_inschrijving_periode_id`."
+)
+
 CHART_DOCS: dict[str, dict] = {
     # ── Tab Rendementen ──────────────────────────────────────────────────────
     "jr_indicatief": {
@@ -233,7 +239,7 @@ CHART_DOCS: dict[str, dict] = {
             "berekend als het aantal dagen tussen `DatumBegin` en "
             "`DatumEindWerkelijk`.  "
             "De gemiddelde omvang (uren/weken, afhankelijk van de bron) wordt "
-            "apart getoond."
+            "apart getoond." + _DETAIL_SELECTIE
         ),
     },
     "kzd": {
@@ -254,6 +260,7 @@ CHART_DOCS: dict[str, dict] = {
             "Per keuzedeel-code (`CodeKeuzedeel`) wordt het totaal en het aantal "
             "behaalde resultaten geteld.  Een keuzedeel telt als behaald als het "
             "veld `Resultaat` de tekst 'BEHAALD' bevat.  Top-15 op volume."
+            + _DETAIL_SELECTIE
         ),
     },
     "instelling": {
@@ -410,6 +417,7 @@ CHART_DOCS: dict[str, dict] = {
             "**geslaagd (%) = (eindcijfer ≥ 5,5) / totaal met eindcijfer × 100**.  "
             "De drempel 5,5 is de gangbare slaaggrens; deelnemers zonder eindcijfer "
             "tellen niet mee in de noemer.  Gesorteerd op slagingspercentage."
+            + _DETAIL_SELECTIE
         ),
     },
     "geo_eindcijfers": {
@@ -420,7 +428,7 @@ CHART_DOCS: dict[str, dict] = {
             "inschrijving × examenonderdeel).  "
             "Voor elk aanwezig generiek examenvak wordt het gemiddelde eindcijfer en "
             "het aantal invullingen berekend.  De code wordt via `geo_codes.toml` "
-            "vertaald naar een leesbare naam."
+            "vertaald naar een leesbare naam." + _DETAIL_SELECTIE
         ),
     },
     "geo_ie_ce": {
@@ -434,7 +442,7 @@ CHART_DOCS: dict[str, dict] = {
             "Gelezen uit `fact_geo`.  Voor elk examenonderdeel met zowel een "
             "gevuld `CijferIE` als `CijferCE` worden de gemiddelden naast "
             "elkaar gezet.  De code wordt via `geo_codes.toml` vertaald naar "
-            "een leesbare naam."
+            "een leesbare naam." + _DETAIL_SELECTIE
         ),
     },
     "amo": {

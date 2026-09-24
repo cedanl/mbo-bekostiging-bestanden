@@ -52,7 +52,7 @@ geschreven.
 | `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …) |
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats |
-| `fact_inschrijving` | ISP-inschrijvingsperiode | `_persoon_id` + `Opleidingcode` + `BRIN` + `levering` | Centrale feittabel; bevat vlaggen (`_actief_1_oktober`, `_jr_*`, `_dr_*`, `_entree_*`) en aggregaten |
+| `fact_inschrijving` | ISP-inschrijvingsperiode | `_inschrijving_periode_id` | Centrale feittabel; bevat vlaggen (`_actief_1_oktober`, `_jr_*`, `_dr_*`, `_entree_*`) en aggregaten |
 | `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
 | `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving |
 | `fact_amo` | AMO-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
@@ -61,7 +61,13 @@ geschreven.
 | `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
 | `meta_leveringen` | Leveringsbestand | `levering` | VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) per bronbestand |
 
-Alle feittabellen zijn joinbaar met `fact_inschrijving` via `(levering, _persoon_id, Inschrijvingvolgnummer)`.
+Alle detail-feiten zijn zonder fan-out joinbaar met `fact_inschrijving` via `_inschrijving_periode_id`.
+Die sleutel wijst per detailrij de ISP-periode aan waarin de referentiedatum valt
+(`DatumBegin` voor BPV, `DatumResultaat` voor KZD/AMO/GEO, `Teldatum` voor bekostiging,
+`DatumBehaald` voor bekostiging_diploma); valt die datum vóór de eerste periode of ontbreekt
+hij, dan geldt de eerste periode. Rijen zonder bijbehorende inschrijving hebben een lege sleutel.
+Joinen op alleen `(levering, _persoon_id, Inschrijvingvolgnummer)` dupliceert rijen zodra een
+inschrijving meerdere ISP-perioden heeft.
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 
 ### Indicatoren in fact_inschrijving

@@ -3,14 +3,16 @@
 Zeven output-tabellen (nul informatieverlies):
   inschrijvingen      ISP-grain, alles flat + dynamische GEO-pivot +
                       BPV/KZD/AMO geaggregeerd
-  detail_bpv          BPV volledig uitgesplitst, joinbaar op
-                      (levering, _persoon_id, Inschrijvingvolgnummer)
+  detail_bpv          BPV volledig uitgesplitst
   detail_kzd_amo      KZD en AMO volledig, kolom _bron geeft herkomst aan
   detail_bekostiging  BII (GRONDSLAG) + TBGI-Teldatum per
                       inschrijving × teldatum
   detail_bekostiging_diploma  TBGI-Diploma per inschrijving × diploma
   detail_geo          GEO in long format, grain: inschrijving × onderdeel
   meta_leveringen     VLP + SLR per bronbestand
+
+Alle detailtabellen dragen ``_inschrijving_periode_id``: de ISP-periode waarin
+de rij valt (zie :func:`_koppel_periode_id`), joinbaar zonder fan-out.
 
 Berekende vlaggen op inschrijvingen:
   Bekostiging   _actief_1_oktober, _bekostigd_eerste_1okt,
@@ -73,6 +75,7 @@ def _laad_pseudonimisering_salt() -> str:
     config_path = Path(__file__).parent.parent.parent / "app" / "config.toml"
     if config_path.exists():
         import tomllib
+
         with open(config_path, "rb") as f:
             config = tomllib.load(f)
         salt = config.get("security", {}).get("pseudonimisering_salt")
@@ -108,6 +111,16 @@ _PERSOON_COLS = ["PseudoNummer", "Burgerservicenummer", "Onderwijsnummer"]
 
 _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
+
+_PERIODE_ID = "_inschrijving_periode_id"
+# Per detailtabel de datum die bepaalt in welke ISP-periode een rij valt.
+_PERIODE_REFERENTIEDATUM = {
+    "detail_bpv": "DatumBegin",
+    "detail_kzd_amo": "DatumResultaat",
+    "detail_bekostiging": "Teldatum",
+    "detail_bekostiging_diploma": "DatumBehaald",
+    "detail_geo": "DatumResultaat",
+}
 
 # Domeinconstanten (DUO-bekostigingsregels).
 _TELDATUM_MONTH = 10  # telling op 1 oktober
@@ -216,6 +229,57 @@ def _resolve_inschrijving(
             "Inschrijvingvolgnummer"
         )
     ).drop("_isg_via_dip")
+
+
+def _koppel_periode_id(
+    detail: pl.DataFrame,
+    inschrijvingen: pl.DataFrame,
+    datum_kolom: str,
+) -> pl.DataFrame:
+    """Voeg ``_inschrijving_periode_id`` toe: de ISP-periode van elke detailrij.
+
+    Een detailrij hoort bij de periode van dezelfde inschrijving met de laatste
+    ``DatumBegin`` op of vóór ``datum_kolom``.  Valt de datum vóór de eerste
+    periode, of ontbreekt hij, dan wordt de eerste periode gekozen.  Rijen
+    zonder bijbehorende inschrijving krijgen een lege sleutel.  Rijvolgorde en
+    rijtal blijven behouden.
+    """
+    if detail.is_empty() or _PERIODE_ID not in inschrijvingen.columns:
+        return detail
+
+    perioden = inschrijvingen.select(
+        [*_JOIN_INSCHRIJVING, "DatumBegin", _PERIODE_ID]
+    ).rename({"DatumBegin": "_periode_begin"})
+    eerste = (
+        perioden.sort("_periode_begin")
+        .unique(subset=_JOIN_INSCHRIJVING, keep="first")
+        .select([*_JOIN_INSCHRIJVING, pl.col(_PERIODE_ID).alias("_eerste_periode")])
+    )
+
+    rij = "_rij"
+    datum = (
+        pl.col(datum_kolom).cast(pl.Date)
+        if datum_kolom in detail.columns
+        else pl.lit(None, dtype=pl.Date)
+    )
+    links = detail.with_row_index(rij).with_columns(datum.alias("_referentie"))
+    gedateerd = links.drop_nulls("_referentie").sort("_referentie")
+    binnen = gedateerd.join_asof(
+        perioden.drop_nulls("_periode_begin").sort("_periode_begin"),
+        left_on="_referentie",
+        right_on="_periode_begin",
+        by=_JOIN_INSCHRIJVING,
+        strategy="backward",
+        check_sortedness=False,  # beide kanten zijn hierboven gesorteerd
+    ).select(rij, _PERIODE_ID)
+
+    return (
+        links.join(binnen, on=rij, how="left")
+        .join(eerste, on=_JOIN_INSCHRIJVING, how="left")
+        .with_columns(pl.coalesce(_PERIODE_ID, "_eerste_periode").alias(_PERIODE_ID))
+        .sort(rij)
+        .drop(rij, "_referentie", "_eerste_periode")
+    )
 
 
 def _geo_pivot(
@@ -327,9 +391,7 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
     # Bewaar leveringsjaar apart (afkomstig van bronbestand)
     if "Studiejaar" in df.columns:
         df = df.with_columns(
-            pl.col("Studiejaar")
-            .cast(pl.Int64)
-            .alias("Studiejaar_levering")
+            pl.col("Studiejaar").cast(pl.Int64).alias("Studiejaar_levering")
         )
     else:
         df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar_levering"))
@@ -869,10 +931,7 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """BPV volledig uitgesplitst.
-
-    Joinbaar via (levering, _persoon_id, Inschrijvingvolgnummer).
-    """
+    """BPV volledig uitgesplitst."""
     if "BPV" not in stacked or stacked["BPV"].is_empty():
         return pl.DataFrame()
     df = _add_persoon_id(stacked["BPV"])
@@ -957,7 +1016,6 @@ def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
     Behoudt DatumResultaat, VrijstellingIE/CE en Onderwijsaanbieder die
     in de GEO-pivot van inschrijvingen verloren gaan.
-    Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen.
     """
     if "GEO" not in stacked or stacked["GEO"].is_empty():
         return pl.DataFrame()
@@ -1029,16 +1087,25 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
             "analysetabellen kunnen niet worden gebouwd."
         )
 
-    return {
-        "inschrijvingen": enrich_inschrijvingen(
-            _bouw_inschrijvingen(stacked)
-            if heeft_isp
-            else _bouw_tbgi_inschrijvingen(stacked)
-        ),
+    inschrijvingen = enrich_inschrijvingen(
+        _bouw_inschrijvingen(stacked)
+        if heeft_isp
+        else _bouw_tbgi_inschrijvingen(stacked)
+    )
+    details = {
         "detail_bpv": _bouw_detail_bpv(stacked),
         "detail_kzd_amo": _bouw_detail_kzd_amo(stacked),
         "detail_bekostiging": _bouw_detail_bekostiging(stacked),
         "detail_bekostiging_diploma": _bouw_detail_bekostiging_diploma(stacked),
         "detail_geo": _bouw_detail_geo(stacked),
+    }
+    return {
+        "inschrijvingen": inschrijvingen,
+        **{
+            naam: _koppel_periode_id(
+                detail, inschrijvingen, _PERIODE_REFERENTIEDATUM[naam]
+            )
+            for naam, detail in details.items()
+        },
         "meta_leveringen": _bouw_meta_leveringen(stacked),
     }

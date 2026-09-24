@@ -169,8 +169,7 @@ def _build_fact_bpv(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """fact_bpv: BPV-periodes per inschrijving.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Volgnummer).
-    Joinbaar met fact_inschrijving via de volledige sleutel of via deduplicatie:
-      (levering, _persoon_id, Inschrijvingvolgnummer, _inschrijving_periode_id)
+    Joinbaar met fact_inschrijving via _inschrijving_periode_id.
     Persoonsidentificerende gegevens (BSN, ONr) worden verwijderd.
     """
     detail = tables.get("detail_bpv", pl.DataFrame())
@@ -211,7 +210,7 @@ def _build_fact_bekostiging(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """fact_bekostiging: TBGI bekostigingsgrondslagen per inschrijving.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Teldatum).
-    Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen en met
+    Joinbaar met fact_inschrijving via _inschrijving_periode_id en met
     dim_instelling via BRIN.  BSN en Onderwijsnummer worden verwijderd.
     """
     detail = tables.get("detail_bekostiging", pl.DataFrame())
@@ -227,7 +226,7 @@ def _build_fact_bekostiging_diploma(
     """fact_bekostiging_diploma: TBGI diplomawaarde-bijdragen per inschrijving.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
-    Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen.
+    Joinbaar met fact_inschrijving via _inschrijving_periode_id.
     BSN en Onderwijsnummer worden verwijderd.
     """
     detail = tables.get("detail_bekostiging_diploma", pl.DataFrame())

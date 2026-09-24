@@ -7,6 +7,7 @@ app-jaarselectie en de TBGI-bekostigingsfilter los van de UI getest kunnen worde
 import polars as pl
 
 from mbo_bekostiging_bestanden.filters import (
+    filter_detail_op_inschrijvingen,
     filter_fact_bekostiging_op_jaar,
     periode_jaar_kolom,
 )
@@ -94,3 +95,54 @@ def test_bekostiging_filter_leeg_zonder_jaarkolom_in_selectie():
     geselecteerd = pl.DataFrame({"levering": ["h17/..."]})
 
     assert filter_fact_bekostiging_op_jaar(bek, geselecteerd).is_empty()
+
+
+def _twee_perioden() -> pl.DataFrame:
+    """Eén inschrijving met twee ISP-perioden in verschillende studiejaren."""
+    return pl.DataFrame(
+        {
+            "levering": ["L", "L"],
+            "_persoon_id": ["p", "p"],
+            "Inschrijvingvolgnummer": ["1", "1"],
+            "_inschrijving_periode_id": ["p2024", "p2025"],
+            "Studiejaar_periode": [2024, 2025],
+        }
+    )
+
+
+def test_detailfilter_houdt_alleen_rijen_van_geselecteerde_periode():
+    """Een BPV uit periode 2024 hoort niet bij een selectie van alleen 2025."""
+    detail = pl.DataFrame(
+        {
+            "levering": ["L", "L"],
+            "_persoon_id": ["p", "p"],
+            "Inschrijvingvolgnummer": ["1", "1"],
+            "_inschrijving_periode_id": ["p2024", "p2025"],
+            "Volgnummer": [1, 2],
+        }
+    )
+    selectie = _twee_perioden().filter(pl.col("Studiejaar_periode") == 2025)
+    result = filter_detail_op_inschrijvingen(detail, selectie)
+    assert result["Volgnummer"].to_list() == [2]
+
+
+def test_detailfilter_zonder_periode_id_valt_terug_op_inschrijving_zonder_fanout():
+    """Star-output zonder periodesleutel: filter op inschrijving, zonder fan-out."""
+    detail = pl.DataFrame(
+        {
+            "levering": ["L"],
+            "_persoon_id": ["p"],
+            "Inschrijvingvolgnummer": ["1"],
+            "Volgnummer": [1],
+        }
+    )
+    result = filter_detail_op_inschrijvingen(detail, _twee_perioden())
+    assert result.height == 1
+
+
+def test_detailfilter_zonder_gedeelde_sleutel_of_selectie_geeft_leeg():
+    detail = pl.DataFrame({"Volgnummer": [1]})
+    assert filter_detail_op_inschrijvingen(detail, _twee_perioden()).is_empty()
+    leeg = _twee_perioden().clear()
+    met_sleutel = _twee_perioden().select("_inschrijving_periode_id")
+    assert filter_detail_op_inschrijvingen(met_sleutel, leeg).is_empty()

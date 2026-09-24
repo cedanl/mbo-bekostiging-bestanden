@@ -14,6 +14,7 @@ from _utils import output_dir
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from mbo_bekostiging_bestanden.filters import (
+    filter_detail_op_inschrijvingen,
     filter_fact_bekostiging_op_jaar,
     periode_jaar_kolom,
 )
@@ -200,9 +201,7 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
         )
         # Toon indicator als niet alle jaren geselecteerd zijn
         if geselecteerd and len(geselecteerd) < len(jaren):
-            st.info(
-                f"ℹ️ {len(geselecteerd)} van {len(jaren)} studiejaren geselecteerd"
-            )
+            st.info(f"ℹ️ {len(geselecteerd)} van {len(jaren)} studiejaren geselecteerd")
         if not geselecteerd:
             st.warning("Geen studiejaar geselecteerd.")
     if not geselecteerd:
@@ -233,24 +232,6 @@ df, fact_geo, fact_bpv, fact_kzd, fact_bekostiging = _lees_star_schema(
 )
 df = _sidebar_studiejaar_filter(df)
 
-# Sleutels voor join op detail-feiten, gefilterd op geselecteerde studiejaren.
-_FK = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
-_filter_keys = df.select([k for k in _FK if k in df.columns])
-
-
-def _filter_fact(f: pl.DataFrame) -> pl.DataFrame:
-    """Filter een detail-fact op de gefilterde inschrijvingen via FK-join."""
-    join_on = [k for k in _FK if k in f.columns]
-    if f.is_empty():
-        return f
-    if not join_on:
-        return f.clear()
-    # Lege _filter_keys (geen studiejaar geselecteerd) → lege fact teruggeven.
-    keys = _filter_keys.select(join_on).unique()
-    if keys.is_empty():
-        return f.clear()
-    return f.join(keys, on=join_on, how="inner")
-
 
 def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
     """Horizontaal staafdiagram gesorteerd op waarde (aflopend = meest boven)."""
@@ -265,9 +246,9 @@ def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
     st.altair_chart(chart, use_container_width=True)
 
 
-fact_geo_f = _filter_fact(fact_geo)
-fact_bpv_f = _filter_fact(fact_bpv)
-fact_kzd_f = _filter_fact(fact_kzd)
+fact_geo_f = filter_detail_op_inschrijvingen(fact_geo, df)
+fact_bpv_f = filter_detail_op_inschrijvingen(fact_bpv, df)
+fact_kzd_f = filter_detail_op_inschrijvingen(fact_kzd, df)
 # TBGI-leveringen overlappen niet met ISP; filter op dezelfde periodejaren als
 # de sidebar-selectie, afgeleid uit Teldatum.
 fact_bek_f = filter_fact_bekostiging_op_jaar(fact_bekostiging, df)
