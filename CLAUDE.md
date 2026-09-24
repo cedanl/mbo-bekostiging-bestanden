@@ -64,4 +64,4 @@ mbo-bekostiging-bestanden/
 - **Output**: schone Parquet in `data/02-prepared/` of `data/03-output/`.
 - Echte data is gitignored; alleen demo-data in `data/*/demo/` staat in git
   (overgenomen uit `cedanl/duo-mbo-datafiles`).
-- Privacy: geen persoonsgegevens committen; bekostiging is op instellingsniveau.
+- **Privacy**: RO- en GRONDSLAG-data is persoonsniveau (PER-records). Persoonsidentificerende gegevens (Burgerservicenummer, Onderwijsnummer) worden verwijderd uit de star-output. Persoons-identifiers worden gepseudonimiseerd via HMAC-SHA256 met een configureerbare salt (zie `app/config.toml` of env-var `MBO_PSEUDONIMISERING_SALT`). Geen BSN/ONr committen; alleen demo-data in repo.

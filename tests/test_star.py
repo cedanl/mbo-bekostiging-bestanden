@@ -1,6 +1,7 @@
 """Tests voor star.py (dimensionaal model)."""
 
 import polars as pl
+from conftest import pseudoniem_van_identifier
 
 from mbo_bekostiging_bestanden.star import _build_dim, build_star
 
@@ -65,7 +66,11 @@ def test_dim_deelnemer_uniek_op_persoon():
     result = build_star(_minimal_stacked())
     dim = result["dim_deelnemer"]
     assert dim.shape[0] == 2
-    assert dim["_persoon_id"].to_list() == ["P1", "P2"]
+    expected_personen = sorted(
+        [pseudoniem_van_identifier("P1"), pseudoniem_van_identifier("P2")]
+    )
+    actual_personen = sorted(dim["_persoon_id"].to_list())
+    assert actual_personen == expected_personen
     assert "Geslacht" in dim.columns
 
 

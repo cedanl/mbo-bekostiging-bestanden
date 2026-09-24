@@ -1,5 +1,7 @@
 """Gedeelde test-fixtures voor stack-, transform- en indicatoren-tests."""
 
+import hashlib
+import hmac
 from datetime import date
 from pathlib import Path
 
@@ -8,9 +10,23 @@ import pytest
 
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
-from mbo_bekostiging_bestanden.transform import _bouw_analysetabellen
+from mbo_bekostiging_bestanden.transform import (
+    _bouw_analysetabellen,
+    _laad_pseudonimisering_salt,
+)
 
 RAW = Path("data/01-raw/demo")
+
+
+def pseudoniem_van_identifier(identifier: str) -> str:
+    """Helper: pseudonimiseer een test-identifier hetzelfde als de production-code.
+
+    Gebruikt dezelfde salt als _laad_pseudonimisering_salt(), zodat tests
+    kunnen filteren op gepseudonimiseerde waarden.
+    """
+    salt = _laad_pseudonimisering_salt()
+    msg = f"{salt}:{identifier}".encode()
+    return hmac.new(salt.encode("utf-8"), msg, hashlib.sha256).hexdigest()
 
 
 @pytest.fixture(scope="session")
