@@ -84,16 +84,16 @@ fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe
 | Groep | Kolom | Type | Betekenis |
 |---|---|---|---|
 | Bekostiging | `_actief_1_oktober` | `Boolean` | ISP omvat 1 oktober van het studiejaar |
-| | `_bekostigd_eerste_1okt` | `Boolean` | Eerste 1-okt-inschrijving ooit (niet eerder op dezelfde opleiding) |
+| | `_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 oktober EN bekostigbaar (IndicatieBekostigbaar = 'J') |
 | | `_gediplomeerd_in_jaar` | `Boolean` | DIP-record aanwezig in het studiejaar |
 | | `_ingeschreven_jaar_later` | `Boolean` | Nog ingeschreven in het volgende studiejaar |
-| | `_deelnemer_niet_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 okt maar niet bekostigd als eerste inschrijving |
+| | `_deelnemer_niet_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 okt maar niet bekostigd |
 | Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × studiejaar |
 | | `_laagste_CREBO` | `Boolean` | Laagste CREBO-code bij gelijk niveau |
 | | `_hoofdinschrijving` | `Boolean` | Eén rij per persoon × studiejaar (combinatie van _hoogste_niveau + _laagste_CREBO) |
 | Tellingen | `_telling` | `Boolean` | `_actief_1_oktober AND _hoofdinschrijving` — telt de deelnemer mee voor bekostiging |
 | Rendement | `_jr_noemer` | `Boolean` | = `_telling`; noemer van het Jaarresultaat |
-| | `_jr_teller` | `Boolean` | Noemer AND (gediplomeerd OR ingeschreven_jaar_later) |
+| | `_jr_teller` | `Boolean` | Noemer AND gediplomeerd_in_jaar (teller van het Jaarresultaat) |
 | Entree | `_entree_uitstroom` | `Boolean` | MBO-1 + uitgeschreven (geen actieve ISP meer) |
 | | `_entree_doorstroom` | `Boolean` | MBO-1 + een hogere inschrijving bij dezelfde instelling |
 | Afgeleid | `Niveau_gecombineerd` | `Utf8` | Niveau + spatie + Leertraject (bijv. `MBO-4 BOL`) |
