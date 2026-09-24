@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from _utils import output_dir, prepared_dir, raw_dir
+from _utils import prepared_dir, raw_dir, star_dir
 
 from mbo_bekostiging_bestanden.pipeline import (
     detect_bestandstype,
@@ -182,7 +182,6 @@ done = st.session_state.get("alles_verwerkt", False)
 if not done:
     if st.button("Verwerk alles", type="primary", use_container_width=True):
         prepared = prepared_dir()
-        output = output_dir()
 
         # +1 voor de star-schema-stap aan het eind
         totaal_stappen = totaal_bestanden + 1
@@ -213,7 +212,7 @@ if not done:
         prep_dirs_met_data = [
             d for d in alle_prep_dirs if d.exists() and any(d.glob("*.parquet"))
         ]
-        star_output = output / "star"
+        star_output = star_dir()
         star_output.mkdir(parents=True, exist_ok=True)
 
         try:
