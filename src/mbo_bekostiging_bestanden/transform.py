@@ -36,6 +36,21 @@ from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
 _METADATA = Path(__file__).parent / "metadata"
 
 
+def _hash_periode_key(
+    levering: str, persoon_id: str, inschrijving_nr: str, datum_begin: str
+) -> str:
+    """Stabiel, deterministische hash voor ISP-periode-identificatie.
+
+    Hash van (levering, _persoon_id, Inschrijvingvolgnummer, DatumBegin).
+    Output: eerste 16 tekens van hex digest (UUID-achtig, uniek per periode).
+
+    Reproduceert dezelfde hash op dezelfde data, ongeacht rij-volgorde.
+    """
+    key_str = f"{levering}|{persoon_id}|{inschrijving_nr}|{datum_begin}"
+    digest = hashlib.sha256(key_str.encode()).hexdigest()
+    return digest[:16]  # 64-bit hex (16 chars) is uniek genoeg
+
+
 @functools.cache
 def _laad_pseudonimisering_salt() -> str:
     """Laad salt voor HMAC-pseudonimisering uit env of config.
@@ -828,11 +843,22 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     df = _voeg_entree_vlaggen_toe(df)
     df = _voeg_afgeleide_velden_toe(df)
 
-    # Surrogaatsleutel per ISP-periode-rij. fact_inschrijving op ISP-periode-grain,
-    # dus (levering, _persoon_id, Inschrijvingvolgnummer) kan meerdere keren voorkomen.
-    # _inschrijving_periode_id maakt de sleutel uniek.
+    # Stabiele surrogaatsleutel per ISP-periode-rij: hash van brongegevens.
+    # fact_inschrijving op ISP-periode-grain: (levering, _persoon_id,
+    # Inschrijvingvolgnummer) kan meerdere keren voorkomen.
+    # _inschrijving_periode_id (hash-derived) maakt uniek + stable.
+    def _compute_periode_id(row_dict):
+        return _hash_periode_key(
+            row_dict["levering"],
+            row_dict["_persoon_id"],
+            row_dict["Inschrijvingvolgnummer"],
+            row_dict["DatumBegin"],
+        )
+
     df = df.with_columns(
-        pl.int_range(1, pl.len() + 1).alias("_inschrijving_periode_id")
+        pl.struct(["levering", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"])
+        .map_elements(_compute_periode_id, return_dtype=pl.Utf8)
+        .alias("_inschrijving_periode_id")
     )
 
     return df
