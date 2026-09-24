@@ -15,7 +15,25 @@ from mbo_bekostiging_bestanden.pipeline import (
     run_auto_pipeline,
     run_star,
 )
-from mbo_bekostiging_bestanden.quality import controleer_koppelingen, slr_status_icoon
+from mbo_bekostiging_bestanden.quality import (
+    controleer_koppelingen,
+    controleer_sleuteluniciteit,
+    slr_status_icoon,
+)
+
+# Star-kwaliteitsmeldingen op Home: sleutel in star_summary → toelichting.
+_KWALITEITSMELDINGEN = {
+    "wees_feiten": (
+        "**Niet-gekoppelde feiten** — deze rijen horen bij geen enkele "
+        "inschrijving (bijv. een levering van een andere instelling of "
+        "periode) en tellen niet mee in analyses per inschrijving:"
+    ),
+    "dubbele_sleutels": (
+        "**Dubbele periodesleutels** — dezelfde inschrijvingsperiode staat "
+        "meer dan één keer in de bron; joins op `_inschrijving_periode_id` "
+        "tellen deze rijen dubbel:"
+    ),
+}
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties
@@ -89,6 +107,13 @@ def _instelling_per_levering(star: dict) -> dict[str, str]:
         levering: ", ".join(sorted(labels))
         for levering, labels in labels_per_levering.items()
     }
+
+
+def _toon_kwaliteitsmeldingen(toelichting: str, meldingen: list[str]) -> None:
+    """Toon meldingen als één waarschuwing onder ``toelichting``; niets als leeg."""
+    if not meldingen:
+        return
+    st.warning(toelichting + "\n\n" + "\n".join(f"- `{m}`" for m in meldingen))
 
 
 def _load_quality_reports(prep_dirs: list[Path]) -> dict[str, dict]:
@@ -231,6 +256,7 @@ if not done:
                 ),
                 "instelling_per_levering": _instelling_per_levering(star),
                 "wees_feiten": controleer_koppelingen(star),
+                "dubbele_sleutels": controleer_sleuteluniciteit(star),
             }
         except Exception as exc:
             melding = str(exc)
@@ -271,14 +297,8 @@ if done:
 
     if star_summary:
         st.success("Verwerkt — star schema klaar")
-        wees_feiten = star_summary.get("wees_feiten", [])
-        if wees_feiten:
-            st.warning(
-                "**Niet-gekoppelde feiten** — deze rijen horen bij geen enkele "
-                "inschrijving (bijv. een levering van een andere instelling of "
-                "periode) en tellen niet mee in analyses per inschrijving:\n\n"
-                + "\n".join(f"- `{m}`" for m in wees_feiten)
-            )
+        for sleutel, toelichting in _KWALITEITSMELDINGEN.items():
+            _toon_kwaliteitsmeldingen(toelichting, star_summary.get(sleutel, []))
         col1, col2, col3 = st.columns(3)
         col1.metric("Inschrijvingen (ISP)", star_summary.get("isp_rijen", "—"))
         col2.metric("Bekostiging detail", star_summary.get("bekostiging_rijen", "—"))

@@ -1,8 +1,11 @@
-"""Tests voor het signaleren van wees-feiten in het star schema (issue #89)."""
+"""Tests voor wees-feiten (#89) en uniciteit van de periodesleutel (#122)."""
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.quality import controleer_koppelingen
+from mbo_bekostiging_bestanden.quality import (
+    controleer_koppelingen,
+    controleer_sleuteluniciteit,
+)
 
 SLEUTEL = "_inschrijving_periode_id"
 
@@ -48,3 +51,45 @@ def test_demo_star_signaleert_alleen_de_wees_bekostiging(demo_star):
     meldingen = controleer_koppelingen(demo_star)
     gemeld = {m.split(":")[0] for m in meldingen}
     assert gemeld == {"fact_bekostiging", "fact_bekostiging_diploma"}
+
+
+# --- Uniciteit van de periodesleutel (issue #122) ---------------------------
+
+
+def _inschrijvingen(*rijen: tuple[str, str | None]) -> dict[str, pl.DataFrame]:
+    """fact_inschrijving met (levering, sleutel)-rijen."""
+    return {
+        "fact_inschrijving": pl.DataFrame(
+            {"levering": [r[0] for r in rijen], SLEUTEL: [r[1] for r in rijen]},
+            schema={"levering": pl.Utf8, SLEUTEL: pl.Utf8},
+        )
+    }
+
+
+def test_unieke_periodesleutels_geven_geen_melding():
+    star = _inschrijvingen(("L1", "a"), ("L1", "b"), ("L2", "c"))
+    assert controleer_sleuteluniciteit(star) == []
+
+
+def test_dubbele_periodesleutel_meldt_aantal_per_levering():
+    star = _inschrijvingen(("L1", "a"), ("L1", "a"), ("L1", "a"), ("L2", "b"))
+    [melding] = controleer_sleuteluniciteit(star)
+    assert "fact_inschrijving" in melding
+    assert "1 sleutel" in melding
+    assert "L1: 3 rijen" in melding
+    assert "L2" not in melding
+
+
+def test_lege_periodesleutels_tellen_niet_als_dubbel():
+    star = _inschrijvingen(("L1", None), ("L1", None))
+    assert controleer_sleuteluniciteit(star) == []
+
+
+def test_ontbrekende_sleutelkolom_wordt_overgeslagen():
+    assert controleer_sleuteluniciteit({"fact_inschrijving": pl.DataFrame()}) == []
+    assert controleer_sleuteluniciteit({}) == []
+
+
+def test_demo_star_heeft_unieke_periodesleutels(demo_star, tbgi_star):
+    assert controleer_sleuteluniciteit(demo_star) == []
+    assert controleer_sleuteluniciteit(tbgi_star) == []

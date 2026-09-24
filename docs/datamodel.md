@@ -81,6 +81,8 @@ inschrijving meerdere ISP-perioden heeft.
 Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
 instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagina gemeld
 (`quality.controleer_koppelingen`).
+`fact_inschrijving` hoort uniek te zijn per `_inschrijving_periode_id`; dubbele sleutels
+(bijv. een identieke ISP-bronrij) worden daar ook gemeld (`quality.controleer_sleuteluniciteit`).
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 
 ### Indicatoren in fact_inschrijving
@@ -88,7 +90,7 @@ instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagi
 | Vlag | Definitie |
 |---|---|
 | `_actief_1_oktober` | Inschrijving actief op 1 oktober (teldatum) |
-| `_hoofdinschrijving` | Eerste inschrijving van de deelnemer bij deze instelling |
+| `_hoofdinschrijving` | Eén inschrijving per deelnemer × studiejaar bij deze instelling: hoogste niveau, dan laagste CREBO, dan meest recente periode |
 | `_gediplomeerd_in_jaar` | Diploma behaald in het studiejaar |
 | `_jr_noemer` / `_jr_teller` | Populatie en teller voor Jaarresultaat (JR) |
 | `_dr_noemer` / `_dr_teller` | Populatie en teller voor Diplomaresultaat (DR) |

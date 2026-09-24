@@ -1,4 +1,4 @@
-"""Datakwaliteitscontroles: SLR-reconciliatie, wees-feiten en waarschuwingen.
+"""Datakwaliteitscontroles: SLR-reconciliatie, wees-feiten, sleuteluniciteit.
 
 Na validatie van schema: detecteer stille dataverlies en gedeeltelijke verwerking.
 Rapporteer problemen gestructureerd zonder te faillen op waarschuwingen.
@@ -10,7 +10,10 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.filters import filter_detail_op_inschrijvingen
+from mbo_bekostiging_bestanden.filters import (
+    _PERIODE_SLEUTEL,
+    filter_detail_op_inschrijvingen,
+)
 
 # Icoon per tri-state SLR-status voor de app-weergave.
 _SLR_STATUS_ICONS = {"match": "✅", "mismatch": "❌", "unknown": "⚠️"}
@@ -176,3 +179,32 @@ def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
                 f"koppelen niet aan {_CENTRAAL_FEIT}"
             )
     return meldingen
+
+
+def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
+    """Signaleer periodesleutels die in ``fact_inschrijving`` vaker voorkomen.
+
+    ``fact_inschrijving`` hoort uniek te zijn per periodesleutel; een dubbele
+    sleutel (bijv. een identieke ISP-bronrij) laat elke detail-join alsnog
+    fan-out geven.  Lege sleutels tellen niet mee.  Geeft hooguit één melding,
+    met het aantal betrokken rijen per levering.
+    """
+    feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    if not set(_PERIODE_SLEUTEL) <= set(feit.columns):
+        return []
+    gevuld = feit.drop_nulls(_PERIODE_SLEUTEL)
+    dubbel = gevuld.filter(gevuld.select(_PERIODE_SLEUTEL).is_duplicated())
+    if dubbel.is_empty():
+        return []
+
+    aantal = dubbel.select(_PERIODE_SLEUTEL).n_unique()
+    sleutels = "sleutel komt" if aantal == 1 else "sleutels komen"
+    melding = f"{_CENTRAAL_FEIT}: {aantal} {sleutels} meer dan één keer voor"
+    if "levering" in dubbel.columns:
+        per_levering = dubbel.group_by("levering").len().sort("levering")
+        melding += (
+            " ("
+            + ", ".join(f"{lev}: {n} rijen" for lev, n in per_levering.iter_rows())
+            + ")"
+        )
+    return [melding]

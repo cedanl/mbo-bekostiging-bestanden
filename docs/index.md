@@ -88,9 +88,9 @@ fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe
 | | `_gediplomeerd_in_jaar` | `Boolean` | DIP-record aanwezig in het studiejaar |
 | | `_ingeschreven_jaar_later` | `Boolean` | Nog ingeschreven in het volgende studiejaar |
 | | `_deelnemer_niet_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 okt maar niet bekostigd |
-| Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × studiejaar |
+| Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × studiejaar × instelling × levering |
 | | `_laagste_CREBO` | `Boolean` | Laagste CREBO-code bij gelijk niveau |
-| | `_hoofdinschrijving` | `Boolean` | Eén rij per persoon × studiejaar (combinatie van _hoogste_niveau + _laagste_CREBO) |
+| | `_hoofdinschrijving` | `Boolean` | Precies één rij per persoon × studiejaar × instelling × levering: hoogste niveau, dan laagste CREBO, dan meest recente periode |
 | Tellingen | `_telling` | `Boolean` | `_actief_1_oktober AND _hoofdinschrijving` — telt de deelnemer mee voor bekostiging |
 | Rendement | `_jr_noemer` | `Boolean` | = `_telling`; noemer van het Jaarresultaat |
 | | `_jr_teller` | `Boolean` | Noemer AND gediplomeerd_in_jaar (teller van het Jaarresultaat) |

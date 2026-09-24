@@ -5,6 +5,7 @@ koppelen zijn aan ``fact_inschrijving``. Getoetst op de echte star-output van
 de demo-data en op de toewijzingsregel zelf.
 """
 
+import warnings
 from datetime import date
 
 import polars as pl
@@ -123,3 +124,15 @@ def test_detail_zonder_koppelkolommen_krijgt_lege_sleutel():
     detail = _detail(date(2024, 9, 1)).drop("Inschrijvingvolgnummer")
     result = _koppel_periode_id(detail, _perioden(), "Datum")
     assert result[SLEUTEL].to_list() == [None]
+
+
+def test_tekstdatum_koppelt_zonder_deprecation_warning():
+    """ISO-tekst wordt expliciet geparsed, niet via de deprecated cast (#123)."""
+    detail = _detail(date(2024, 9, 1), date(2025, 3, 1)).with_columns(
+        pl.col("Datum").dt.to_string()
+    )
+    with warnings.catch_warnings(record=True) as gevangen:
+        warnings.simplefilter("always")
+        result = _koppel_periode_id(detail, _perioden(), "Datum")
+    assert result[SLEUTEL].to_list() == ["eerste", "tweede"]
+    assert not [w for w in gevangen if issubclass(w.category, DeprecationWarning)]

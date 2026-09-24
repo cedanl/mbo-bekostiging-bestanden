@@ -111,6 +111,9 @@ _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 _PERIODE_ID = "_inschrijving_periode_id"
+# Groep waarbinnen de selectievlaggen gelden (zie :func:`_voeg_sr_vlaggen_toe`).
+_SELECTIE_GROEP = ("levering", "BRIN", "_persoon_id", "Studiejaar")
+_SELECTIE_VLAGGEN = ("_hoogste_niveau", "_laagste_CREBO", "_hoofdinschrijving")
 # Begindatum van een inschrijvingsperiode, in voorkeursvolgorde: de ISP-periode
 # (RO/GRONDSLAG), anders de TBGI-inschrijving als geheel (TBGI-only: geen ISP).
 _PERIODE_BEGIN_KOLOMMEN = ("DatumBegin", "DatumInschrijving")
@@ -256,6 +259,18 @@ def _periode_begin(df: pl.DataFrame) -> pl.Expr:
     return pl.col(begin) if begin else pl.lit(None, dtype=pl.Date)
 
 
+def _als_datum(df: pl.DataFrame, kolom: str) -> pl.Expr:
+    """``kolom`` als ``Date``; leeg als de kolom ontbreekt.
+
+    Tekst wordt expliciet geparsed: de String→Date-cast is deprecated in Polars.
+    """
+    if kolom not in df.columns:
+        return pl.lit(None, dtype=pl.Date)
+    if df.schema[kolom] == pl.String:
+        return pl.col(kolom).str.to_date()
+    return pl.col(kolom).cast(pl.Date)
+
+
 def _koppel_periode_id(
     detail: pl.DataFrame,
     inschrijvingen: pl.DataFrame,
@@ -298,11 +313,7 @@ def _koppel_periode_id(
     )
 
     rij = "_rij"
-    datum = (
-        pl.col(datum_kolom).cast(pl.Date)
-        if datum_kolom in detail.columns
-        else pl.lit(None, dtype=pl.Date)
-    )
+    datum = _als_datum(detail, datum_kolom)
     links = detail.with_row_index(rij).with_columns(datum.alias("_referentie"))
     gedateerd = links.drop_nulls("_referentie").sort("_referentie")
     binnen = gedateerd.join_asof(
@@ -572,65 +583,49 @@ def _niveau_numeriek(col: pl.Expr) -> pl.Expr:
 def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     """Selectie/rendement-vlaggen: hoogste niveau, laagste CREBO, hoofdinschrijving.
 
-    De tiebreak voor ``_hoofdinschrijving`` partitioneert op ``levering`` zodat
-    elke levering onafhankelijk precies één hoofdinschrijving per persoon × studiejaar
-    krijgt.  Bij gestapelde analyses filtert de afnemer doorgaans op één levering.
+    Alle drie de vlaggen gelden binnen dezelfde groep: persoon × studiejaar,
+    per levering en per instelling (``BRIN``) als die kolommen bestaan.  DUO
+    telt één hoofdinschrijving per student per instelling; per levering zodat
+    gestapelde leveringen elkaar niet beïnvloeden.
+
+    ``_hoofdinschrijving`` is precies één kandidaat (hoogste niveau én laagste
+    CREBO) per groep; bij gelijke kandidaten wint de meest recente periode
+    (zie :func:`_periode_begin_kolom`).
     """
     vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
     if not vereist.issubset(df.columns):
         return df.with_columns(
-            pl.lit(None, dtype=pl.Boolean).alias("_hoogste_niveau"),
-            pl.lit(None, dtype=pl.Boolean).alias("_laagste_CREBO"),
-            pl.lit(None, dtype=pl.Boolean).alias("_hoofdinschrijving"),
+            pl.lit(None, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
         )
 
-    df = df.with_columns(_niveau_numeriek(pl.col("Niveau")).alias("_niveau_num"))
-
-    max_niveau = df.group_by(["_persoon_id", "Studiejaar"]).agg(
-        pl.col("_niveau_num").max().alias("_max_niveau_num")
+    groep = [c for c in _SELECTIE_GROEP if c in df.columns]
+    niveau = _niveau_numeriek(pl.col("Niveau"))
+    hoogste = niveau == niveau.max().over(groep)
+    laagste_crebo = hoogste & (
+        pl.col("Opleidingcode")
+        == pl.col("Opleidingcode").filter(hoogste).min().over(groep)
     )
-    df = df.join(max_niveau, on=["_persoon_id", "Studiejaar"], how="left")
     df = df.with_columns(
-        (pl.col("_niveau_num") == pl.col("_max_niveau_num")).alias("_hoogste_niveau")
-    ).drop("_max_niveau_num")
-
-    min_crebo = (
-        df.filter(pl.col("_hoogste_niveau"))
-        .group_by(["_persoon_id", "Studiejaar"])
-        .agg(pl.col("Opleidingcode").min().alias("_min_crebo"))
+        hoogste.alias("_hoogste_niveau"), laagste_crebo.alias("_laagste_CREBO")
     )
-    df = df.join(min_crebo, on=["_persoon_id", "Studiejaar"], how="left")
-    df = df.with_columns(
-        (
-            pl.col("_hoogste_niveau")
-            & (pl.col("Opleidingcode") == pl.col("_min_crebo"))
-        ).alias("_laagste_CREBO")
-    ).drop("_min_crebo")
 
-    hoofd_expr = pl.col("_hoogste_niveau") & pl.col("_laagste_CREBO")
-
-    # Tiebreak: bij meerdere ISP-rijen met zelfde Niveau+CREBO,
-    # kies de meest recente periode (DatumBegin desc).
-    partition = [
-        c for c in ("levering", "_persoon_id", "Studiejaar") if c in df.columns
-    ]
-    if "DatumBegin" in df.columns and partition:
-        df = df.with_columns(hoofd_expr.alias("_kandidaat_hoofd"))
-        df = df.with_columns(
-            pl.when(pl.col("_kandidaat_hoofd"))
-            .then(pl.col("DatumBegin").rank("ordinal", descending=True).over(partition))
-            .otherwise(None)
-            .alias("_hoofd_rank")
+    kandidaat = pl.col("_laagste_CREBO").fill_null(False)
+    begin = _periode_begin_kolom(df)
+    volgorde = [kandidaat, *([pl.col(begin)] if begin else [])]
+    rij = "_rij"
+    gekozen = (
+        pl.col(rij)
+        .sort_by(volgorde, descending=True, nulls_last=True)
+        .first()
+        .over(groep)
+    )
+    return (
+        df.with_row_index(rij)
+        .with_columns(
+            (kandidaat & (pl.col(rij) == gekozen)).alias("_hoofdinschrijving")
         )
-        df = df.with_columns(
-            (pl.col("_kandidaat_hoofd") & (pl.col("_hoofd_rank") == 1)).alias(
-                "_hoofdinschrijving"
-            )
-        ).drop("_kandidaat_hoofd", "_hoofd_rank")
-    else:
-        df = df.with_columns(hoofd_expr.alias("_hoofdinschrijving"))
-
-    return df.drop("_niveau_num")
+        .drop(rij)
+    )
 
 
 def _voeg_telling_en_jr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
