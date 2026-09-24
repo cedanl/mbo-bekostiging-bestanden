@@ -15,7 +15,7 @@ from mbo_bekostiging_bestanden.pipeline import (
     run_auto_pipeline,
     run_star,
 )
-from mbo_bekostiging_bestanden.quality import slr_status_icoon
+from mbo_bekostiging_bestanden.quality import controleer_koppelingen, slr_status_icoon
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties
@@ -230,6 +230,7 @@ if not done:
                     }
                 ),
                 "instelling_per_levering": _instelling_per_levering(star),
+                "wees_feiten": controleer_koppelingen(star),
             }
         except Exception as exc:
             melding = str(exc)
@@ -270,6 +271,14 @@ if done:
 
     if star_summary:
         st.success("Verwerkt — star schema klaar")
+        wees_feiten = star_summary.get("wees_feiten", [])
+        if wees_feiten:
+            st.warning(
+                "**Niet-gekoppelde feiten** — deze rijen horen bij geen enkele "
+                "inschrijving (bijv. een levering van een andere instelling of "
+                "periode) en tellen niet mee in analyses per inschrijving:\n\n"
+                + "\n".join(f"- `{m}`" for m in wees_feiten)
+            )
         col1, col2, col3 = st.columns(3)
         col1.metric("Inschrijvingen (ISP)", star_summary.get("isp_rijen", "—"))
         col2.metric("Bekostiging detail", star_summary.get("bekostiging_rijen", "—"))

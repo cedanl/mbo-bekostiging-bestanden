@@ -1,4 +1,4 @@
-"""Datakwaliteitscontroles: SLR-reconciliatie en waarschuwingen.
+"""Datakwaliteitscontroles: SLR-reconciliatie, wees-feiten en waarschuwingen.
 
 Na validatie van schema: detecteer stille dataverlies en gedeeltelijke verwerking.
 Rapporteer problemen gestructureerd zonder te faillen op waarschuwingen.
@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import polars as pl
+
+from mbo_bekostiging_bestanden.filters import filter_detail_op_inschrijvingen
 
 # Icoon per tri-state SLR-status voor de app-weergave.
 _SLR_STATUS_ICONS = {"match": "✅", "mismatch": "❌", "unknown": "⚠️"}
@@ -48,6 +50,7 @@ def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
             return "grondslag"
         return "ro"
     return "unknown"
+
 
 @dataclass
 class QualityReport:
@@ -131,12 +134,45 @@ def check_slr_reconciliation(
 
     if mismatches:
         report.slr_status = "mismatch"
-        report.warnings.append(
-            f"SLR-mismatch: {'; '.join(mismatches)}"
-        )
+        report.warnings.append(f"SLR-mismatch: {'; '.join(mismatches)}")
     else:
         # Match = geen problemen: de status zelf is het signaal, dus géén
         # 'SLR-reconciliatie: OK'-start in warnings (die tonen in de UI ⚠️).
         report.slr_status = "match"
 
     return report
+
+
+_FEIT_PREFIX = "fact_"
+_CENTRAAL_FEIT = "fact_inschrijving"
+
+
+def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
+    """Signaleer detail-feiten waarvan rijen niet aan ``fact_inschrijving`` koppelen.
+
+    Een wees-rij hangt los van het datamodel (bijv. bekostiging uit een andere
+    levering of instelling dan de inschrijvingen) en telt stil niet mee in
+    analyses per inschrijving.  Koppelt via dezelfde sleutel als de app-filters.
+    Geeft één melding per feit met wees-rijen; lege feiten worden overgeslagen.
+    """
+    inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    meldingen: list[str] = []
+    for naam, feit in sorted(star.items()):
+        if not naam.startswith(_FEIT_PREFIX) or naam == _CENTRAAL_FEIT:
+            continue
+        if feit.is_empty():
+            continue
+        gekoppeld = filter_detail_op_inschrijvingen(feit, inschrijvingen).height
+        wees = feit.height - gekoppeld
+        if wees == 0:
+            continue
+        if gekoppeld == 0:
+            meldingen.append(
+                f"{naam}: geen enkele rij ({feit.height}) koppelt aan {_CENTRAAL_FEIT}"
+            )
+        else:
+            meldingen.append(
+                f"{naam}: {wees} van {feit.height} rijen ({wees / feit.height:.0%}) "
+                f"koppelen niet aan {_CENTRAAL_FEIT}"
+            )
+    return meldingen
