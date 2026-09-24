@@ -13,6 +13,10 @@ from _chart_docs import chart_help
 from _utils import output_dir
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from mbo_bekostiging_bestanden.filters import (
+    filter_fact_bekostiging_op_jaar,
+    periode_jaar_kolom,
+)
 from mbo_bekostiging_bestanden.indicatoren import (
     bereken_oordeel,
     entree_indicatoren,
@@ -152,12 +156,8 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
     """
     # Gebruik Studiejaar_periode als beschikbaar (correct voor periodes),
     # fallback naar Studiejaar (backward-compat)
-    jaar_col = (
-        "Studiejaar_periode"
-        if "Studiejaar_periode" in df.columns
-        else "Studiejaar"
-    )
-    if jaar_col not in df.columns:
+    jaar_col = periode_jaar_kolom(df)
+    if jaar_col is None:
         return df
     jaren = sorted(df[jaar_col].drop_nulls().unique().to_list())
 
@@ -268,16 +268,9 @@ def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
 fact_geo_f = _filter_fact(fact_geo)
 fact_bpv_f = _filter_fact(fact_bpv)
 fact_kzd_f = _filter_fact(fact_kzd)
-# TBGI-leveringen overlappen niet met ISP; filter op Studiejaar afgeleid uit Teldatum.
-if "Studiejaar" in fact_bekostiging.columns and not df.is_empty():
-    _bek_jaren = df["Studiejaar"].drop_nulls().unique().to_list()
-    fact_bek_f = (
-        fact_bekostiging.filter(pl.col("Studiejaar").is_in(_bek_jaren))
-        if _bek_jaren
-        else fact_bekostiging.clear()
-    )
-else:
-    fact_bek_f = fact_bekostiging.clear() if df.is_empty() else fact_bekostiging
+# TBGI-leveringen overlappen niet met ISP; filter op dezelfde periodejaren als
+# de sidebar-selectie, afgeleid uit Teldatum.
+fact_bek_f = filter_fact_bekostiging_op_jaar(fact_bekostiging, df)
 
 # ---------------------------------------------------------------------------
 # Header metrics

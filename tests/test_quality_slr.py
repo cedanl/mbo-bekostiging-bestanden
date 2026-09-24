@@ -2,7 +2,11 @@
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.quality import QualityReport, check_slr_reconciliation
+from mbo_bekostiging_bestanden.quality import (
+    QualityReport,
+    check_slr_reconciliation,
+    slr_status_icoon,
+)
 
 
 def test_slr_status_is_tri_state():
@@ -81,3 +85,16 @@ def test_slr_mismatch_status():
     assert report.slr_status == "mismatch", (
         f"Expected 'mismatch', got {report.slr_status}"
     )
+
+
+def test_slr_status_icoon_dekt_tri_state():
+    """slr_status → icoon; onbekende/ontbrekende status valt veilig terug op ⚠️."""
+    assert slr_status_icoon("match") == "✅"
+    assert slr_status_icoon("mismatch") == "❌"
+    assert slr_status_icoon("unknown") == "⚠️"
+
+
+def test_slr_status_icoon_valt_veilig_terug():
+    """None of onbekende waarde mag nooit crashen en toont ⚠️."""
+    assert slr_status_icoon(None) == "⚠️"
+    assert slr_status_icoon("niet-bestaand") == "⚠️"
