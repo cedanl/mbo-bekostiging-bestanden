@@ -2,6 +2,8 @@
 
 Leest DUO MBO-bekostigingsbestanden in en zet ze om naar schone, onderzoeksklare data.
 
+<video src="https://github.com/user-attachments/assets/ec17d64d-0e60-4cd6-8304-1adc92f10a91" controls width="100%"></video>
+
 ## Context
 
 MBO-instellingen worden bekostigd op basis van bestanden die DUO publiceert. Die
