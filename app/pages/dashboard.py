@@ -140,6 +140,7 @@ def _lees_star_schema(
 
 
 _PILLS_KEY = "studiejaar_pills"
+_JAREN_KEY = "beschikbare_jaren"
 
 
 def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
@@ -147,8 +148,27 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
     if "Studiejaar" not in df.columns:
         return df
     jaren = sorted(df["Studiejaar"].drop_nulls().unique().to_list())
-    if _PILLS_KEY not in st.session_state:
+
+    # Synchroniseer selectie-staat wanneer beschikbare jaren veranderen.
+    if _JAREN_KEY not in st.session_state:
+        st.session_state[_JAREN_KEY] = jaren
         st.session_state[_PILLS_KEY] = jaren
+    elif st.session_state[_JAREN_KEY] != jaren:
+        # Jaren zijn veranderd (bijv. nieuwe data verwerkt). Synchroniseer selectie:
+        # voeg nieuwe jaren toe, verwijder verdwenen jaren.
+        old_jaren = st.session_state[_JAREN_KEY]
+        huidige_selectie = st.session_state.get(_PILLS_KEY, [])
+
+        # Voeg nieuwe jaren toe aan selectie
+        new_jaren = [j for j in jaren if j not in old_jaren]
+        nieuwe_selectie = list(set(huidige_selectie) | set(new_jaren))
+
+        # Verwijder jaren die niet meer beschikbaar zijn
+        nieuwe_selectie = [j for j in nieuwe_selectie if j in jaren]
+
+        st.session_state[_JAREN_KEY] = jaren
+        st.session_state[_PILLS_KEY] = sorted(nieuwe_selectie)
+
     with st.sidebar:
         st.header("Filters")
         st.caption(
@@ -166,6 +186,11 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
             selection_mode="multi",
             key=_PILLS_KEY,
         )
+        # Toon indicator als niet alle jaren geselecteerd zijn
+        if geselecteerd and len(geselecteerd) < len(jaren):
+            st.info(
+                f"ℹ️ {len(geselecteerd)} van {len(jaren)} studiejaren geselecteerd"
+            )
         if not geselecteerd:
             st.warning("Geen studiejaar geselecteerd.")
     if not geselecteerd:
