@@ -156,8 +156,11 @@ CHART_DOCS: dict[str, dict] = {
         ],
         "manipulatie": (
             "Gelezen uit `fact_bekostiging` (grain: één rij per inschrijving per "
-            "teldatum, afkomstig uit het TBGI-bestand).  Het aantal rijen wordt "
-            "per `Bekostigingsstatus` geteld en aflopend gesorteerd.  Aanvullend "
+            "teldatum, afkomstig uit het TBGI-bestand).  Omdat TBGI-leveringen qua "
+            "`levering` niet overlappen met ISP-data wordt gefilterd op het uit "
+            "`Teldatum` afgeleide jaar, afgestemd op dezelfde (periode)studiejaren "
+            "als de sidebar-selectie.  Het aantal rijen wordt per "
+            "`Bekostigingsstatus` geteld en aflopend gesorteerd.  Aanvullend "
             "wordt de som van `BijdrageInschrijvingAanDeelnemerswaarde` over alle "
             "rijen getoond als totale deelnemerswaarde."
         ),

@@ -15,6 +15,7 @@ from mbo_bekostiging_bestanden.pipeline import (
     run_auto_pipeline,
     run_star,
 )
+from mbo_bekostiging_bestanden.quality import slr_status_icoon
 
 # ---------------------------------------------------------------------------
 # Hulpfuncties
@@ -94,7 +95,7 @@ def _load_quality_reports(prep_dirs: list[Path]) -> dict[str, dict]:
     """Lees alle quality.json bestanden uit prepared directories.
 
     Returns:
-        {levering_naam: {slr_match, slr_details, warnings, errors}}
+        {levering_naam: {slr_status, slr_details, warnings, errors}}
     """
     reports = {}
     for prep_dir in prep_dirs:
@@ -111,9 +112,10 @@ def _load_quality_reports(prep_dirs: list[Path]) -> dict[str, dict]:
 
 def _show_quality_report(report: dict) -> None:
     """Toon kwaliteitsrapport in Streamlit UI."""
-    match_status = "✅" if report.get("slr_match") else "⚠️"
+    status = report.get("slr_status")
+    status_icoon = slr_status_icoon(status)
     schema = report.get("schema_type", "?")
-    st.markdown(f"**{match_status} SLR-reconciliatie**: {schema}")
+    st.markdown(f"**{status_icoon} SLR-reconciliatie**: {schema}")
 
     slr_details = report.get("slr_details", {})
     if slr_details:

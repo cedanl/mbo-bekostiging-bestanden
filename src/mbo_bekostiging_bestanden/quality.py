@@ -10,6 +10,18 @@ from dataclasses import dataclass
 
 import polars as pl
 
+# Icoon per tri-state SLR-status voor de app-weergave.
+_SLR_STATUS_ICONS = {"match": "✅", "mismatch": "❌", "unknown": "⚠️"}
+
+
+def slr_status_icoon(status: str | None) -> str:
+    """Vertaal een SLR-status naar een weergave-icoon.
+
+    Alles wat geen gedefinieerde tri-state waarde is (incl. ``None`` en oude
+    ``quality.json``-bestanden zonder ``slr_status``) valt veilig terug op ⚠️.
+    """
+    return _SLR_STATUS_ICONS.get(status, "⚠️")
+
 
 @dataclass
 class QualityReport:
