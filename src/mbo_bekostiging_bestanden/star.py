@@ -80,10 +80,11 @@ _FK_COLS = {"_persoon_id", "Opleidingcode", "BRIN"}
 # Deze zijn schema-instabiel en worden vervangen door fact_geo.
 _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 
-# Kolommen die persoonsidentificerende gegevens bevatten en niet in het
-# star schema horen (BSN is al gehasht naar _persoon_id; Onderwijsnummer
-# is directe identifier).
-_BEKOSTIGING_DROP = {"Burgerservicenummer", "Onderwijsnummer", "_bron"}
+# Kolommen die PII bevatten en uit de output verwijderd worden.
+# _persoon_id is gepseudonimiseerd (HMAC-SHA256), maar BSN en Onderwijsnummer
+# staan nog rechtstreeks in de brondata en moeten verwijderd worden.
+_PII_DROP = {"Burgerservicenummer", "Onderwijsnummer", "_bron"}
+_BEKOSTIGING_DROP = _PII_DROP  # Legacy alias voor backward-compatibility
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +139,10 @@ def build_star(
         c for c in inschrijvingen.columns if c not in dim_col_set and c not in geo_cols
     ]
     fact_inschrijving = inschrijvingen.select(fact_cols)
+    # Verwijder persoonsidentificerende gegevens
+    pii_to_drop = [c for c in _PII_DROP if c in fact_inschrijving.columns]
+    if pii_to_drop:
+        fact_inschrijving = fact_inschrijving.drop(pii_to_drop)
 
     return {
         "dim_deelnemer": dim_deelnemer,
@@ -164,15 +169,24 @@ def _build_fact_bpv(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Volgnummer).
     Joinbaar met fact_inschrijving via de eerste drie sleutelkolommen.
+    Persoonsidentificerende gegevens (BSN, ONr) worden verwijderd.
     """
-    return tables.get("detail_bpv", pl.DataFrame())
+    detail = tables.get("detail_bpv", pl.DataFrame())
+    if detail.is_empty():
+        return pl.DataFrame()
+    drop = [c for c in _PII_DROP if c in detail.columns]
+    return detail.drop(drop)
 
 
 def _uit_kzd_amo_detail(tables: dict[str, pl.DataFrame], bron: str) -> pl.DataFrame:
     detail = tables.get("detail_kzd_amo", pl.DataFrame())
     if detail.is_empty() or "_bron" not in detail.columns:
         return pl.DataFrame()
-    return detail.filter(pl.col("_bron") == bron).drop("_bron")
+    filtered = detail.filter(pl.col("_bron") == bron)
+    if filtered.is_empty():
+        return pl.DataFrame()
+    drop = [c for c in _PII_DROP if c in filtered.columns]
+    return filtered.drop(drop)
 
 
 def _build_fact_kzd(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -227,8 +241,13 @@ def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, CodeGeneriekExamenonderdeel).
     Stabiel schema ongeacht welke codes aanwezig zijn in de data.
     Behoudt DatumResultaat, VrijstellingIE/CE die in de pivot verloren gaan.
+    Persoonsidentificerende gegevens (BSN, ONr) worden verwijderd.
     """
-    return tables.get("detail_geo", pl.DataFrame())
+    detail = tables.get("detail_geo", pl.DataFrame())
+    if detail.is_empty():
+        return pl.DataFrame()
+    drop = [c for c in _PII_DROP if c in detail.columns]
+    return detail.drop(drop)
 
 
 # ---------------------------------------------------------------------------

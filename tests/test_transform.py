@@ -4,6 +4,7 @@ from datetime import date
 
 import polars as pl
 import pytest
+from conftest import pseudoniem_van_identifier
 
 from mbo_bekostiging_bestanden.transform import (
     _bouw_analysetabellen,
@@ -110,8 +111,9 @@ def test_inschrijvingen_heeft_persoon_id(demo_tabellen):
 def test_kzd_aantal_bsn1_ingevuld(demo_tabellen):
     """BSN1 heeft 2 KZD-records; na DIP-fallback is KZD_Aantal=2 (niet null)."""
     df = demo_tabellen["inschrijvingen"]
+    bsn1_pseudoniem = pseudoniem_van_identifier("BSN1")
     bsn1 = df.filter(
-        (pl.col("_persoon_id") == "BSN1")
+        (pl.col("_persoon_id") == bsn1_pseudoniem)
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
     )
     assert bsn1.height >= 1
@@ -120,8 +122,9 @@ def test_kzd_aantal_bsn1_ingevuld(demo_tabellen):
 
 def test_kzd_behaald_bsn1_ingevuld(demo_tabellen):
     df = demo_tabellen["inschrijvingen"]
+    bsn1_pseudoniem = pseudoniem_van_identifier("BSN1")
     bsn1 = df.filter(
-        (pl.col("_persoon_id") == "BSN1")
+        (pl.col("_persoon_id") == bsn1_pseudoniem)
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
     )
     assert bsn1["KZD_AantalBehaald"].to_list()[0] == 2
@@ -226,7 +229,7 @@ def test_detail_bekostiging_diploma_leeg_zonder_diploma():
 
 
 def test_detail_bekostiging_diploma_persoon_id_aanwezig():
-    """_persoon_id wordt afgeleid van Burgerservicenummer; BSN zelf verdwijnt."""
+    """_persoon_id gepseudonimiseerd van Burgerservicenummer; BSN verwijderd."""
     dip = pl.DataFrame(
         {
             "levering": ["L1"],
@@ -241,7 +244,8 @@ def test_detail_bekostiging_diploma_persoon_id_aanwezig():
     result = _bouw_detail_bekostiging_diploma({"Diploma": dip})
     assert "_persoon_id" in result.columns
     assert "Burgerservicenummer" not in result.columns
-    assert result["_persoon_id"][0] == "900000001"
+    expected_pseudoniem = pseudoniem_van_identifier("900000001")
+    assert result["_persoon_id"][0] == expected_pseudoniem
     assert result["BijdrageDiplomawaarde"][0] == "5"
 
 
@@ -271,10 +275,11 @@ def test_meta_leveringen_bevat_alle_leveringen(demo_tabellen, demo_stacked):
 
 def test_resolve_inschrijving_vult_via_dip():
     """Lege Inschrijvingvolgnummer wordt via ResultaatvolgnummerDiploma → DIP gevuld."""
+    p1_pseudoniem = pseudoniem_van_identifier("P1")
     kzd = pl.DataFrame(
         {
             "levering": ["L1"],
-            "_persoon_id": ["P1"],
+            "_persoon_id": [p1_pseudoniem],
             "Inschrijvingvolgnummer": [""],
             "ResultaatvolgnummerDiploma": ["REF1"],
         }

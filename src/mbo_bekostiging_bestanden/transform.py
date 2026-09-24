@@ -24,6 +24,9 @@ Berekende vlaggen op inschrijvingen:
 """
 
 import functools
+import hashlib
+import hmac
+import os
 from pathlib import Path
 
 import polars as pl
@@ -31,6 +34,36 @@ import polars as pl
 from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
 
 _METADATA = Path(__file__).parent / "metadata"
+
+
+@functools.cache
+def _laad_pseudonimisering_salt() -> str:
+    """Laad salt voor HMAC-pseudonimisering uit env of config.
+
+    Precedence:
+    1. Environment variable MBO_PSEUDONIMISERING_SALT (productie)
+    2. app/config.toml [security] pseudonimisering_salt (demo/dev)
+
+    Raises:
+        ValueError: als geen salt beschikbaar is.
+    """
+    env_salt = os.environ.get("MBO_PSEUDONIMISERING_SALT")
+    if env_salt:
+        return env_salt
+
+    config_path = Path(__file__).parent.parent.parent / "app" / "config.toml"
+    if config_path.exists():
+        import tomllib
+        with open(config_path, "rb") as f:
+            config = tomllib.load(f)
+        salt = config.get("security", {}).get("pseudonimisering_salt")
+        if salt:
+            return salt
+
+    raise ValueError(
+        "Geen pseudonimisering_salt beschikbaar. "
+        "Zet MBO_PSEUDONIMISERING_SALT env-var of voeg toe aan app/config.toml"
+    )
 
 
 @functools.cache
@@ -74,12 +107,28 @@ _RESULTAAT_BEHAALD = "BEHAALD"
 
 
 def _add_persoon_id(df: pl.DataFrame) -> pl.DataFrame:
-    """Voeg ``_persoon_id`` toe: coalesce van PseudoNummer / BSN / ONr."""
+    """Voeg ``_persoon_id`` toe: HMAC-pseudoniem van eerste niet-lege identifier.
+
+    Pseudonimiseert via HMAC-SHA256(salt + coalesce(PseudoNummer|BSN|ONr)).
+    Dit maakt identifier-herlinkage onmogelijk zonder kennis van de salt.
+    """
     beschikbaar = [c for c in _PERSOON_COLS if c in df.columns]
     if not beschikbaar:
         return df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("_persoon_id"))
+
+    salt = _laad_pseudonimisering_salt()
+
+    def hash_identifier(value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
+        msg = f"{salt}:{value}".encode()
+        return hmac.new(salt.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+
+    coalesced = pl.coalesce([pl.col(c) for c in beschikbaar])
     return df.with_columns(
-        pl.coalesce([pl.col(c) for c in beschikbaar]).alias("_persoon_id")
+        coalesced.map_elements(hash_identifier, return_dtype=pl.Utf8).alias(
+            "_persoon_id"
+        )
     )
 
 

@@ -3,3 +3,9 @@
 raw = "data/01-raw/demo"
 prepared = "data/02-prepared/demo"
 output = "data/03-output/demo"
+
+# Pseudonimisering: salt voor HMAC-hashing van persoons-identifiers.
+# WAARSCHUWING: verander deze salt niet zonder herverwerking van alle output!
+# Voor productie: zet een sterke, willekeurige salt in environment var MBO_PSEUDONIMISERING_SALT
+[security]
+pseudonimisering_salt = "demo-salt-niet-voor-productie"
