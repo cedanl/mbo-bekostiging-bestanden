@@ -101,3 +101,25 @@ def test_detail_zonder_inschrijving_krijgt_lege_sleutel():
     )
     result = _koppel_periode_id(detail, _perioden(), "Datum")
     assert result[SLEUTEL].to_list() == [None]
+
+
+def test_periode_zonder_begindatum_is_nooit_de_eerste_periode():
+    perioden = pl.concat(
+        [
+            _perioden(),
+            _perioden()
+            .head(1)
+            .with_columns(
+                pl.lit(None, dtype=pl.Date).alias("DatumBegin"),
+                pl.lit("zonder_begin").alias(SLEUTEL),
+            ),
+        ]
+    )
+    result = _koppel_periode_id(_detail(None), perioden, "Datum")
+    assert result[SLEUTEL].to_list() == ["eerste"]
+
+
+def test_detail_zonder_koppelkolommen_krijgt_lege_sleutel():
+    detail = _detail(date(2024, 9, 1)).drop("Inschrijvingvolgnummer")
+    result = _koppel_periode_id(detail, _perioden(), "Datum")
+    assert result[SLEUTEL].to_list() == [None]

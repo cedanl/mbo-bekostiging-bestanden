@@ -241,17 +241,19 @@ def _koppel_periode_id(
     Een detailrij hoort bij de periode van dezelfde inschrijving met de laatste
     ``DatumBegin`` op of vóór ``datum_kolom``.  Valt de datum vóór de eerste
     periode, of ontbreekt hij, dan wordt de eerste periode gekozen.  Rijen
-    zonder bijbehorende inschrijving krijgen een lege sleutel.  Rijvolgorde en
-    rijtal blijven behouden.
+    zonder bijbehorende inschrijving (of zonder koppelkolommen) krijgen een
+    lege sleutel.  Rijvolgorde en rijtal blijven behouden.
     """
     if detail.is_empty() or _PERIODE_ID not in inschrijvingen.columns:
         return detail
+    if not set(_JOIN_INSCHRIJVING) <= set(detail.columns):
+        return detail.with_columns(pl.lit(None, dtype=pl.Utf8).alias(_PERIODE_ID))
 
     perioden = inschrijvingen.select(
         [*_JOIN_INSCHRIJVING, "DatumBegin", _PERIODE_ID]
     ).rename({"DatumBegin": "_periode_begin"})
     eerste = (
-        perioden.sort("_periode_begin")
+        perioden.sort("_periode_begin", nulls_last=True)
         .unique(subset=_JOIN_INSCHRIJVING, keep="first")
         .select([*_JOIN_INSCHRIJVING, pl.col(_PERIODE_ID).alias("_eerste_periode")])
     )
