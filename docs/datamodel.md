@@ -68,6 +68,9 @@ Die sleutel wijst per detailrij de ISP-periode aan waarin de referentiedatum val
 hij, dan geldt de eerste periode. Rijen zonder bijbehorende inschrijving hebben een lege sleutel.
 Joinen op alleen `(levering, _persoon_id, Inschrijvingvolgnummer)` dupliceert rijen zodra een
 inschrijving meerdere ISP-perioden heeft.
+Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
+instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagina gemeld
+(`quality.controleer_koppelingen`).
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 
 ### Indicatoren in fact_inschrijving
