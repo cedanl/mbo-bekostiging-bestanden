@@ -1158,3 +1158,40 @@ def test_studiejaar_afgeleid_in_demo(demo_tabellen):
     """Na afleiding heeft elke rij een Studiejaar (geen nulls meer)."""
     df = demo_tabellen["inschrijvingen"]
     assert df["Studiejaar"].null_count() == 0
+
+
+# ---------------------------------------------------------------------------
+# HMAC-pseudonimisering: salt-management tests
+# ---------------------------------------------------------------------------
+
+
+def test_laad_pseudonimisering_salt_from_env(monkeypatch):
+    """Env var MBO_PSEUDONIMISERING_SALT takes precedence."""
+    from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
+
+    monkeypatch.setenv("MBO_PSEUDONIMISERING_SALT", "test-env-salt-12345")
+    # Clear the cache to force reload
+    _laad_pseudonimisering_salt.cache_clear()
+
+    salt = _laad_pseudonimisering_salt()
+    assert salt == "test-env-salt-12345"
+
+    # Cleanup
+    _laad_pseudonimisering_salt.cache_clear()
+
+
+def test_laad_pseudonimisering_salt_fails_without_env_or_config(monkeypatch, tmp_path):
+    """If env var missing and no config.toml, should raise ValueError."""
+    from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
+
+    # Remove env var if set
+    monkeypatch.delenv("MBO_PSEUDONIMISERING_SALT", raising=False)
+    # Clear cache
+    _laad_pseudonimisering_salt.cache_clear()
+
+    # When app/config.toml has no salt, should fail
+    with pytest.raises(ValueError, match="Geen pseudonimisering_salt"):
+        _laad_pseudonimisering_salt()
+
+    # Cleanup
+    _laad_pseudonimisering_salt.cache_clear()
