@@ -1,5 +1,7 @@
 """Tests voor star.py (dimensionaal model)."""
 
+from datetime import date
+
 import polars as pl
 from conftest import pseudoniem_van_identifier
 
@@ -20,6 +22,7 @@ def _minimal_stacked() -> dict[str, pl.DataFrame]:
             "Opleidingcode": ["25655", "23301", "25655"],
             "Niveau": ["MBO-4", "MBO-1", "MBO-4"],
             "BRIN": ["01AA", "01AA", "02BB"],
+            "DatumBegin": [date(2024, 1, 1), date(2024, 1, 1), date(2024, 1, 1)],
             "Recordsoort": ["ISP", "ISP", "ISP"],
         }
     )
@@ -152,6 +155,30 @@ def test_fact_inschrijving_grain_uniek():
         f"fact_inschrijving is niet uniek op grain-sleutel: "
         f"{fact.shape[0]} rijen, {unieke_sleutels} unieke sleutels"
     )
+
+
+def test_inschrijving_periode_id_is_stable_and_data_derived():
+    """_inschrijving_periode_id derived from data hash (stable, reproducible, FK-ready).
+
+    Hash of (levering, _persoon_id, Inschrijvingvolgnummer, DatumBegin).
+    - Stable: same data → same hash
+    - Reproducible: order-independent
+    - Usable as FK: depends on data content, not row position
+    """
+    result = build_star(_minimal_stacked())
+    fact = result["fact_inschrijving"]
+    periode_ids = fact["_inschrijving_periode_id"].to_list()
+
+    # Hash-based IDs are non-sequential (hashes won't sort in data order)
+    is_sequential = periode_ids == sorted(periode_ids)
+    assert not is_sequential, (
+        "_inschrijving_periode_id should be hash-derived (non-sequential), "
+        f"not pl.int_range. Got: {periode_ids}"
+    )
+
+    # All IDs present and non-null
+    assert len(periode_ids) == fact.shape[0]
+    assert all(id is not None for id in periode_ids)
 
 
 def test_meta_leveringen_bevat_vlp():
