@@ -169,10 +169,11 @@ wordt automatisch afgehandeld — ontbrekende kolommen krijgen `null`.
 
 ## Let op bij Excel-gebruik
 
-`fact_inschrijving` heeft grain = inschrijvingsperiode (ISP). `BPV_Aantal` en
-`BPV_TotaalOmvang` zijn aggregaten per inschrijving.
-Doe in Excel altijd eerst een **groepering op `(levering, _persoon_id, Inschrijvingvolgnummer)`**
-voordat je BPV-kolommen sommeert, anders tel je dubbel.
+`fact_inschrijving` heeft grain = inschrijvingsperiode (ISP). De aggregaten
+`BPV_*`, `KZD_*` en `AMO_*` gelden per periode: elke BPV, elk keuzedeel en elk
+AMO-onderdeel telt mee in precies één periode (dezelfde als zijn
+`_inschrijving_periode_id` in het detail-feit). Je kunt ze dus direct optellen
+over `fact_inschrijving` zonder dubbeltelling.
 Voor afzonderlijke BPV-regels gebruik je `fact_bpv.parquet`.
 
 ---

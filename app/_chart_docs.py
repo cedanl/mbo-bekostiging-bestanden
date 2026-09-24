@@ -221,8 +221,9 @@ CHART_DOCS: dict[str, dict] = {
         "titel": "BPV-coverage",
         "variabelen": ["Leertraject", "BPV_Aantal"],
         "manipulatie": (
-            "Elke inschrijving wordt op basis van `BPV_Aantal` (> 0) ingedeeld als "
-            "'Met BPV' of 'Zonder BPV'.  Daarna wordt het aantal per combinatie van "
+            "Elke inschrijvingsperiode wordt op basis van `BPV_Aantal` (> 0; "
+            "BPV's die in die periode begonnen) ingedeeld als 'Met BPV' of "
+            "'Zonder BPV'.  Daarna wordt het aantal per combinatie van "
             "Leertraject en BPV-status geteld."
         ),
     },
@@ -246,10 +247,11 @@ CHART_DOCS: dict[str, dict] = {
         "titel": "KZD-behaaldverhouding per levering",
         "variabelen": ["levering", "KZD_Aantal", "KZD_AantalBehaald"],
         "manipulatie": (
-            "Alleen inschrijvingen met minimaal één KZD-onderdeel tellen mee.  Per "
-            "inschrijving wordt het percentage behaalde onderdelen berekend "
+            "Alleen inschrijvingsperioden met minimaal één KZD-resultaat tellen "
+            "mee.  Per periode wordt het percentage behaalde onderdelen berekend "
             "(`KZD_AantalBehaald / KZD_Aantal × 100`), waarna per levering het "
-            "gemiddelde over de inschrijvingen wordt getoond."
+            "gemiddelde over die perioden wordt getoond.  Elk keuzedeel telt in "
+            "precies één periode (op `DatumResultaat`)."
         ),
     },
     "kzd_detail": {
@@ -450,7 +452,9 @@ CHART_DOCS: dict[str, dict] = {
         "variabelen": ["AMO_Aantal"],
         "manipulatie": (
             "Telt het totaal aantal examenvakken voor de arbeidsmarktgerichte "
-            "opleidingsdelen (`AMO_Aantal`) en het gemiddelde per inschrijving."
+            "opleidingsdelen (`AMO_Aantal`) en het gemiddelde per "
+            "inschrijvingsperiode met AMO-onderdelen; elk onderdeel telt in "
+            "precies één periode (op `DatumResultaat`)."
         ),
     },
 }

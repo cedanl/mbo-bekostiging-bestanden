@@ -1199,7 +1199,7 @@ with tab_examens:
             amo_gem = amo_serie.mean()
             ac1, ac2 = st.columns(2)
             ac1.metric("Totaal AMO-onderdelen", f"{amo_totaal:,}")
-            ac2.metric("Gemiddeld per inschrijving", f"{amo_gem:.1f}")
+            ac2.metric("Gemiddeld per periode met AMO", f"{amo_gem:.1f}")
         else:
             st.info("Kolom `AMO_Aantal` is volledig leeg.")
     else:
