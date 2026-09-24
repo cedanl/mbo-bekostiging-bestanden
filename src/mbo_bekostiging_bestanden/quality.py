@@ -26,16 +26,27 @@ def slr_status_icoon(status: str | None) -> str:
 # Recordtypes die alleen in GRONDSLAG IP MBO voorkomen; VLP.Recordsoort is altijd
 # "VLP" en kan een GRONDSLAG-bestand dus niet onderscheiden van een RO-bestand.
 _GRONDSLAG_ONLY_RECORDTYPES = ("BII", "BID")
+# VLP-veld dat alleen in de GRONDSLAG-variant voorkomt
+# (zie metadata/grondslag_schema.toml).
+_GRONDSLAG_VLP_KOLOM = "BekostigingsType"
 
 
 def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
-    """Leid het schema-type (ro|grondslag) af uit de aanwezige recordtypes."""
+    """Leid het schema-type (ro|grondslag) af uit de aanwezige recordtypes.
+
+    Twee onafhankelijke signalen: GRONDSLAG-only recordtypes (BII/BID) óf de
+    VLP-variant met ``BekostigingsType`` — zo blijft een (demo)subset herkend
+    worden, zelfs als daar geen BII/BID-records in zitten.
+    """
     if any(
         frames.get(rt) is not None and not frames[rt].is_empty()
         for rt in _GRONDSLAG_ONLY_RECORDTYPES
     ):
         return "grondslag"
-    if frames.get("VLP") is not None and not frames["VLP"].is_empty():
+    vlp = frames.get("VLP")
+    if vlp is not None and not vlp.is_empty():
+        if _GRONDSLAG_VLP_KOLOM in vlp.columns:
+            return "grondslag"
         return "ro"
     return "unknown"
 
