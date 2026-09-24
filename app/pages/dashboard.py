@@ -144,10 +144,22 @@ _JAREN_KEY = "beschikbare_jaren"
 
 
 def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
-    """Rendert studiejaar-pills met select/deselect-all in de sidebar en filtert df."""
-    if "Studiejaar" not in df.columns:
+    """Rendert studiejaar-pills met select/deselect-all in de sidebar en filtert df.
+
+    Gebruikt Studiejaar_periode voor correcte filtering van periode-gebaseerde data
+    (i.t.t. leveringsjaar). GRONDSLAG-records vertonen hun werkelijke
+    periodejaargangen, niet alleen het leveringsjaar.
+    """
+    # Gebruik Studiejaar_periode als beschikbaar (correct voor periodes),
+    # fallback naar Studiejaar (backward-compat)
+    jaar_col = (
+        "Studiejaar_periode"
+        if "Studiejaar_periode" in df.columns
+        else "Studiejaar"
+    )
+    if jaar_col not in df.columns:
         return df
-    jaren = sorted(df["Studiejaar"].drop_nulls().unique().to_list())
+    jaren = sorted(df[jaar_col].drop_nulls().unique().to_list())
 
     # Synchroniseer selectie-staat wanneer beschikbare jaren veranderen.
     if _JAREN_KEY not in st.session_state:
@@ -195,7 +207,7 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
             st.warning("Geen studiejaar geselecteerd.")
     if not geselecteerd:
         return df.clear()
-    return df.filter(pl.col("Studiejaar").is_in(geselecteerd))
+    return df.filter(pl.col(jaar_col).is_in(geselecteerd))
 
 
 st.markdown(

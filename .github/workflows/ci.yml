@@ -20,3 +20,5 @@ jobs:
         run: uv run ty check
       - name: Test
         run: uv run pytest
+        env:
+          MBO_PSEUDONIMISERING_SALT: "ci-test-key-do-not-use-in-production"
