@@ -13,9 +13,12 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
+from _utils import vind_star_dir
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from mbo_bekostiging_bestanden.pii import detect_pii_columns
+
+_MAX_WEERGAVE_RIJEN = 1_000  # rijen in de tabelweergave; de download is volledig
 
 
 @st.cache_resource(show_spinner=False)
@@ -43,20 +46,16 @@ def _heeft_pii(df: pl.DataFrame) -> bool:
 def _verzamel_tabellen() -> tuple[dict[str, Path], str]:
     """Bepaal de te tonen tabellen en de bron ('star' of 'prepared').
 
-    Voorkeur: het star-datamodel. Ontbreekt dat, dan de losse prepared
-    tabellen per bestand als fallback.
+    Voorkeur: het star-datamodel (uit de sessie of, bij een verse sessie of
+    directe link, van schijf). Ontbreekt dat, dan de losse prepared tabellen
+    per bestand als fallback.
     """
+    star = vind_star_dir(st.session_state)
+    if star is not None:
+        datamodel = star / "datamodel"
+        return {p.stem: p for p in sorted(datamodel.glob("*.parquet"))}, "star"
+
     tabellen: dict[str, Path] = {}
-
-    resultaten_dir = st.session_state.get("resultaten_dir")
-    if resultaten_dir:
-        datamodel = Path(resultaten_dir) / "datamodel"
-        if datamodel.exists():
-            for parquet in sorted(datamodel.glob("*.parquet")):
-                tabellen[parquet.stem] = parquet
-    if tabellen:
-        return tabellen, "star"
-
     for prep in st.session_state.get("prepared_dirs", []):
         prep_pad = Path(prep)
         for parquet in sorted(prep_pad.glob("*.parquet")):
@@ -104,10 +103,22 @@ if gekozen:
     col_info1.metric("Rijen", f"{df.height:,}")
     col_info2.metric("Kolommen", f"{df.width:,}")
 
-    st.dataframe(df.head(1_000), use_container_width=True, hide_index=True)
-
-    if df.height > 1_000:
-        st.caption(f"Eerste 1 000 van {df.height:,} rijen getoond.")
+    kolommen = st.multiselect(
+        "Toon kolommen",
+        df.columns,
+        placeholder="Alle kolommen",
+        key=f"resultaten_kolommen_{gekozen}",
+    )
+    if df.height > _MAX_WEERGAVE_RIJEN:
+        st.caption(
+            f"Eerste {_MAX_WEERGAVE_RIJEN:,} van {df.height:,} rijen getoond; "
+            "de download bevat alle rijen."
+        )
+    st.dataframe(
+        df.select(kolommen or df.columns).head(_MAX_WEERGAVE_RIJEN),
+        use_container_width=True,
+        hide_index=True,
+    )
 
     # Waarschuwing en opties voor PII-gevoelige tabellen
     if _heeft_pii(df):

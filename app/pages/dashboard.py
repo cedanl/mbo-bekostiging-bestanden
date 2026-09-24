@@ -10,7 +10,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _chart_docs import chart_help
-from _utils import output_dir
+from _utils import star_dir, vind_star_dir
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from mbo_bekostiging_bestanden.filters import (
@@ -47,19 +47,6 @@ _KZD_BEHAALD_RE = "(?i)behaald"  # patroon om behaald-status te herkennen
 _KZD_LAGE_GRENS = 50  # drempel waaronder slagingskans als laag wordt beschouwd (%)
 _SBB_BEROEP_TOP_N = 20  # maximaal aantal beroepen in de S-BB-grafiek
 _GEO_SLAAGGRENS = 5.5  # minimaal eindcijfer om als geslaagd te tellen
-
-
-def _resolve_dir() -> Path | None:
-    for key in ("resultaten_dir", "star_pad"):
-        val = st.session_state.get(key)
-        if val:
-            p = Path(val)
-            if (p / "datamodel" / "fact_inschrijving.parquet").exists():
-                return p
-    fallback = output_dir() / "star"
-    if (fallback / "datamodel" / "fact_inschrijving.parquet").exists():
-        return fallback
-    return None
 
 
 @st.cache_resource(show_spinner=False)
@@ -216,12 +203,12 @@ st.markdown(
 )
 st.title("Dashboard")
 
-data_dir = _resolve_dir()
+data_dir = vind_star_dir(st.session_state)
 
 if data_dir is None:
     st.warning(
         "Geen data gevonden — verwerk eerst bestanden via Home of zet "
-        "demo-data in `data/03-output/demo/star/datamodel/`."
+        f"demo-data in `{star_dir() / 'datamodel'}`."
     )
     if st.button("← Home"):
         st.switch_page("pages/home.py")

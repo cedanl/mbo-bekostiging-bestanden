@@ -47,6 +47,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["app"]  # app-helpers (_utils e.d.) zijn los importeerbaar voor tests
 
 [tool.ty.environment]
 python-version = "3.13"
+extra-paths = ["app"]
