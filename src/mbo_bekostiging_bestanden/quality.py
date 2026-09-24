@@ -135,7 +135,8 @@ def check_slr_reconciliation(
             f"SLR-mismatch: {'; '.join(mismatches)}"
         )
     else:
+        # Match = geen problemen: de status zelf is het signaal, dus géén
+        # 'SLR-reconciliatie: OK'-start in warnings (die tonen in de UI ⚠️).
         report.slr_status = "match"
-        report.warnings.append("SLR-reconciliatie: OK")
 
     return report

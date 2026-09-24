@@ -23,9 +23,11 @@ uv run streamlit run app/main.py
 De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 > **Pseudonimisering (fail-closed):** persoons-identifiers worden gehasht met
-> HMAC-SHA256 plus deze salt. Zonder `MBO_PSEUDONIMISERING_SALT` (of een waarde
-> onder `[security]` in `app/config.toml`) weigert de pipeline te draaien.
-> Gebruik lokaal een willekeurige waarde en bewaar echte salts nooit in git.
+> HMAC-SHA256 plus deze salt. Zonder `MBO_PSEUDONIMISERING_SALT` weigert de
+> pipeline te draaien. Productie gebruikt uitsluitend de environment
+> (secret manager); lokaal volstaat het `export`-commando hierboven met een
+> tijdelijke, willekeurige waarde. Bewaar echte salts nooit in git — een
+> `app/config.toml`-fallback is puur voor demo en bevat geen salt meer.
 
 ---
 
