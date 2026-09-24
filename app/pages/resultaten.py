@@ -14,6 +14,17 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
 
+# PII-gevoelige kolommen (persoonsidentificatie, privacygegevens)
+_PII_COLS = {
+    "Burgerservicenummer",
+    "Onderwijsnummer",
+    "Geboortedatum",
+    "Postcode",
+    "Nationaliteit",
+    "Geboorteland",
+    "Migratieachtergrond",
+}
+
 
 @st.cache_resource(show_spinner=False)
 def _lees_tabel(pad: str, mtime: float) -> pl.DataFrame:
@@ -22,9 +33,19 @@ def _lees_tabel(pad: str, mtime: float) -> pl.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def _tabel_csv(pad: str, mtime: float) -> str:
-    """Genereert de CSV-tekst één keer per bestand i.p.v. bij elke rerun."""
-    return _lees_tabel(pad, mtime).write_csv()
+def _tabel_csv(pad: str, mtime: float, drop_pii: bool = False) -> str:
+    """Genereert de CSV-tekst; optioneel met PII-kolommen verwijderd."""
+    df = _lees_tabel(pad, mtime)
+    if drop_pii:
+        pii_kolommen = [c for c in df.columns if c in _PII_COLS]
+        if pii_kolommen:
+            df = df.drop(pii_kolommen)
+    return df.write_csv()
+
+
+def _heeft_pii(df: pl.DataFrame) -> bool:
+    """Detecteer of tabel PII-gevoelige kolommen bevat."""
+    return any(col in df.columns for col in _PII_COLS)
 
 
 def _verzamel_tabellen() -> tuple[dict[str, Path], str]:
@@ -96,9 +117,26 @@ if gekozen:
     if df.height > 1_000:
         st.caption(f"Eerste 1 000 van {df.height:,} rijen getoond.")
 
+    # Waarschuwing en opties voor PII-gevoelige tabellen
+    if _heeft_pii(df):
+        st.warning(
+            "⚠️ **Persoonsgegevens aanwezig**  \n"
+            "Deze tabel bevat privacygevoelige kolommen (bijv. geboortedatum, "
+            "postcode). Zorg ervoor dat je deze data verantwoord behandelt.",
+            icon="⚠️",
+        )
+        drop_pii = st.checkbox(
+            "Verwijder persoonsgegevens voor download",
+            value=False,
+            help="Wanneer ingeschakeld, worden privacygevoelige kolommen "
+            "uit het CSV-bestand verwijderd.",
+        )
+    else:
+        drop_pii = False
+
     st.download_button(
         label=f"Download `{parquet_pad.stem}.csv`",
-        data=_tabel_csv(str(parquet_pad), mtime),
+        data=_tabel_csv(str(parquet_pad), mtime, drop_pii=drop_pii),
         file_name=f"{parquet_pad.stem}.csv",
         mime="text/csv",
         use_container_width=True,
