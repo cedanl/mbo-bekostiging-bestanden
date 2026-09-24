@@ -4,12 +4,29 @@
 
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
+- `MBO_PSEUDONIMISERING_SALT` (zie [Pseudonimisering](#pseudonimisering))
 
 ## Installatie
 
 ```bash
 uv sync
+export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
 ```
+
+---
+
+## Pseudonimisering
+
+Persoons-identifiers (BSN, Onderwijsnummer, PGN) worden met HMAC-SHA256
+gehasht. Dat vereist een salt, ingesteld via de env-var:
+
+```bash
+export MBO_PSEUDONIMISERING_SALT="willekeurige-lokale-waarde"
+```
+
+Zonder geldige salt faalt de pipeline (fail-closed); enkel `app/config.toml`
+mag voor lokale demo-doeleinden een `[security] pseudonimisering_salt` bevatten.
+Bewaar een echte salt nooit in git.
 
 ---
 
@@ -152,8 +169,12 @@ Voor afzonderlijke BPV-regels gebruik je `fact_bpv.parquet`.
 ## Tests
 
 ```bash
+export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
 uv run pytest
 ```
+
+De tests draaien fail-closed op de pseudonimiserings-salt; zonder de env-var
+slaat de pipeline-fase af (zie [Pseudonimisering](#pseudonimisering)).
 
 ---
 
