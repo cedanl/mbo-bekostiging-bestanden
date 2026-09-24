@@ -39,5 +39,3 @@ def test_run_pipeline_all_demo_files(tmp_path):
         assert len(list(out.glob("*.parquet"))) > 0, (
             f"Geen Parquet-uitvoer voor {path.name}"
         )
-
-

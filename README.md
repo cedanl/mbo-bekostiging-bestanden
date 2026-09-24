@@ -16,10 +16,16 @@ bekostigingsdata werken.
 
 ```bash
 uv sync
+export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
 uv run streamlit run app/main.py
 ```
 
 De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
+
+> **Pseudonimisering (fail-closed):** persoons-identifiers worden gehasht met
+> HMAC-SHA256 plus deze salt. Zonder `MBO_PSEUDONIMISERING_SALT` (of een waarde
+> onder `[security]` in `app/config.toml`) weigert de pipeline te draaien.
+> Gebruik lokaal een willekeurige waarde en bewaar echte salts nooit in git.
 
 ---
 
@@ -110,9 +116,13 @@ git.
 ## Ontwikkeling
 
 ```bash
+export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
 uv run pytest       # tests
 uv run ruff check   # lint
 ```
+
+De tests draaien fail-closed op persoons-pseudonimisering; zonder
+`MBO_PSEUDONIMISERING_SALT` faalt de pipeline (zie [Quick start](#quick-start)).
 
 Open de repo in de devcontainer (VS Code / GitHub Codespaces) voor een kant-en-klare omgeving.
 

@@ -1,10 +1,12 @@
 """Tests for _inschrijving_periode_id propagation to detail facts (issue #63).
 
-This file documents the structure needed: detail facts must have _inschrijving_periode_id
-to enable stable joins back to fact_inschrijving without fan-out.
+This file documents the structure needed: detail facts should include
+_inschrijving_periode_id to enable stable joins back to fact_inschrijving
+without fan-out.
 
 After fix implementation:
-- detail_bpv, detail_kzd_amo, detail_geo, detail_amo must include _inschrijving_periode_id
+- detail_bpv, detail_kzd_amo, detail_geo and detail_amo must include
+  _inschrijving_periode_id
 - Joins on this key should preserve row counts (no fan-out)
 - Tests here will verify the propagation is complete
 """

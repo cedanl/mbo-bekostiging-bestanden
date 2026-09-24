@@ -53,9 +53,10 @@ mbo-bekostiging-bestanden/
 
 ## How to Run
 - Dependencies: `uv sync`
-- Tests: `uv run pytest`
 - App: `uv run streamlit run app/main.py`
+- Tests + lint: `MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production" uv run pytest`
 - Pipeline (Python): `run_pipeline(source, target)` uit `pipeline.py`
+- De pipeline pseudonimiseert persoons-identifiers en faalt zonder een geldige salt (fail-closed, zie env-var `MBO_PSEUDONIMISERING_SALT`).
 
 ## Data
 - **Input**: ruwe DUO-bekostigingsbestanden in `data/01-raw/`. Multi-record,
@@ -64,4 +65,4 @@ mbo-bekostiging-bestanden/
 - **Output**: schone Parquet in `data/02-prepared/` of `data/03-output/`.
 - Echte data is gitignored; alleen demo-data in `data/*/demo/` staat in git
   (overgenomen uit `cedanl/duo-mbo-datafiles`).
-- **Privacy**: RO- en GRONDSLAG-data is persoonsniveau (PER-records). Persoonsidentificerende gegevens (Burgerservicenummer, Onderwijsnummer) worden verwijderd uit de star-output. Persoons-identifiers worden gepseudonimiseerd via HMAC-SHA256 met een configureerbare salt (zie `app/config.toml` of env-var `MBO_PSEUDONIMISERING_SALT`). Geen BSN/ONr committen; alleen demo-data in repo.
+- **Privacy**: RO- en GRONDSLAG-data is persoonsniveau (PER-records). Persoonsidentificerende gegevens (Burgerservicenummer, Onderwijsnummer) worden verwijderd uit de star-output. Persoons-identifiers worden gepseudonimiseerd via HMAC-SHA256 met een configureerbare salt via env-var `MBO_PSEUDONIMISERING_SALT` (fail-closed; `app/config.toml` alleen voor lokale demo). Geen BSN/ONr en geen echte salt committen; alleen demo-data in repo.
