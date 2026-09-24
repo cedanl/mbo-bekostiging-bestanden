@@ -69,6 +69,28 @@ def test_slr_match_status_when_numbers_agree():
     )
 
 
+def test_slr_match_levert_geen_ok_waarschuwing():
+    """Een geslaagde check zet 'SLR-reconciliatie: OK' niet in warnings.
+
+    Regressie #81: de OK-melding verscheen óók in `warnings`, waardoor de UI
+    naast de groene ✅-status een ⚠️-regel toonde. Warnings zijn gereserveerd
+    voor problemen; `slr_status == "match"` is zelf al het signaal.
+    """
+    frames = {
+        "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
+        "SLR": pl.DataFrame({
+            "AantalPER": [10],
+            "AantalISP": [20],
+        }),
+        "PER": pl.DataFrame({"dummy": [1] * 10}),
+        "ISP": pl.DataFrame({"dummy": [1] * 20}),
+    }
+
+    report = check_slr_reconciliation(frames, "ro_match")
+    assert report.slr_status == "match"
+    assert "SLR-reconciliatie: OK" not in report.warnings
+
+
 def test_slr_mismatch_status():
     """SLR mismatch: expected != actual → status 'mismatch'."""
     frames = {

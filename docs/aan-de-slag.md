@@ -24,9 +24,16 @@ gehasht. Dat vereist een salt, ingesteld via de env-var:
 export MBO_PSEUDONIMISERING_SALT="willekeurige-lokale-waarde"
 ```
 
-Zonder geldige salt faalt de pipeline (fail-closed); enkel `app/config.toml`
-mag voor lokale demo-doeleinden een `[security] pseudonimisering_salt` bevatten.
-Bewaar een echte salt nooit in git.
+Zonder geldige salt faalt de pipeline (fail-closed).
+
+- **Productie:** de salt komt uitsluitend uit de environment (secret manager,
+  bijv. via het deploymentplatform). Geen salt in de repo of in
+  applicatieconfig opslaan.
+- **Lokale demo:** het `export`-commando hierboven volstaat met een tijdelijke,
+  willekeurige waarde.
+- `app/config.toml` heeft nog een `[security] pseudonimisering_salt`-fallback
+  voor oude setups, maar de meegeleverde config bevat bewust géén salt meer.
+  Gebruik die fallback niet voor echte data; een echte salt hoort er niet thuis.
 
 ---
 
