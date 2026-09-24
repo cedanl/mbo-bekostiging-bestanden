@@ -3,7 +3,11 @@
 import polars as pl
 from conftest import pseudoniem_van_identifier
 
-from mbo_bekostiging_bestanden.star import _build_dim, build_star
+from mbo_bekostiging_bestanden.star import (
+    _PERSON_IDENTIFIER_COLS,
+    _build_dim,
+    build_star,
+)
 
 
 def _minimal_stacked() -> dict[str, pl.DataFrame]:
@@ -156,3 +160,20 @@ def test_meta_leveringen_bevat_vlp():
     meta = result["meta_leveringen"]
     assert not meta.is_empty()
     assert meta["levering"].to_list() == ["h15/RO_X"]
+
+
+def test_no_person_identifiers_in_star_facts():
+    """Feittabellen bevatten geen persoon-identifiers (BSN, ONr, PseudoNummer).
+
+    _persoon_id mag wel (gehashed), maar ruwe identifiers niet.
+    """
+    result = build_star(_minimal_stacked())
+    fact_tables = [k for k in result.keys() if k.startswith("fact_")]
+
+    for table_name in fact_tables:
+        df = result[table_name]
+        found_identifiers = _PERSON_IDENTIFIER_COLS & set(df.columns)
+        assert not found_identifiers, (
+            f"{table_name} contains person identifiers: {found_identifiers}. "
+            f"These must be removed before star export."
+        )
