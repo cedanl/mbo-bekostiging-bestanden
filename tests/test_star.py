@@ -147,8 +147,12 @@ def test_fact_inschrijving_grain_uniek():
     """
     result = build_star(_minimal_stacked())
     fact = result["fact_inschrijving"]
-    grain_key = ["levering", "_persoon_id", "Inschrijvingvolgnummer",
-                 "_inschrijving_periode_id"]
+    grain_key = [
+        "levering",
+        "_persoon_id",
+        "Inschrijvingvolgnummer",
+        "_inschrijving_periode_id",
+    ]
     assert "_inschrijving_periode_id" in fact.columns
     unieke_sleutels = fact.select(grain_key).unique().shape[0]
     assert fact.shape[0] == unieke_sleutels, (
@@ -184,16 +188,15 @@ def test_inschrijving_periode_id_is_rijvolgorde_onafhankelijk():
     """
     stacked = _minimal_stacked()
     herordend = {
-        key: df.reverse() if df.height > 1 else df
-        for key, df in stacked.items()
+        key: df.reverse() if df.height > 1 else df for key, df in stacked.items()
     }
 
-    ids_a = sorted(build_star(_minimal_stacked())["fact_inschrijving"][
-        "_inschrijving_periode_id"
-    ])
-    ids_b = sorted(build_star(herordend)["fact_inschrijving"][
-        "_inschrijving_periode_id"
-    ])
+    ids_a = sorted(
+        build_star(_minimal_stacked())["fact_inschrijving"]["_inschrijving_periode_id"]
+    )
+    ids_b = sorted(
+        build_star(herordend)["fact_inschrijving"]["_inschrijving_periode_id"]
+    )
 
     assert ids_a == ids_b
 
@@ -209,15 +212,28 @@ def test_inschrijving_periode_id_volgt_uit_brondata():
     )
     gewijzigd = {**stacked, "ISP": isp}
 
-    ids_a = sorted(build_star(_minimal_stacked())["fact_inschrijving"][
-        "_inschrijving_periode_id"
-    ])
-    ids_b = sorted(build_star(gewijzigd)["fact_inschrijving"][
-        "_inschrijving_periode_id"
-    ])
+    ids_a = sorted(
+        build_star(_minimal_stacked())["fact_inschrijving"]["_inschrijving_periode_id"]
+    )
+    ids_b = sorted(
+        build_star(gewijzigd)["fact_inschrijving"]["_inschrijving_periode_id"]
+    )
 
     assert ids_a != ids_b
     assert len(ids_a) == len(ids_b)
+
+
+def test_inschrijving_periode_id_is_volledige_sha256():
+    """De sleutel is de volledige SHA-256 (256 bit), niet een afgekapte prefix.
+
+    Een 64-bit prefix heeft bij grote aantallen perioden een reëel
+    collisionrisico zonder dat de pipeline dat merkt (#86).
+    """
+    ids = build_star(_minimal_stacked())["fact_inschrijving"][
+        "_inschrijving_periode_id"
+    ]
+    sha256_hex = r"^[0-9a-f]{64}$"
+    assert ids.str.contains(sha256_hex).all()
 
 
 def test_meta_leveringen_bevat_vlp():
