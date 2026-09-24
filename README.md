@@ -18,7 +18,7 @@ bekostigingsdata werken.
 
 ```bash
 uv sync
-export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
+export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 uv run streamlit run app/main.py
 ```
 
@@ -27,8 +27,9 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 > **Pseudonimisering (fail-closed):** persoons-identifiers worden gehasht met
 > HMAC-SHA256 plus deze salt. Zonder `MBO_PSEUDONIMISERING_SALT` weigert de
 > pipeline te draaien. Productie gebruikt uitsluitend de environment
-> (secret manager); lokaal volstaat het `export`-commando hierboven met een
-> tijdelijke, willekeurige waarde. Bewaar echte salts nooit in git — een
+> (secret manager); lokaal genereert het `export`-commando hierboven een
+> willekeurige salt per shell. Bewaar die zelf als je pseudoniemen tussen sessies
+> wilt kunnen koppelen. Bewaar echte salts nooit in git — een
 > `app/config.toml`-fallback is puur voor demo en bevat geen salt meer.
 
 ---
@@ -120,13 +121,15 @@ git.
 ## Ontwikkeling
 
 ```bash
-export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
+export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"  # alleen tests/CI
 uv run pytest       # tests
 uv run ruff check   # lint
 ```
 
 De tests draaien fail-closed op persoons-pseudonimisering; zonder
 `MBO_PSEUDONIMISERING_SALT` faalt de pipeline (zie [Quick start](#quick-start)).
+De vaste testwaarde is publiek en dus herleidbaar: gebruik hem uitsluitend op
+synthetische data (tests, CI), nooit voor het verwerken van echte bestanden.
 
 Open de repo in de devcontainer (VS Code / GitHub Codespaces) voor een kant-en-klare omgeving.
 

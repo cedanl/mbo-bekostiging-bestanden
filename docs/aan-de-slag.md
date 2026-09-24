@@ -10,7 +10,7 @@
 
 ```bash
 uv sync
-export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
+export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ```
 
 ---
@@ -21,7 +21,7 @@ Persoons-identifiers (BSN, Onderwijsnummer, PGN) worden met HMAC-SHA256
 gehasht. Dat vereist een salt, ingesteld via de env-var:
 
 ```bash
-export MBO_PSEUDONIMISERING_SALT="willekeurige-lokale-waarde"
+export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ```
 
 Zonder geldige salt faalt de pipeline (fail-closed).
@@ -29,8 +29,12 @@ Zonder geldige salt faalt de pipeline (fail-closed).
 - **Productie:** de salt komt uitsluitend uit de environment (secret manager,
   bijv. via het deploymentplatform). Geen salt in de repo of in
   applicatieconfig opslaan.
-- **Lokale demo:** het `export`-commando hierboven volstaat met een tijdelijke,
-  willekeurige waarde.
+- **Lokale demo:** het `export`-commando hierboven genereert een willekeurige
+  salt per shell. Bewaar die zelf als je pseudoniemen tussen sessies wilt
+  kunnen koppelen.
+- **Tests/CI:** gebruiken de vaste, publieke waarde
+  `ci-test-key-do-not-use-in-production`. Die is herleidbaar en hoort dus
+  nooit bij echte data.
 - `app/config.toml` heeft nog een `[security] pseudonimisering_salt`-fallback
   voor oude setups, maar de meegeleverde config bevat bewust géén salt meer.
   Gebruik die fallback niet voor echte data; een echte salt hoort er niet thuis.
@@ -176,7 +180,7 @@ Voor afzonderlijke BPV-regels gebruik je `fact_bpv.parquet`.
 ## Tests
 
 ```bash
-export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"
+export MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production"  # alleen tests/CI
 uv run pytest
 ```
 
