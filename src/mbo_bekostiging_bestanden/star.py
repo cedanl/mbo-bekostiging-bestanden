@@ -83,8 +83,9 @@ _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 # Kolommen die PII bevatten en uit de output verwijderd worden.
 # _persoon_id is gepseudonimiseerd (HMAC-SHA256), maar BSN en Onderwijsnummer
 # staan nog rechtstreeks in de brondata en moeten verwijderd worden.
-_PII_DROP = {"Burgerservicenummer", "Onderwijsnummer", "_bron"}
-_BEKOSTIGING_DROP = _PII_DROP  # Legacy alias voor backward-compatibility
+_PERSON_IDENTIFIER_COLS = {"Burgerservicenummer", "Onderwijsnummer", "PseudoNummer"}
+_PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
+_BEKOSTIGING_DROP = _PII_DROP
 
 
 # ---------------------------------------------------------------------------
