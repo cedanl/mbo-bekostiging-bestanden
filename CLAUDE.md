@@ -66,3 +66,4 @@ mbo-bekostiging-bestanden/
 - Echte data is gitignored; alleen demo-data in `data/*/demo/` staat in git
   (overgenomen uit `cedanl/duo-mbo-datafiles`).
 - **Privacy**: RO- en GRONDSLAG-data is persoonsniveau (PER-records). Persoonsidentificerende gegevens (Burgerservicenummer, Onderwijsnummer) worden verwijderd uit de star-output. Persoons-identifiers worden gepseudonimiseerd via HMAC-SHA256 met een configureerbare salt via env-var `MBO_PSEUDONIMISERING_SALT` (fail-closed; `app/config.toml` alleen voor lokale demo). Geen BSN/ONr en geen echte salt committen; alleen demo-data in repo.
+- **Deployment**: de Streamlit-app is uitsluitend voor lokaal/demo-gebruik en wordt nooit gehost (ook niet op SURF, geen SRAM). Voeg geen login, exportrechten of audit-logging toe zonder nieuw besluit (zie #82).

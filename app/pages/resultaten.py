@@ -128,6 +128,8 @@ if gekozen:
             "postcode). Zorg ervoor dat je deze data verantwoord behandelt.",
             icon="⚠️",
         )
+        # Lokale single-user app (#82): wie hem draait beslist zelf over de
+        # export; daarom geen autorisatie, wel privacy-by-default.
         drop_pii = st.checkbox(
             "Verwijder persoonsgegevens voor download",
             value=True,
