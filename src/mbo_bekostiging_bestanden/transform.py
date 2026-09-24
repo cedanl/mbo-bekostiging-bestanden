@@ -275,17 +275,16 @@ def _vul_niveau_aan(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
-    """Vul ontbrekend Studiejaar af uit beschikbare datumvelden.
+    """Vul Studiejaar af uit beschikbare datumvelden; voeg ook periodieke variant toe.
 
     Studiejaar loopt van 1 augustus t/m 31 juli:
-    maand >= 8 → studiejaar = jaar; maand < 8 → studiejaar = jaar - 1.
+    maand >= 8 → jaar; maand < 8 → jaar - 1.
 
-    Bronspecifiek:
-    - GRONDSLAG levert Studiejaar expliciet via VLP.
-    - RO: afgeleid uit DatumBegin (ISP-periode).
-    - TBGI: afgeleid uit DatumInschrijving als DatumBegin ontbreekt.
+    Voegt twee kolommen toe voor duidelijkheid:
+    - Studiejaar_periode: afgeleid uit DatumBegin (ISP-periode).
+    - Studiejaar_levering: van bronbestand (GRONDSLAG) of null.
 
-    Bestaande (niet-null) waarden worden niet overschreven.
+    Behoudt Studiejaar (coalesce voor backwards-compat).
     """
     datum_col = next(
         (c for c in ("DatumBegin", "DatumInschrijving") if c in df.columns),
@@ -300,21 +299,37 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
             .cast(pl.Int64)
         )
 
-    if "Studiejaar" not in df.columns:
-        if datum_col is None:
-            return df
-        return df.with_columns(_studiejaar_expr(datum_col).alias("Studiejaar"))
+    # Bereken altijd Studiejaar_periode (uit datum)
+    if datum_col is not None:
+        df = df.with_columns(_studiejaar_expr(datum_col).alias("Studiejaar_periode"))
+    else:
+        df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar_periode"))
 
-    if df["Studiejaar"].null_count() == 0:
-        return df
-    if datum_col is None:
-        return df
-
-    return df.with_columns(
-        pl.coalesce([pl.col("Studiejaar"), _studiejaar_expr(datum_col)]).alias(
-            "Studiejaar"
+    # Bewaar leveringsjaar apart (afkomstig van bronbestand)
+    if "Studiejaar" in df.columns:
+        df = df.with_columns(
+            pl.col("Studiejaar")
+            .cast(pl.Int64)
+            .alias("Studiejaar_levering")
         )
-    )
+    else:
+        df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar_levering"))
+
+    # Zet Studiejaar (oorspronkelijke kolom) voor backwards-compat
+    if "Studiejaar" not in df.columns:
+        if datum_col is not None:
+            df = df.with_columns(_studiejaar_expr(datum_col).alias("Studiejaar"))
+        else:
+            df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar"))
+    elif df["Studiejaar"].null_count() > 0 and datum_col is not None:
+        # Vul nulls aan
+        df = df.with_columns(
+            pl.coalesce([pl.col("Studiejaar"), _studiejaar_expr(datum_col)]).alias(
+                "Studiejaar"
+            )
+        )
+
+    return df
 
 
 def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:

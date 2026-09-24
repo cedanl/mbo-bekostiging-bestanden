@@ -1143,10 +1143,15 @@ def test_studiejaar_uit_datuminschrijving():
 
 
 def test_studiejaar_geen_datum_geen_crash():
-    """Zonder datumvelden en zonder Studiejaar → geen crash, geen kolom."""
+    """Zonder datumvelden: voegt Studiejaar_*, Studiejaar toe (alle null)."""
     df = pl.DataFrame({"_persoon_id": ["P1"]})
     result = _leid_studiejaar_af(df)
-    assert "Studiejaar" not in result.columns
+    assert "Studiejaar_periode" in result.columns
+    assert "Studiejaar_levering" in result.columns
+    assert "Studiejaar" in result.columns
+    assert result["Studiejaar"][0] is None
+    assert result["Studiejaar_periode"][0] is None
+    assert result["Studiejaar_levering"][0] is None
 
 
 def test_studiejaar_afgeleid_in_demo(demo_tabellen):
