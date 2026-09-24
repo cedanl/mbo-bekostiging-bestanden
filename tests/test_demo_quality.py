@@ -24,7 +24,9 @@ def _demo_bestandssoorten() -> list[Path]:
     ]
 
 
-@pytest.mark.parametrize("bestand", _demo_bestandssoorten(), ids=lambda p: p.name)
+@pytest.mark.parametrize(
+    "bestand", _demo_bestandssoorten(), ids=lambda p: str(p)
+)
 def test_demo_quality_slr_status_is_match(tmp_path, bestand):
     """Het demo-bestand reconcilieert zonder mismatch tegen zijn eigen SLR."""
     run_auto_pipeline(bestand, tmp_path / bestand.stem)
