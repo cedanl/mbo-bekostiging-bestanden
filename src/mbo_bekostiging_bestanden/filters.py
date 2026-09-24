@@ -13,6 +13,11 @@ _STUDIEJAAR_KOLOMMEN = ("Studiejaar_periode", "Studiejaar")
 # Studiejaar_periode-kolom, en het zijn twee verschillende begrippen die toevallig
 # dezelfde naam delen.
 _FEIT_STUDIEJAAR_KOLOM = "Studiejaar"
+# Koppelsleutels van detail-feiten naar fact_inschrijving, in voorkeursvolgorde:
+# de periodesleutel wijst één ISP-periode aan; de inschrijvingssleutel is de
+# fallback voor star-output van vóór die sleutel (en kent geen periode).
+_PERIODE_SLEUTEL = ["_inschrijving_periode_id"]
+_INSCHRIJVING_SLEUTEL = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 
 def periode_jaar_kolom(df: pl.DataFrame) -> str | None:
@@ -51,3 +56,22 @@ def filter_fact_bekostiging_op_jaar(
     if not jaren:
         return fact_bekostiging.clear()
     return fact_bekostiging.filter(pl.col(_FEIT_STUDIEJAAR_KOLOM).is_in(jaren))
+
+
+def filter_detail_op_inschrijvingen(
+    detail: pl.DataFrame,
+    geselecteerde_inschrijvingen: pl.DataFrame,
+) -> pl.DataFrame:
+    """Beperk een detail-feit tot de rijen van de geselecteerde inschrijvingen.
+
+    Koppelt via ``_inschrijving_periode_id`` zodat alleen detailrijen uit de
+    geselecteerde ISP-perioden overblijven; ontbreekt die sleutel, dan via
+    (levering, _persoon_id, Inschrijvingvolgnummer).  Een semi-join, dus nooit
+    fan-out.  Zonder gedeelde sleutel of zonder selectie is het resultaat leeg.
+    """
+    for sleutel in (_PERIODE_SLEUTEL, _INSCHRIJVING_SLEUTEL):
+        if set(sleutel) <= set(detail.columns) & set(
+            geselecteerde_inschrijvingen.columns
+        ):
+            return detail.join(geselecteerde_inschrijvingen, on=sleutel, how="semi")
+    return detail.clear()
