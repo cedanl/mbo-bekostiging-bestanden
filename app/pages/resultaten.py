@@ -116,7 +116,7 @@ if gekozen:
         )
     st.dataframe(
         df.select(kolommen or df.columns).head(_MAX_WEERGAVE_RIJEN),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -144,11 +144,11 @@ if gekozen:
         data=_tabel_csv(str(parquet_pad), mtime, drop_pii=drop_pii),
         file_name=f"{parquet_pad.stem}.csv",
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
     )
 
 st.write("")
 col_terug, _ = st.columns([1, 3])
 with col_terug:
-    if st.button("← Home", use_container_width=True):
+    if st.button("← Home", width="stretch"):
         st.switch_page("pages/home.py")

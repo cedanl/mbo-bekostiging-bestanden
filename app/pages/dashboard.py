@@ -176,9 +176,9 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
             "(bijv. 2024 = aug 2024 – jul 2025)."
         )
         col_all, col_none = st.columns(2)
-        if col_all.button("Alle", use_container_width=True):
+        if col_all.button("Alle", width="stretch"):
             st.session_state[_PILLS_KEY] = jaren
-        if col_none.button("Geen", use_container_width=True):
+        if col_none.button("Geen", width="stretch"):
             st.session_state[_PILLS_KEY] = []
         geselecteerd = st.pills(
             "Studiejaar",
@@ -230,7 +230,7 @@ def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
             x=alt.X(f"{value}:Q", title=value),
         )
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
 
 fact_geo_f = filter_detail_op_inschrijvingen(fact_geo, df)
@@ -365,7 +365,7 @@ with tab_rendementen:
                         "Voldoet aan voldoende-norm"
                     )
                 )
-                st.dataframe(jr, use_container_width=True, hide_index=True)
+                st.dataframe(jr, width="stretch", hide_index=True)
 
                 st.bar_chart(jr, x="Niveau", y="JR (%)", color="levering")
                 st.caption(
@@ -430,7 +430,7 @@ with tab_rendementen:
                     )
                 )
             )
-            st.dataframe(dr_agg, use_container_width=True, hide_index=True)
+            st.dataframe(dr_agg, width="stretch", hide_index=True)
             st.bar_chart(dr_agg, x="Niveau", y="DR (%)", color="levering")
             st.caption(
                 "Normen voor voldoende (DR): niveau 2 = "
@@ -499,7 +499,7 @@ with tab_rendementen:
                 row["Norm vold. DR (%)"] = norm_voor("dr", niv, "voldoende")
             rows.append(row)
         if rows:
-            st.dataframe(pl.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.dataframe(pl.DataFrame(rows), width="stretch", hide_index=True)
             st.warning(
                 "SR (startersresultaat) is niet beschikbaar — dit vereist zes "
                 "jaar inschrijvingshistorie die buiten de eigen leveringen valt. "
@@ -524,7 +524,7 @@ with tab_rendementen:
             f"{entree_totaal(df):,}",
             help="Aantal inschrijvingen op niveau 1 (Entree).",
         )
-        st.dataframe(entree_df, use_container_width=True, hide_index=True)
+        st.dataframe(entree_df, width="stretch", hide_index=True)
         if "Categorie" in entree_df.columns:
             st.bar_chart(entree_df, x="Categorie", y="Aandeel (%)")
 
@@ -797,7 +797,7 @@ with tab_opleidingen:
             .rename({"levering": "Levering"})
         )
         if not kzd.is_empty():
-            st.dataframe(kzd, use_container_width=True, hide_index=True)
+            st.dataframe(kzd, width="stretch", hide_index=True)
         else:
             st.info("Geen KZD-data beschikbaar.")
     else:
@@ -890,14 +890,14 @@ with tab_opleidingen:
             .head(_KZD_TOP_N)
         )
         if not kzd_detail.is_empty():
-            st.dataframe(kzd_detail, use_container_width=True, hide_index=True)
+            st.dataframe(kzd_detail, width="stretch", hide_index=True)
             lage_kzd = kzd_detail.filter(pl.col("Behaald (%)") < _KZD_LAGE_GRENS)
             if not lage_kzd.is_empty():
                 st.warning(
                     f"{lage_kzd.height} keuzedeel(en) in de top-{_KZD_TOP_N} "
                     f"met minder dan {_KZD_LAGE_GRENS}% behaald:"
                 )
-                st.dataframe(lage_kzd, use_container_width=True, hide_index=True)
+                st.dataframe(lage_kzd, width="stretch", hide_index=True)
         else:
             st.info("Geen keuzedeel-data beschikbaar.")
     else:
@@ -916,7 +916,7 @@ with tab_opleidingen:
         if not instelling_info.is_empty():
             st.subheader("Instelling")
             chart_help("instelling")
-            st.dataframe(instelling_info, use_container_width=True, hide_index=True)
+            st.dataframe(instelling_info, width="stretch", hide_index=True)
 
 # ---------------------------------------------------------------------------
 # Tab 4 — Studenten
@@ -974,7 +974,7 @@ with tab_studenten:
             .head(10)
         )
         if not top10_gem.is_empty():
-            st.dataframe(top10_gem, use_container_width=True, hide_index=True)
+            st.dataframe(top10_gem, width="stretch", hide_index=True)
         else:
             st.info("Geen gemeentedata beschikbaar.")
 
@@ -995,7 +995,7 @@ with tab_studenten:
             .rename({"CodeGeboorteland_naam": "Geboorteland"})
         )
         if not top10_land.is_empty():
-            st.dataframe(top10_land, use_container_width=True, hide_index=True)
+            st.dataframe(top10_land, width="stretch", hide_index=True)
         else:
             st.info("Geen geboortelanddata beschikbaar.")
 
@@ -1125,7 +1125,7 @@ with tab_examens:
         geo_tbl = pl.DataFrame(_geo_stats).sort("N", descending=True)
         st.dataframe(
             geo_tbl.select(["Onderdeel", "Gemiddeld eindcijfer", "N"]),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     elif _geo_heeft_data:
@@ -1295,7 +1295,7 @@ with tab_opl_structuur:
             )
             st.bar_chart(dist, x="Laatste schooljaar", y="Inschrijvingen")
             with st.expander("Detailtabel opleidingen met looptijd"):
-                st.dataframe(looptijd, use_container_width=True, hide_index=True)
+                st.dataframe(looptijd, width="stretch", hide_index=True)
         else:
             st.info("Geen looptijddata beschikbaar.")
     else:
@@ -1343,7 +1343,7 @@ with tab_opl_structuur:
             "voor longitudinale analyses samenvoegen met de 27xxx-opvolger.",
         )
         if not met_opvolger_dim.is_empty():
-            st.dataframe(met_opvolger_dim, use_container_width=True, hide_index=True)
+            st.dataframe(met_opvolger_dim, width="stretch", hide_index=True)
         else:
             st.info("Geen opleidingen met opvolger in de geselecteerde data.")
     else:
