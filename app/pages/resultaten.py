@@ -14,16 +14,48 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
 
-# PII-gevoelige kolommen (persoonsidentificatie, privacygegevens)
-_PII_COLS = {
+# PII-gevoelige kolompatronen (persoonsidentificatie, privacygegevens)
+# Gebruikt pattern matching omdat star schema kolommen hernoemt:
+# - Postcode → Postcodecijfers, Postcodecijfers_*
+# - Nationaliteit → Nationaliteit1, Nationaliteit1_naam, *_migratieachtergrond
+# - Geboorteland → CodeGeboorteland, CodeGeboorteland_naam, CodeGeboortelandOuder*
+# - DatumVestiging* , DatumVertrek* etc.
+_PII_PATTERNS = {
     "Burgerservicenummer",
     "Onderwijsnummer",
+    "PseudoNummer",
     "Geboortedatum",
     "Postcode",
+    "Gemeente",
     "Nationaliteit",
     "Geboorteland",
     "Migratieachtergrond",
+    "Verblijfstitel",
+    "DatumVestiging",
+    "DatumVertrek",
+    "_persoon_id",  # Hashed ID is still person-bound
 }
+
+
+def _detect_pii_columns(columns: list[str]) -> list[str]:
+    """Detecteer PII-gevoelige kolommen via pattern matching.
+
+    Handelt exact matches (BSN, ONr) en pattern matches (Postcode* → Postcodecijfers).
+    Case-insensitive substring matching.
+    """
+    pii_found = []
+    for col in columns:
+        # Exact match eerst
+        if col in _PII_PATTERNS:
+            pii_found.append(col)
+            continue
+        # Pattern match: pattern is substring van kolomnaam (case-insensitive)
+        col_lower = col.lower()
+        for pattern in _PII_PATTERNS:
+            if pattern.lower() in col_lower:
+                pii_found.append(col)
+                break
+    return pii_found
 
 
 @st.cache_resource(show_spinner=False)
@@ -37,7 +69,7 @@ def _tabel_csv(pad: str, mtime: float, drop_pii: bool = False) -> str:
     """Genereert de CSV-tekst; optioneel met PII-kolommen verwijderd."""
     df = _lees_tabel(pad, mtime)
     if drop_pii:
-        pii_kolommen = [c for c in df.columns if c in _PII_COLS]
+        pii_kolommen = _detect_pii_columns(df.columns)
         if pii_kolommen:
             df = df.drop(pii_kolommen)
     return df.write_csv()
@@ -45,7 +77,7 @@ def _tabel_csv(pad: str, mtime: float, drop_pii: bool = False) -> str:
 
 def _heeft_pii(df: pl.DataFrame) -> bool:
     """Detecteer of tabel PII-gevoelige kolommen bevat."""
-    return any(col in df.columns for col in _PII_COLS)
+    return bool(_detect_pii_columns(df.columns))
 
 
 def _verzamel_tabellen() -> tuple[dict[str, Path], str]:
@@ -127,9 +159,9 @@ if gekozen:
         )
         drop_pii = st.checkbox(
             "Verwijder persoonsgegevens voor download",
-            value=False,
-            help="Wanneer ingeschakeld, worden privacygevoelige kolommen "
-            "uit het CSV-bestand verwijderd.",
+            value=True,
+            help="Privacygegevens worden standaard verwijderd (aanbevolen). "
+            "Uncheck om volledige tabel te downloaden (met PII).",
         )
     else:
         drop_pii = False
