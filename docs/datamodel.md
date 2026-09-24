@@ -68,6 +68,14 @@ Die sleutel wijst per detailrij de ISP-periode aan waarin de referentiedatum val
 hij, dan geldt de eerste periode. Rijen zonder bijbehorende inschrijving hebben een lege sleutel.
 Bij TBGI-only input (geen ISP) is elke TBGI-inschrijving één periode vanaf `DatumInschrijving`;
 de sleutel en de koppelregel zijn verder gelijk, zodat het schema in beide routes uniform is.
+
+**Bekostiging over leveringen heen.** TBGI-bekostiging komt altijd uit een andere levering dan
+de RO-inschrijvingen. `fact_bekostiging` en `fact_bekostiging_diploma` koppelen daarom eerst
+binnen hun eigen levering (bijv. BII in GRONDSLAG) en daarna — alleen als er een passende
+inschrijving is — via `(BRIN, _persoon_id, Inschrijvingvolgnummer)` aan de ISP-periode waarin de
+`Teldatum` (resp. `DatumBehaald`) valt. Staat dezelfde periode in meerdere leveringen, dan wint de
+levering die alfabetisch als laatste komt (leveringsnamen eindigen op hun datums). Zonder
+passende inschrijving blijft de sleutel leeg en meldt Home de rij als niet-gekoppeld.
 Joinen op alleen `(levering, _persoon_id, Inschrijvingvolgnummer)` dupliceert rijen zodra een
 inschrijving meerdere ISP-perioden heeft.
 Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
