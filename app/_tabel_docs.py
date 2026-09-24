@@ -14,8 +14,8 @@ import streamlit as st
 PAGINA_INTRO = (
     "Op deze pagina blader je door de verwerkte tabellen (het **star schema**). "
     "Kies een tabel, kies eventueel welke kolommen je ziet en download "
-    "desgewenst de volledige tabel als CSV. Onder elke tabel-keuze staat uitleg over wat je "
-    "ziet en waar de gegevens vandaan komen.\n\n"
+    "desgewenst de volledige tabel als CSV. Onder elke tabel-keuze staat "
+    "uitleg over wat je ziet en waar de gegevens vandaan komen.\n\n"
     "Een tabel kan **leeg** zijn als het bijbehorende bronbestand niet is "
     "verwerkt (bijvoorbeeld geen h16-TBGI meegeleverd). Dat is geen fout."
 )
