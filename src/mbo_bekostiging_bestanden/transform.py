@@ -330,16 +330,11 @@ def _koppel_periode_id_met_terugval(
     sleutels: tuple[list[str], ...],
 ) -> pl.DataFrame:
     """Koppel via de eerste sleutel die voor een rij een periode oplevert."""
-    kandidaten = [
-        gekoppeld[_PERIODE_ID]
-        for sleutel in sleutels
-        if _PERIODE_ID
-        in (
-            gekoppeld := _koppel_periode_id(
-                detail, inschrijvingen, datum_kolom, sleutel
-            )
-        )
-    ]
+    kandidaten: list[pl.Series] = []
+    for sleutel in sleutels:
+        gekoppeld = _koppel_periode_id(detail, inschrijvingen, datum_kolom, sleutel)
+        if _PERIODE_ID in gekoppeld.columns:
+            kandidaten.append(gekoppeld[_PERIODE_ID])
     if not kandidaten:
         return detail
     return detail.with_columns(pl.coalesce(kandidaten).alias(_PERIODE_ID))
