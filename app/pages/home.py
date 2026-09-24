@@ -1,5 +1,6 @@
 """Home — auto-ontdek en verwerk alle bestanden in één stap."""
 
+import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -87,6 +88,47 @@ def _instelling_per_levering(star: dict) -> dict[str, str]:
         levering: ", ".join(sorted(labels))
         for levering, labels in labels_per_levering.items()
     }
+
+
+def _load_quality_reports(prep_dirs: list[Path]) -> dict[str, dict]:
+    """Lees alle quality.json bestanden uit prepared directories.
+
+    Returns:
+        {levering_naam: {slr_match, slr_details, warnings, errors}}
+    """
+    reports = {}
+    for prep_dir in prep_dirs:
+        quality_file = Path(prep_dir) / "quality.json"
+        if quality_file.exists():
+            try:
+                with open(quality_file, encoding="utf-8") as f:
+                    data = json.load(f)
+                    reports[data.get("levering", prep_dir.name)] = data
+            except (json.JSONDecodeError, OSError):
+                pass
+    return reports
+
+
+def _show_quality_report(report: dict) -> None:
+    """Toon kwaliteitsrapport in Streamlit UI."""
+    match_status = "✅" if report.get("slr_match") else "⚠️"
+    schema = report.get("schema_type", "?")
+    st.markdown(f"**{match_status} SLR-reconciliatie**: {schema}")
+
+    slr_details = report.get("slr_details", {})
+    if slr_details:
+        detail_lines = []
+        for rt, counts in sorted(slr_details.items()):
+            exp = counts.get("verwacht", 0)
+            got = counts.get("gelezen", 0)
+            status = "✓" if exp == got else "✗"
+            detail_lines.append(f"{status} {rt}: {got}/{exp}")
+        st.caption(" | ".join(detail_lines))
+
+    for warning in report.get("warnings", []):
+        st.caption(f"⚠️ {warning}")
+    for error in report.get("errors", []):
+        st.caption(f"❌ {error}")
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +251,10 @@ if not done:
         st.session_state["star_summary"] = star_summary
         if fouten:
             st.session_state["fouten"] = fouten
+        # Laad en sla quality reports op
+        quality_reports = _load_quality_reports(prep_dirs_met_data)
+        if quality_reports:
+            st.session_state["quality_reports"] = quality_reports
         st.rerun()
 
 if done:
@@ -236,6 +282,15 @@ if done:
                     st.write(f"• `{lev}` — {instelling}")
                 else:
                     st.write(f"• `{lev}`")
+
+        # Toon kwaliteitrapporten indien beschikbaar
+        quality_reports = st.session_state.get("quality_reports", {})
+        if quality_reports:
+            with st.expander("📊 Datakwaliteit (SLR-reconciliatie)"):
+                for levering, report in sorted(quality_reports.items()):
+                    with st.container(border=True):
+                        st.subheader(levering, divider="gray")
+                        _show_quality_report(report)
 
         st.write("")
         col_bekijk, col_opnieuw = st.columns(2)
