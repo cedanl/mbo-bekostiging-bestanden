@@ -27,21 +27,10 @@ _PII_PATTERNS = {
 
 
 def detect_pii_columns(columns: list[str]) -> list[str]:
-    """Detecteer PII-gevoelige kolommen via pattern matching.
+    """Geef de PII-gevoelige kolommen terug, in de volgorde van ``columns``.
 
-    Handelt exact matches (BSN, ONr) en pattern matches (Postcode* → Postcodecijfers).
-    Case-insensitive substring matching.
+    Een kolom is PII als een patroon (case-insensitive) als substring in de
+    kolomnaam voorkomt; een exacte naam is daar een bijzonder geval van.
     """
-    pii_found = []
-    for col in columns:
-        # Exact match eerst
-        if col in _PII_PATTERNS:
-            pii_found.append(col)
-            continue
-        # Pattern match: pattern is substring van kolomnaam (case-insensitive)
-        col_lower = col.lower()
-        for pattern in _PII_PATTERNS:
-            if pattern.lower() in col_lower:
-                pii_found.append(col)
-                break
-    return pii_found
+    patronen = [p.lower() for p in _PII_PATTERNS]
+    return [col for col in columns if any(p in col.lower() for p in patronen)]

@@ -1,4 +1,4 @@
-"""Gedeelde test-fixtures voor stack-, transform- en indicatoren-tests."""
+"""Gedeelde test-fixtures voor stack-, transform-, star- en indicatoren-tests."""
 
 import hashlib
 import hmac
@@ -10,6 +10,7 @@ import pytest
 
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
+from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.transform import (
     _bouw_analysetabellen,
     _laad_pseudonimisering_salt,
@@ -102,3 +103,9 @@ def demo_stacked(tmp_path_factory):
 @pytest.fixture(scope="session")
 def demo_tabellen(demo_stacked):
     return _bouw_analysetabellen(demo_stacked)
+
+
+@pytest.fixture(scope="session")
+def demo_star(demo_stacked):
+    """Star schema gebouwd uit de demo-data (echte productie-transformaties)."""
+    return build_star(demo_stacked)
