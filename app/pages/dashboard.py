@@ -211,7 +211,7 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
 
 
 st.markdown(
-    '<span style="font-size:.75rem;font-weight:700;color:#7b8ab8;'
+    '<span style="font-size:.75rem;font-weight:700;color:#4d5d8a;'
     'text-transform:uppercase;letter-spacing:.08em">Dashboard</span>',
     unsafe_allow_html=True,
 )
