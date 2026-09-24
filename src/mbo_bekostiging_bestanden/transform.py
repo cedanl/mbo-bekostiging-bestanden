@@ -811,7 +811,16 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     df = _voeg_telling_en_jr_vlaggen_toe(df)
     df = _voeg_dr_vlaggen_toe(df)
     df = _voeg_entree_vlaggen_toe(df)
-    return _voeg_afgeleide_velden_toe(df)
+    df = _voeg_afgeleide_velden_toe(df)
+
+    # Surrogaatsleutel per ISP-periode-rij. fact_inschrijving op ISP-periode-grain,
+    # dus (levering, _persoon_id, Inschrijvingvolgnummer) kan meerdere keren voorkomen.
+    # _inschrijving_periode_id maakt de sleutel uniek.
+    df = df.with_columns(
+        pl.int_range(1, pl.len() + 1).alias("_inschrijving_periode_id")
+    )
+
+    return df
 
 
 def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
