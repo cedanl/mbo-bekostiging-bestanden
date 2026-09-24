@@ -180,7 +180,7 @@ st.write("")
 done = st.session_state.get("alles_verwerkt", False)
 
 if not done:
-    if st.button("Verwerk alles", type="primary", use_container_width=True):
+    if st.button("Verwerk alles", type="primary", width="stretch"):
         prepared = prepared_dir()
 
         # +1 voor de star-schema-stap aan het eind
@@ -305,13 +305,11 @@ if done:
         st.write("")
         col_bekijk, col_opnieuw = st.columns(2)
         with col_bekijk:
-            if st.button(
-                "Bekijk resultaten →", type="primary", use_container_width=True
-            ):
+            if st.button("Bekijk resultaten →", type="primary", width="stretch"):
                 st.session_state["resultaten_dir"] = star_pad
                 st.switch_page("pages/resultaten.py")
         with col_opnieuw:
-            if st.button("Opnieuw verwerken", use_container_width=True):
+            if st.button("Opnieuw verwerken", width="stretch"):
                 _reset_verwerking()
                 st.rerun()
     elif st.session_state.get("prepared_dirs"):
@@ -325,12 +323,12 @@ if done:
             if st.button(
                 "Bekijk verwerkte tabellen →",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
             ):
                 st.session_state["resultaten_dir"] = star_pad
                 st.switch_page("pages/resultaten.py")
         with col_opnieuw:
-            if st.button("Opnieuw verwerken", use_container_width=True):
+            if st.button("Opnieuw verwerken", width="stretch"):
                 _reset_verwerking()
                 st.rerun()
 
