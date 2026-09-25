@@ -90,7 +90,7 @@ nooit zonder persoon joinen. Bij TBGI neemt het inlezen de BSN/ONr van de ouder-
 **Persoon over bronfamilies heen.** `_persoon_id` is een pseudoniem van *soort + nummer*
 (PGN, BSN of ONr). GRONDSLAG levert een door DUO omgenummerd PGN in plaats van het BSN
 (PvE 4.8.2 §17.1); een GRONDSLAG-student koppelt daarom nooit op persoon aan RO of TBGI.
-RO en TBGI (beide BSN/ONr) koppelen wel. Of het PGN over studiejaren gelijk blijft, is nog
+RO en TBGI (beiden BSN/ONr) koppelen wel. Of het PGN over studiejaren gelijk blijft, is nog
 niet door DUO bevestigd (#128); tot die tijd zijn persoonskoppelingen tussen
 GRONDSLAG-leveringen van verschillende jaren niet gegarandeerd.
 Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
@@ -98,6 +98,33 @@ instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagi
 (`quality.controleer_koppelingen`).
 `fact_inschrijving` hoort uniek te zijn per `_inschrijving_periode_id`; dubbele sleutels
 (bijv. een identieke ISP-bronrij) worden daar ook gemeld (`quality.controleer_sleuteluniciteit`).
+
+---
+
+## Grain en Deduplicatie
+
+**Tellingseenheid (grain).** Elke feitstabel hoort uniek te zijn per zijn eigen grain-kolommen (zie tabel "Grain" hierboven).
+De centrale *tellingseenheid* is:
+
+- **Eénmalig inschrijving per persoon + schooljaar**: `persoon × inschrijving × schooljaar`
+- **Niet** per levering: een *levering* is een bronbestand en een tellingseenheid.
+
+Een levering is altijd één bestand van DUO (bijv. `RO_27DV_20240731.csv` of `GRONDSLAG_IP_MBO_27DV_20251119.csv`).
+Dezelfde persoon kan in meerdere leveringen voorkomen (bijv. bijgewerkte bestanden, correcties, of GRONDSLAG-data van
+een ander schooljaar dan RO). Die leveringen kunnen dezelfde inschrijving bevatten.
+
+**Overlap en Canonicalisatie.** Als `persoon × inschrijving × schooljaar` in meerdere leveringen voorkomt, tellen we die
+rij slechts één keer: de **meest recente levering** (alfabetisch laatste leveringsnaam; DUO bestandsnamen eindigen op
+hun generatiedatum). De regel voorkomt dubbeltelling in analyses per inschrijving en zorgt ervoor dat
+correcties/bijwijzigingen (meestal in latere bestanden) voorrang krijgen.
+
+Overlappende rijen worden in `quality.json` geregistreerd als waarschuwing; een optionele `fail_on_overlap`-modus
+kan duplicering als fout behandelen.
+
+**Voorbeeld:** dezelfde ISP in `RO_27DV_20240731.csv` (h15, vorige maand) en `RO_27DV_20250801.csv` (h15, vandaag):
+- De rij uit vandaag wint (alfabetisch later).
+- De oude rij valt weg vóór indicatorberekening.
+- `quality.json` toont: `overlaps: [{key: "P|2025|1", deliveries: ["20240731", "20250801"], count: 1}]`.
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 De bekostigingsrelevante BPV's (0..n per teldatum) en de TBGI-signalen (één rij per
 parameter) staan als `BekostigingsrelevanteBPV` en `Signaal` in de prepared-output van een

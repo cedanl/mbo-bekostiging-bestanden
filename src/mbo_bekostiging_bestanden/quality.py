@@ -360,6 +360,7 @@ def compile_quality_report(
         **_check_orphaned_facts_structured(star),
         **_check_key_duplicates_structured(star),
         **_check_niveau_structured(star),
+        **check_overlapping_deliveries(star),
     }
 
     # Count totals
@@ -410,3 +411,41 @@ def write_quality_json(
         json.dump(report, f, indent=2, default=str)
 
     return output_path
+
+
+def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Detect persoon×inschrijving×schooljaar appearing in multiple deliveries.
+
+    Returns structured dict with overlaps: [{key, deliveries, count}, ...]
+    """
+    feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    overlaps = []
+
+    if feit.is_empty() or "levering" not in feit.columns:
+        return {"overlapping_deliveries": overlaps}
+
+    # Group by (persoon, inschrijving, schooljaar) and count deliveries
+    key_cols = ["_persoon_id", "Inschrijvingvolgnummer", "Studiejaar"]
+    required = [c for c in key_cols if c in feit.columns]
+
+    if not required:
+        return {"overlapping_deliveries": overlaps}
+
+    # Aggregate: count distinct deliveries per key
+    grouped = feit.group_by(required).agg(
+        pl.col("levering").n_unique().alias("_num_deliveries"),
+        pl.col("levering").collect().alias("_deliveries"),
+    ).filter(pl.col("_num_deliveries") > 1)
+
+    for row in grouped.iter_rows(named=True):
+        key = "|".join(
+            str(row.get(c, "")) for c in required
+        )
+        deliveries = sorted(set(row["_deliveries"]))  # type: ignore
+        overlaps.append({
+            "key": key,
+            "deliveries": deliveries,
+            "count": row["_num_deliveries"],
+        })
+
+    return {"overlapping_deliveries": sorted(overlaps, key=lambda x: x["key"])}
