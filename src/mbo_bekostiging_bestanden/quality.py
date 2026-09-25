@@ -1,12 +1,13 @@
 """Datakwaliteitscontroles: SLR, parseverlies, wees-feiten, sleutels, niveau.
 
 Na validatie van schema: detecteer stille dataverlies en gedeeltelijke verwerking.
-Rapporteer problemen gestructureerd zonder te faillen op waarschuwingen.
+Alle controles retourneren gestructureerde dicts (JSON-serialiseerbaar).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import polars as pl
 
@@ -191,83 +192,141 @@ _FEIT_PREFIX = "fact_"
 _CENTRAAL_FEIT = "fact_inschrijving"
 
 
-def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
-    """Signaleer detail-feiten waarvan rijen niet aan ``fact_inschrijving`` koppelen.
-
-    Een wees-rij hangt los van het datamodel (bijv. bekostiging uit een andere
-    levering of instelling dan de inschrijvingen) en telt stil niet mee in
-    analyses per inschrijving.  Koppelt via dezelfde sleutel als de app-filters.
-    Geeft één melding per feit met wees-rijen; lege feiten worden overgeslagen.
-    """
+def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Core check: detail-feiten for orphaned rows. Returns structured dict."""
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
-    meldingen: list[str] = []
+    orphaned_facts: dict[str, Any] = {}
+
     for naam, feit in sorted(star.items()):
         if not naam.startswith(_FEIT_PREFIX) or naam == _CENTRAAL_FEIT:
             continue
         if feit.is_empty():
             continue
+
         gekoppeld = filter_detail_op_inschrijvingen(feit, inschrijvingen).height
         wees = feit.height - gekoppeld
         if wees == 0:
             continue
-        if gekoppeld == 0:
+
+        wees_pct = wees / feit.height if feit.height > 0 else 0.0
+        orphaned_facts[naam] = {
+            "total_rows": feit.height,
+            "orphaned_rows": wees,
+            "orphaned_pct": round(wees_pct, 4),
+        }
+
+    return {"orphaned_facts": orphaned_facts}
+
+
+def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
+    """Wrapper: gestructureerde check naar strings voor app-display."""
+    result = _check_orphaned_facts_structured(star)
+    meldingen: list[str] = []
+
+    for naam, metrics in result.get("orphaned_facts", {}).items():
+        pct_val = metrics.get("orphaned_pct", 0) * 100
+        wees = metrics.get("orphaned_rows", 0)
+        totaal = metrics.get("total_rows", 0)
+
+        if wees == totaal:
             meldingen.append(
-                f"{naam}: geen enkele rij ({feit.height}) koppelt aan {_CENTRAAL_FEIT}"
+                f"{naam}: geen enkele rij ({totaal}) koppelt aan {_CENTRAAL_FEIT}"
             )
         else:
             meldingen.append(
-                f"{naam}: {wees} van {feit.height} rijen ({wees / feit.height:.0%}) "
+                f"{naam}: {wees} van {totaal} rijen ({pct_val:.0f}%) "
                 f"koppelen niet aan {_CENTRAAL_FEIT}"
             )
+
     return meldingen
 
 
-def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
-    """Signaleer periodesleutels die in ``fact_inschrijving`` vaker voorkomen.
-
-    ``fact_inschrijving`` hoort uniek te zijn per periodesleutel; een dubbele
-    sleutel (bijv. een identieke ISP-bronrij) laat elke detail-join alsnog
-    fan-out geven.  Lege sleutels tellen niet mee.  Geeft hooguit één melding,
-    met het aantal betrokken rijen per levering.
-    """
+def _check_key_duplicates_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Core: period key duplicates in fact_inschrijving. Structured dict output."""
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    key_dupes = {"duplicate_keys": 0, "affected_rows": 0, "by_delivery": {}}
+
     if not set(_PERIODE_SLEUTEL) <= set(feit.columns):
-        return []
+        return {"key_duplicates": key_dupes}
+
     gevuld = feit.drop_nulls(_PERIODE_SLEUTEL)
     dubbel = gevuld.filter(gevuld.select(_PERIODE_SLEUTEL).is_duplicated())
+
     if dubbel.is_empty():
+        return {"key_duplicates": key_dupes}
+
+    key_dupes["duplicate_keys"] = dubbel.select(_PERIODE_SLEUTEL).n_unique()
+    key_dupes["affected_rows"] = dubbel.height
+
+    if "levering" in dubbel.columns:
+        per_lev = dubbel.group_by("levering").len().sort("levering")
+        key_dupes["by_delivery"] = {
+            lev: int(n) for lev, n in per_lev.iter_rows()
+        }
+
+    return {"key_duplicates": key_dupes}
+
+
+def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
+    """Wrapper: gestructureerde check naar strings voor app-display."""
+    result = _check_key_duplicates_structured(star)
+    key_dupes = result.get("key_duplicates", {})
+
+    if key_dupes.get("duplicate_keys", 0) == 0:
         return []
 
-    aantal = dubbel.select(_PERIODE_SLEUTEL).n_unique()
+    aantal = key_dupes["duplicate_keys"]
     sleutels = "sleutel komt" if aantal == 1 else "sleutels komen"
     melding = f"{_CENTRAAL_FEIT}: {aantal} {sleutels} meer dan één keer voor"
-    if "levering" in dubbel.columns:
-        per_levering = dubbel.group_by("levering").len().sort("levering")
+
+    by_delivery = key_dupes.get("by_delivery", {})
+    if by_delivery:
         melding += (
             " ("
-            + ", ".join(f"{lev}: {n} rijen" for lev, n in per_levering.iter_rows())
+            + ", ".join(f"{lev}: {n} rijen" for lev, n in by_delivery.items())
             + ")"
         )
+
     return [melding]
 
 
-def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
-    """Signaleer inschrijvingen zonder bekend niveau in ``fact_inschrijving``.
-
-    Zonder niveau valt een rij stil buiten de JR/DR-populatie (niveau ≥ 2).
-    Onderscheidt een code die geen enkele referentietabel kent van een code die
-    S-BB zonder niveau voert (``n.v.t.``).  Geeft hooguit één melding.
-    """
+def _check_niveau_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Core: unknown or missing niveau. Structured dict output."""
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    niveau_issues = {"unknown_code": 0, "sbb_without_level": 0, "total": 0}
+
     if _NIVEAU_HERKOMST not in feit.columns or feit.is_empty():
-        return []
+        return {"niveau_issues": niveau_issues}
+
     herkomst = feit[_NIVEAU_HERKOMST]
     onbekend = int((herkomst == _NIVEAU_ONBEKEND).sum())
     sbb_nvt = int((herkomst == _NIVEAU_SBB_NVT).sum())
-    if onbekend + sbb_nvt == 0:
+
+    return {
+        "niveau_issues": {
+            "unknown_code": onbekend,
+            "sbb_without_level": sbb_nvt,
+            "total": onbekend + sbb_nvt,
+        }
+    }
+
+
+def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
+    """Wrapper: gestructureerde check naar strings voor app-display."""
+    result = _check_niveau_structured(star)
+    niveau_issues = result.get("niveau_issues", {})
+
+    if niveau_issues.get("total", 0) == 0:
         return []
+
+    onbekend = niveau_issues.get("unknown_code", 0)
+    sbb_nvt = niveau_issues.get("sbb_without_level", 0)
+    total = niveau_issues.get("total", 0)
+    feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    feit_height = feit.height if not feit.is_empty() else 0
+
     return [
-        f"{_CENTRAAL_FEIT}: {onbekend + sbb_nvt} van {feit.height} rijen zonder "
+        f"{_CENTRAAL_FEIT}: {total} van {feit_height} rijen zonder "
         f"bekend niveau ({onbekend} code onbekend, {sbb_nvt} S-BB zonder niveau); "
         "ze vallen buiten JR/DR"
     ]

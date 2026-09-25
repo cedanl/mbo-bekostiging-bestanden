@@ -44,3 +44,4 @@ site/
 afbeelding*.png
 toelichting_onderwijsresultaten*.txt
 scripts/debug_dashboard.py
+.opencode/
