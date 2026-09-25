@@ -7,7 +7,9 @@ De lookup-functies worden gemockt zodat de CSV-bestanden niet nodig zijn.
 from unittest.mock import patch
 
 import polars as pl
+import pytest
 
+from mbo_bekostiging_bestanden import enrich
 from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
 
 # ---------------------------------------------------------------------------
@@ -427,3 +429,23 @@ def test_crebolijst_onbekende_code_geeft_null():
 
     assert result["Opleiding_geldig_van"][0] is None
     assert result["Opleiding_geldig_tot"][0] is None
+
+
+# ---------------------------------------------------------------------------
+# Referentietabellen: één rij per opleidingscode (#131)
+# ---------------------------------------------------------------------------
+# De S-BB-lookups joinen op de opleidingscode. Levert een nieuwe S-BB-versie
+# meerdere geldigheidsperioden per code, dan moet de keuze bewust gemaakt
+# worden (per peildatum) in plaats van stil de eerste rij te nemen.
+
+
+@pytest.mark.parametrize(
+    ("laad", "sleutel"),
+    [
+        (enrich._laad_sbb_crebolijst, "kwalificatiecode"),
+        (enrich._laad_sbb_koppeltabel, "opleidingscode"),
+    ],
+)
+def test_sbb_referentietabel_heeft_een_rij_per_code(laad, sleutel):
+    tabel = laad()
+    assert tabel[sleutel].n_unique() == tabel.height
