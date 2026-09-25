@@ -134,6 +134,10 @@ _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 _PERIODE_ID = "_inschrijving_periode_id"
+# Eén inschrijving binnen een levering: haar ISP-perioden sluiten op elkaar aan.
+# Een periode loopt t/m DatumEind (GRONDSLAG), anders tot de volgende (#144).
+_PERIODE_INSCHRIJVING = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
+_PERIODE_EINDE = "_periode_einde"
 # Groep waarbinnen de selectievlaggen gelden (zie :func:`_voeg_sr_vlaggen_toe`).
 _SELECTIE_GROEP = ("levering", "BRIN", "_persoon_id", "Studiejaar")
 _SELECTIE_VLAGGEN = ("_hoogste_niveau", "_laagste_CREBO", "_hoofdinschrijving")
@@ -540,6 +544,54 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def _voeg_periode_einde_toe(df: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_periode_einde`` (inclusief) toe aan ISP-rijen.
+
+    ``DatumEind`` als de bron die levert (GRONDSLAG), anders de dag vóór de
+    volgende strikt latere ``DatumBegin`` van dezelfde inschrijving (RO).  Zonder
+    ``DatumBegin`` of zonder inschrijvingssleutel blijft ``df`` ongewijzigd: de
+    inschrijving is dan zelf de periode (TBGI-only).
+    """
+    sleutel = [c for c in _PERIODE_INSCHRIJVING if c in df.columns]
+    if "DatumBegin" not in df.columns or not {
+        "_persoon_id",
+        "Inschrijvingvolgnummer",
+    }.issubset(sleutel):
+        return df
+    volgende = (
+        df.select(*sleutel, "DatumBegin")
+        .drop_nulls("DatumBegin")
+        .unique()
+        .sort([*sleutel, "DatumBegin"], nulls_last=True)
+        .with_columns(
+            pl.col("DatumBegin").shift(-1).over(sleutel).alias("_volgende_begin")
+        )
+    )
+    df = df.join(
+        volgende,
+        on=[*sleutel, "DatumBegin"],
+        how="left",
+        nulls_equal=True,
+        maintain_order="left",
+    )
+    tot_volgende = pl.col("_volgende_begin") - pl.duration(days=1)
+    einde = (
+        pl.coalesce("DatumEind", tot_volgende)
+        if "DatumEind" in df.columns
+        else tot_volgende
+    )
+    return df.with_columns(einde.alias(_PERIODE_EINDE)).drop("_volgende_begin")
+
+
+def _periode_dekt(df: pl.DataFrame, datum: pl.Expr) -> pl.Expr:
+    """Waar als de ISP-periode ``datum`` dekt; onbekende grenzen sluiten niet uit."""
+    if _PERIODE_EINDE not in df.columns:
+        return pl.lit(True)
+    begint_op_tijd = (pl.col("DatumBegin") <= datum).fill_null(True)
+    loopt_door = pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= datum)
+    return begint_op_tijd & loopt_door
+
+
 def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     if "Studiejaar" not in df.columns:
         return df.with_columns(
@@ -566,8 +618,12 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             if "DatumUitschrijvingWerkelijk" in df.columns
             else pl.lit(None, dtype=pl.Date)
         )
+        # Actief = de inschrijving loopt op 1-10 én deze ISP-periode dekt 1-10.
+        df = _voeg_periode_einde_toe(df)
         actief = (
-            (datum_in <= oct_1) & (datum_uit.is_null() | (datum_uit > oct_1))
+            (datum_in <= oct_1)
+            & (datum_uit.is_null() | (datum_uit > oct_1))
+            & _periode_dekt(df, oct_1)
         ).alias("_actief_1_oktober")
         ingeschreven_later = (
             (datum_in > oct_1).fill_null(False).alias("_ingeschreven_jaar_later")
@@ -578,7 +634,7 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             "_ingeschreven_jaar_later"
         )
 
-    df = df.with_columns(actief, ingeschreven_later)
+    df = df.with_columns(actief, ingeschreven_later).drop(_PERIODE_EINDE, strict=False)
 
     bekostigd = (
         pl.col("_actief_1_oktober") & (pl.col("IndicatieBekostigbaar") == "J")
@@ -649,9 +705,11 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     telt één hoofdinschrijving per student per instelling; per levering zodat
     gestapelde leveringen elkaar niet beïnvloeden.
 
-    ``_hoofdinschrijving`` is precies één kandidaat (hoogste niveau én laagste
-    CREBO) per groep; bij gelijke kandidaten wint de meest recente periode
-    (zie :func:`_periode_begin_kolom`).
+    Alleen perioden die op 1 oktober actief zijn doen mee (#144): DUO kiest de
+    hoofdinschrijving op de peildatum.  Een onbekende actief-status sluit niet
+    uit.  ``_hoofdinschrijving`` is precies één kandidaat (hoogste niveau én
+    laagste CREBO) per groep met een actieve periode; bij gelijke kandidaten
+    wint de meest recente periode (zie :func:`_periode_begin_kolom`).
     """
     vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
     if not vereist.issubset(df.columns):
@@ -660,8 +718,13 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         )
 
     groep = [c for c in _SELECTIE_GROEP if c in df.columns]
+    op_peildatum = (
+        pl.col("_actief_1_oktober").fill_null(True)
+        if "_actief_1_oktober" in df.columns
+        else pl.lit(True)
+    )
     niveau = _niveau_numeriek(pl.col("Niveau"))
-    hoogste = niveau == niveau.max().over(groep)
+    hoogste = op_peildatum & (niveau == niveau.filter(op_peildatum).max().over(groep))
     laagste_crebo = hoogste & (
         pl.col("Opleidingcode")
         == pl.col("Opleidingcode").filter(hoogste).min().over(groep)

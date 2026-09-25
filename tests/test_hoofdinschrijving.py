@@ -1,8 +1,8 @@
-"""Tests voor de hoofdinschrijving-selectie (issue #117).
+"""Tests voor de hoofdinschrijving-selectie (issue #117, #144).
 
 Per persoon × studiejaar × levering × instelling hoort precies één
-hoofdinschrijving: hoogste niveau, dan laagste CREBO, dan meest recente
-``DatumBegin``.
+hoofdinschrijving uit de perioden die op 1 oktober actief zijn: hoogste niveau,
+dan laagste CREBO, dan meest recente ``DatumBegin``.
 """
 
 from datetime import date
@@ -80,11 +80,18 @@ def test_zonder_datumbegin_telt_niveau_en_crebo():
     assert _hoofd(df) == [False, True]
 
 
-def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(demo_star):
+def test_demo_star_heeft_een_hoofdinschrijving_per_groep_met_actieve_periode(
+    demo_star,
+):
+    """Precies één per groep met een periode op 1 oktober, anders geen (#144)."""
     groep = ["levering", "BRIN", "_persoon_id", "Studiejaar"]
     per_groep = (
         demo_star["fact_inschrijving"]
         .group_by(groep)
-        .agg(pl.col("_hoofdinschrijving").sum().alias("n"))
+        .agg(
+            pl.col("_hoofdinschrijving").sum().alias("n"),
+            pl.col("_actief_1_oktober").fill_null(True).any().alias("actief"),
+        )
     )
-    assert per_groep["n"].to_list() == [1] * per_groep.height
+    verwacht = per_groep["actief"].cast(pl.UInt32).to_list()
+    assert per_groep["n"].to_list() == verwacht
