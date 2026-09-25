@@ -51,7 +51,7 @@ geschreven.
 |---|---|---|---|
 | `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …) |
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
-| `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats |
+| `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
 | `fact_inschrijving` | ISP-inschrijvingsperiode | `_inschrijving_periode_id` | Centrale feittabel; bevat vlaggen (`_actief_1_oktober`, `_jr_*`, `_dr_*`, `_entree_*`) en aggregaten |
 | `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
 | `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving |
