@@ -90,7 +90,7 @@ _BEKOSTIGING_DROP = _PII_DROP
 
 # Interne implementatie-details die niet in het exporteerbare star schema horen.
 # Deze kolommen zijn tussenstappen in transformatie en niet bedoeld voor analyse.
-_INTERNAL_COLS = {"_schooljaren_actief"}  # List aggregaat uit _bepaal_actief_per_schooljaar
+_INTERNAL_COLS = {"_schooljaren_actief"}  # List aggregaat uit _bepaal_actief_per_sj
 
 
 # ---------------------------------------------------------------------------

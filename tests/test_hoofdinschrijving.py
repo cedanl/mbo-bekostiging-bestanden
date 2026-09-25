@@ -100,7 +100,9 @@ def test_zonder_datumbegin_telt_niveau_en_crebo():
     assert _hoofd(df) == [False, False]
 
 
-def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(demo_star, demo_tabellen):
+def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(
+    demo_star, demo_tabellen
+):
     """Precies één per groep met een actieve periode op 1 oktober (#117, #144).
 
     Groepeert per (levering, BRIN, _persoon_id, schooljaar_peildatum) door

@@ -345,7 +345,7 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     warnings = 0
 
     # Check orphaned facts
-    for tabla, metrics in star_checks.get("orphaned_facts", {}).items():
+    for _tabla, metrics in star_checks.get("orphaned_facts", {}).items():
         if metrics.get("orphaned_pct", 0) > 0:
             errors += 1
 
