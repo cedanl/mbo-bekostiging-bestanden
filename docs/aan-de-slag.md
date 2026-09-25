@@ -18,7 +18,8 @@ export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.to
 ## Pseudonimisering
 
 Persoons-identifiers (BSN, Onderwijsnummer, PGN) worden met HMAC-SHA256
-gehasht. Dat vereist een salt, ingesteld via de env-var:
+gehasht, samen met hun soort: een PGN, BSN en ONr met dezelfde cijfers krijgen
+een verschillend `_persoon_id`. Dat vereist een salt, ingesteld via de env-var:
 
 ```bash
 export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"

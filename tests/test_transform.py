@@ -4,9 +4,9 @@ from datetime import date
 
 import polars as pl
 import pytest
-from conftest import pseudoniem_van_identifier
 
 from mbo_bekostiging_bestanden.transform import (
+    _add_persoon_id,
     _bouw_analysetabellen,
     _bouw_detail_bekostiging,
     _bouw_detail_bekostiging_diploma,
@@ -18,6 +18,7 @@ from mbo_bekostiging_bestanden.transform import (
     _voeg_sr_vlaggen_toe,
     _voeg_telling_en_jr_vlaggen_toe,
     _vul_niveau_aan,
+    pseudoniem,
 )
 
 # ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ def test_inschrijvingen_heeft_persoon_id(demo_tabellen):
 def test_kzd_aantal_bsn1_ingevuld(demo_tabellen):
     """BSN1 heeft 2 KZD-records; na DIP-fallback is KZD_Aantal=2 (niet null)."""
     df = demo_tabellen["inschrijvingen"]
-    bsn1_pseudoniem = pseudoniem_van_identifier("BSN1")
+    bsn1_pseudoniem = pseudoniem("PGN", "BSN1")
     bsn1 = df.filter(
         (pl.col("_persoon_id") == bsn1_pseudoniem)
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
@@ -124,7 +125,7 @@ def test_kzd_aantal_bsn1_ingevuld(demo_tabellen):
 
 def test_kzd_behaald_bsn1_ingevuld(demo_tabellen):
     df = demo_tabellen["inschrijvingen"]
-    bsn1_pseudoniem = pseudoniem_van_identifier("BSN1")
+    bsn1_pseudoniem = pseudoniem("PGN", "BSN1")
     bsn1 = df.filter(
         (pl.col("_persoon_id") == bsn1_pseudoniem)
         & (pl.col("levering") == "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025")
@@ -246,7 +247,7 @@ def test_detail_bekostiging_diploma_persoon_id_aanwezig():
     result = _bouw_detail_bekostiging_diploma({"Diploma": dip})
     assert "_persoon_id" in result.columns
     assert "Burgerservicenummer" not in result.columns
-    expected_pseudoniem = pseudoniem_van_identifier("900000001")
+    expected_pseudoniem = pseudoniem("BSN", "900000001")
     assert result["_persoon_id"][0] == expected_pseudoniem
     assert result["BijdrageDiplomawaarde"][0] == "5"
 
@@ -277,7 +278,7 @@ def test_meta_leveringen_bevat_alle_leveringen(demo_tabellen, demo_stacked):
 
 def test_resolve_inschrijving_vult_via_dip():
     """Lege Inschrijvingvolgnummer wordt via ResultaatvolgnummerDiploma → DIP gevuld."""
-    p1_pseudoniem = pseudoniem_van_identifier("P1")
+    p1_pseudoniem = pseudoniem("BSN", "P1")
     kzd = pl.DataFrame(
         {
             "levering": ["L1"],
@@ -1223,3 +1224,40 @@ def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
 
     assert detail.height == 2
     assert detail["_persoon_id"].n_unique() == 2
+
+
+# ---------------------------------------------------------------------------
+# _add_persoon_id – identifierdomeinen (#128)
+# ---------------------------------------------------------------------------
+# GRONDSLAG levert een omgenummerd PGN, RO/TBGI een BSN of ONr (PvE 4.8.2
+# §17.1). Gelijke cijfers uit verschillende domeinen zijn verschillende personen.
+
+
+def _persoon_ids(**kolommen: list[str | None]) -> list[str | None]:
+    df = pl.DataFrame(kolommen, schema=dict.fromkeys(kolommen, pl.Utf8))
+    return _add_persoon_id(df)["_persoon_id"].to_list()
+
+
+def test_zelfde_waarde_in_ander_identifierdomein_is_andere_persoon():
+    pgn, bsn, onr = _persoon_ids(
+        PseudoNummer=["123456789", None, None],
+        Burgerservicenummer=[None, "123456789", None],
+        Onderwijsnummer=[None, None, "123456789"],
+    )
+    assert len({pgn, bsn, onr}) == 3
+
+
+def test_persoon_id_is_pseudoniem_van_domein_en_waarde():
+    assert _persoon_ids(Burgerservicenummer=["123456789"]) == [
+        pseudoniem("BSN", "123456789")
+    ]
+
+
+def test_lege_identifier_valt_door_naar_volgend_domein():
+    assert _persoon_ids(Burgerservicenummer=[""], Onderwijsnummer=["987654321"]) == [
+        pseudoniem("ONR", "987654321")
+    ]
+
+
+def test_zonder_identifier_geen_persoon_id():
+    assert _persoon_ids(Burgerservicenummer=["", None]) == [None, None]

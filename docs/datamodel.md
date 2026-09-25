@@ -81,6 +81,12 @@ inschrijving meerdere ISP-perioden heeft.
 `Inschrijvingvolgnummer` is alleen uniek per persoon binnen een instelling (PvE §16.5.1), dus
 nooit zonder persoon joinen. Bij TBGI neemt het inlezen de BSN/ONr van de ouder-`<Inschrijving>`
 (of `<Diploma>`) daarom al over op elke Teldatum- en Signaal-rij.
+**Persoon over bronfamilies heen.** `_persoon_id` is een pseudoniem van *soort + nummer*
+(PGN, BSN of ONr). GRONDSLAG levert een door DUO omgenummerd PGN in plaats van het BSN
+(PvE 4.8.2 §17.1); een GRONDSLAG-student koppelt daarom nooit op persoon aan RO of TBGI.
+RO en TBGI (beide BSN/ONr) koppelen wel. Of het PGN over studiejaren gelijk blijft, is nog
+niet door DUO bevestigd (#128); tot die tijd zijn persoonskoppelingen tussen
+GRONDSLAG-leveringen van verschillende jaren niet gegarandeerd.
 Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
 instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagina gemeld
 (`quality.controleer_koppelingen`).
