@@ -1,6 +1,7 @@
 # Veldschema voor TBGI (Terugmelding BekostigingsGrondslagen individueel)
-# Gebaseerd op DUO PvE; XML-structuur wordt door read_tbgi platgeslagen naar
-# vier tabellen: Inschrijving, Teldatum (incl. BPV-velden), Diploma, Signaal.
+# Gebaseerd op DUO PvE 4.8.2, hoofdstuk 16 (Bijlage 8: Bestandsbeschrijving TBG-i).
+# XML-structuur wordt door read_tbgi platgeslagen naar vijf tabellen: Inschrijving,
+# Teldatum, BekostigingsrelevanteBPV, Diploma en Signaal (één rij per parameter).
 schema_version = "1.0"
 
 [Inschrijving]
@@ -15,7 +16,6 @@ int_fields   = []
 float_fields = []
 
 [Teldatum]
-# BPV-velden zijn geprefixed met "BPV_" (BekostigingsrelevanteBPV is 1:1 met Teldatum).
 # DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
 # BRIN t/m Inschrijvingvolgnummer komen van de ouder-Inschrijving: het volgnummer
 # is alleen uniek per persoon, dus de persoon moet op de rij zelf staan (#125).
@@ -29,13 +29,24 @@ fields = [
     "BBLBOLFactor", "PrijsfactorMBO",
     "AantalBekostigdeVerblijfsjarenMBO", "Verblijfsjaarfactor",
     "BijdrageInschrijvingAanDeelnemerswaarde",
-    "BPV_Inschrijvingvolgnummer", "BPV_Volgnummer",
-    "BPV_Afsluitdatum", "BPV_DatumBegin", "BPV_DatumEindGepland", "BPV_DatumEindWerkelijk",
-    "BPV_Opleidingcode",
 ]
-date_fields  = ["Teldatum", "BPV_Afsluitdatum", "BPV_DatumBegin", "BPV_DatumEindGepland", "BPV_DatumEindWerkelijk"]
+date_fields  = ["Teldatum"]
 int_fields   = ["LeeftijdOpEenAugustusStudiejaar", "AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
+
+[BekostigingsrelevanteBPV]
+# 0..n per teldatum (PvE §16.1: "Alle BPV's ... die voldoen aan de eisen"), #126.
+# BRIN t/m Teldatum komen van de ouder; InschrijvingvolgnummerBPV is de eigen
+# <Inschrijvingvolgnummer> van de BPV (de inschrijving waarbij hij geregistreerd is).
+fields = [
+    "BRIN", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer",
+    "Teldatum",
+    "InschrijvingvolgnummerBPV", "Volgnummer", "Afsluitdatum",
+    "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk", "Opleidingcode",
+]
+date_fields  = ["Teldatum", "Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
+int_fields   = []
+float_fields = []
 
 [Diploma]
 # DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
@@ -56,11 +67,12 @@ float_fields = ["BijdrageDiplomawaarde"]
 # Bron = "Inschrijving" of "Diploma".
 # Teldatum en Resultaatvolgnummer zijn null voor respectievelijk Diploma en Inschrijving.
 # Persoons-identifiers komen van de ouder (Inschrijving of Diploma), zie #125.
+# Eén rij per parameter; Signaal- en Parametervolgnummer zijn AN1..2 (#126).
 fields = [
     "Bron", "BRIN", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "Teldatum", "Resultaatvolgnummer",
     "Signaalvolgnummer", "Signaalcode", "Signaalomschrijving",
     "Parametervolgnummer", "Parameternaam", "Parameterwaarde",
 ]
 date_fields  = []
-int_fields   = ["Signaalvolgnummer", "Parametervolgnummer"]
+int_fields   = []
 float_fields = []

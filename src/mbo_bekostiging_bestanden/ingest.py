@@ -9,11 +9,14 @@ from mbo_bekostiging_bestanden.metadata import load_schema
 
 _XSI_NIL = "{http://www.w3.org/2001/XMLSchema-instance}nil"
 
-# TBGI: velden die een kind-rij (Teldatum, Signaal) van zijn ouder-element erft.
+# TBGI: velden die een kind-rij (Teldatum, BPV, Signaal) van zijn ouder erft.
 _TBGI_PERSOON = ("BRIN", "Burgerservicenummer", "Onderwijsnummer")
 _TBGI_INSCHRIJVING_CONTEXT = (*_TBGI_PERSOON, "Inschrijvingvolgnummer")
 _TBGI_DIPLOMA_CONTEXT = (*_TBGI_PERSOON, "Resultaatvolgnummer")
-_TBGI_BPV_PREFIX = "BPV_"
+_TBGI_BPV = "BekostigingsrelevanteBPV"
+# Kolommen waarvan de XML-tag afwijkt: de BPV noemt zijn eigen inschrijving,
+# die naast die van de ouder-inschrijving staat.
+_TBGI_TAG = {"InschrijvingvolgnummerBPV": "Inschrijvingvolgnummer"}
 
 
 def _elem_text(parent: ET.Element | None, tag: str) -> str | None:
@@ -113,41 +116,62 @@ def read_grondslag(path: str | Path) -> dict[str, pl.DataFrame]:
     return read_multi_record_csv(path, "grondslag")
 
 
-def _lees_velden(
-    elem: ET.Element | None, velden: list[str], prefix: str = ""
-) -> dict[str, str | None]:
-    """Lees ``velden`` als child-elementen van ``elem`` (tag zonder ``prefix``)."""
-    return {veld: _elem_text(elem, veld.removeprefix(prefix)) for veld in velden}
+def _lees_velden(elem: ET.Element | None, velden: list[str]) -> dict[str, str | None]:
+    """Lees ``velden`` als child-elementen van ``elem`` (tag volgens ``_TBGI_TAG``)."""
+    return {veld: _elem_text(elem, _TBGI_TAG.get(veld, veld)) for veld in velden}
+
+
+def _heeft_waarde(rij: dict[str, str | None]) -> bool:
+    """Een element met alleen xsi:nil-velden is een lege placeholder, geen record."""
+    return any(waarde is not None for waarde in rij.values())
+
+
+def _bpv_rijen(
+    teldatum: ET.Element, context: dict[str, str | None], velden: list[str]
+) -> list[dict[str, str | None]]:
+    """Eén rij per niet-lege ``<BekostigingsrelevanteBPV>`` onder een teldatum."""
+    eigen = [v for v in velden if v not in context]
+    rijen = [_lees_velden(bpv, eigen) for bpv in teldatum.findall(_TBGI_BPV)]
+    return [context | rij for rij in rijen if _heeft_waarde(rij)]
 
 
 def _signaal_rijen(
     ouder: ET.Element, context: dict[str, str | None], velden: list[str]
 ) -> list[dict[str, str | None]]:
-    """Eén rij per ``<Signaal>`` onder ``ouder``, aangevuld met de ouder-``context``."""
+    """Eén rij per ``<Parameter>`` van elk niet-leeg ``<Signaal>`` onder ``ouder``.
+
+    Een signaal zonder parameters geeft één rij met lege parametervelden.
+    """
     signaal_velden = [v for v in velden if v.startswith("Signaal")]
     parameter_velden = [v for v in velden if v.startswith("Parameter")]
-    return [
-        dict.fromkeys(velden)
-        | context
-        | _lees_velden(sig, signaal_velden)
-        | _lees_velden(sig.find("Parameter"), parameter_velden)
-        for sig in ouder.findall("Signaal")
-    ]
+    rijen: list[dict[str, str | None]] = []
+    for sig in ouder.findall("Signaal"):
+        signaal = _lees_velden(sig, signaal_velden)
+        parameters = [
+            _lees_velden(p, parameter_velden) for p in sig.findall("Parameter")
+        ]
+        parameters = [p for p in parameters if _heeft_waarde(p)]
+        if not _heeft_waarde(signaal) and not parameters:
+            continue
+        basis = dict.fromkeys(velden) | context | signaal
+        rijen += [basis | p for p in parameters] or [basis]
+    return rijen
 
 
 def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
-    """Lees een TBGI XML-bestand in en plat het naar vier DataFrames.
+    """Lees een TBGI XML-bestand in en plat het naar vijf DataFrames.
 
-    De geneste XML-structuur wordt omgezet naar vier tabellen:
+    De geneste XML-structuur wordt omgezet naar vijf tabellen:
 
     - ``Inschrijving`` — één rij per inschrijving.
-    - ``Teldatum`` — één rij per (inschrijving × teldatum), met
-      BekostigingsrelevanteBPV-velden geprefixed als ``BPV_``.
+    - ``Teldatum`` — één rij per (inschrijving × teldatum).
+    - ``BekostigingsrelevanteBPV`` — één rij per BPV per teldatum (0..n).
     - ``Diploma`` — één rij per diploma.
-    - ``Signaal`` — één rij per signaal (van Teldatum of Diploma);
+    - ``Signaal`` — één rij per signaalparameter (van Teldatum of Diploma);
       kolom ``Bron`` geeft de herkomst aan.
 
-    Teldatum- en Signaal-rijen dragen de persoons-identifiers van hun
+    Elementen met alleen xsi:nil-velden (lege BPV-/Signaal-placeholders) geven
+    geen rij.  Kind-rijen dragen de persoons-identifiers van hun
     ouder-element: ``Inschrijvingvolgnummer`` is alleen uniek per persoon
     (PvE §16.5.1), dus achteraf koppelen via het volgnummer is niet eenduidig.
 
@@ -168,14 +192,12 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     root = ET.parse(path).getroot()
 
     teldatum_eigen = [
-        v
-        for v in velden["Teldatum"]
-        if v not in _TBGI_INSCHRIJVING_CONTEXT and not v.startswith(_TBGI_BPV_PREFIX)
+        v for v in velden["Teldatum"] if v not in _TBGI_INSCHRIJVING_CONTEXT
     ]
-    teldatum_bpv = [v for v in velden["Teldatum"] if v.startswith(_TBGI_BPV_PREFIX)]
 
     inschrijving_rows: list[dict] = []
     teldatum_rows: list[dict] = []
+    bpv_rows: list[dict] = []
     diploma_rows: list[dict] = []
     signaal_rows: list[dict] = []
 
@@ -185,18 +207,12 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
         context = {v: inschrijving[v] for v in _TBGI_INSCHRIJVING_CONTEXT}
 
         for td in isg.findall("Teldatum"):
-            teldatum = (
-                context
-                | _lees_velden(td, teldatum_eigen)
-                | _lees_velden(
-                    td.find("BekostigingsrelevanteBPV"), teldatum_bpv, _TBGI_BPV_PREFIX
-                )
-            )
+            teldatum = context | _lees_velden(td, teldatum_eigen)
             teldatum_rows.append(teldatum)
+            teldatum_context = context | {"Teldatum": teldatum["Teldatum"]}
+            bpv_rows += _bpv_rijen(td, teldatum_context, velden[_TBGI_BPV])
             signaal_rows += _signaal_rijen(
-                td,
-                context | {"Bron": "Inschrijving", "Teldatum": teldatum["Teldatum"]},
-                velden["Signaal"],
+                td, teldatum_context | {"Bron": "Inschrijving"}, velden["Signaal"]
             )
 
     for dip in root.findall("Diploma"):
@@ -210,6 +226,7 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     tables = {
         "Inschrijving": inschrijving_rows,
         "Teldatum": teldatum_rows,
+        _TBGI_BPV: bpv_rows,
         "Diploma": diploma_rows,
         "Signaal": signaal_rows,
     }

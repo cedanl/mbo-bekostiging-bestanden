@@ -87,6 +87,10 @@ instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagi
 `fact_inschrijving` hoort uniek te zijn per `_inschrijving_periode_id`; dubbele sleutels
 (bijv. een identieke ISP-bronrij) worden daar ook gemeld (`quality.controleer_sleuteluniciteit`).
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
+De bekostigingsrelevante BPV's (0..n per teldatum) en de TBGI-signalen (één rij per
+parameter) staan als `BekostigingsrelevanteBPV` en `Signaal` in de prepared-output van een
+TBGI-levering, niet in het star schema: ze zouden de teldatum-grain van `fact_bekostiging`
+vermenigvuldigen.
 
 ### Indicatoren in fact_inschrijving
 
