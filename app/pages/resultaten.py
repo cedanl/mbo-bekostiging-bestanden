@@ -131,13 +131,15 @@ star_tabellen = (
 )
 
 # Verzamel prepared-tabellen, gescheiden naar type
+# TBGI recordtypes: Teldatum, Diploma, Signaal, Inschrijving (prepared output)
+_TBGI_RECORDTYPES = {"teldatum", "diploma", "signaal", "inschrijving"}
 tbgi_prepared = {}
 other_prepared = {}
 for prep_dir in st.session_state.get("prepared_dirs", []):
     prep_pad = Path(prep_dir)
     for parquet in sorted(prep_pad.glob("*.parquet")):
         name = parquet.stem
-        if "detail_bekostiging" in name:
+        if name.lower() in _TBGI_RECORDTYPES:
             tbgi_prepared[name] = parquet
         else:
             other_prepared[f"{prep_pad.name} / {name}"] = parquet
