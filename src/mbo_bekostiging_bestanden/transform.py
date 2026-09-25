@@ -548,10 +548,17 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
 def _voeg_periode_einde_toe(df: pl.DataFrame) -> pl.DataFrame:
     """Voeg ``_periode_einde`` (inclusief) toe aan ISP-rijen.
 
-    ``DatumEind`` als de bron die levert (GRONDSLAG), anders de dag vóór de
-    volgende strikt latere ``DatumBegin`` van dezelfde inschrijving (RO).  Zonder
-    ``DatumBegin`` of zonder inschrijvingssleutel blijft ``df`` ongewijzigd: de
-    inschrijving is dan zelf de periode (TBGI-only).
+    ``_periode_einde`` is het minimum van:
+    - DatumUitschrijvingWerkelijk (hard bound; hard stop to enrollment)
+    - DatumEind (als bron die levert, bijv. GRONDSLAG)
+    - dag vóór volgende DatumBegin (RO periode-sequencing)
+
+    DatumUitschrijvingWerkelijk is de hardste grens: een uitgeschreven
+    inschrijving kan nooit actief zijn na die datum, ongeacht DatumEind
+    of volgende periode (#163).
+
+    Zonder ``DatumBegin`` of zonder inschrijvingssleutel blijft ``df``
+    ongewijzigd: de inschrijving is dan zelf de periode (TBGI-only).
     """
     sleutel = [c for c in _PERIODE_INSCHRIJVING if c in df.columns]
     if "DatumBegin" not in df.columns or not {
@@ -576,11 +583,17 @@ def _voeg_periode_einde_toe(df: pl.DataFrame) -> pl.DataFrame:
         maintain_order="left",
     )
     tot_volgende = pl.col("_volgende_begin") - pl.duration(days=1)
-    einde = (
-        pl.coalesce("DatumEind", tot_volgende)
-        if "DatumEind" in df.columns
-        else tot_volgende
-    )
+
+    # Period end = min(tot_volgende, DatumEind, DatumUitschrijvingWerkelijk)
+    # DatumUitschrijvingWerkelijk is HARD BOUND: enrollment ends there (#163)
+    candidates = [tot_volgende]
+    if "DatumEind" in df.columns:
+        candidates.append("DatumEind")
+    if "DatumUitschrijvingWerkelijk" in df.columns:
+        candidates.append("DatumUitschrijvingWerkelijk")
+
+    einde = pl.min_horizontal(*candidates) if len(candidates) > 1 else tot_volgende
+
     return df.with_columns(einde.alias(_PERIODE_EINDE)).drop("_volgende_begin")
 
 

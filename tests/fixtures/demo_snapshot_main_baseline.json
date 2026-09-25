@@ -1,19 +1,19 @@
 {
   "metadata": {
-    "description": "Demo star schema indicator snapshot - after PR #150 redesign (as-of join per schooljaar, no duplication)",
-    "commit": "main + PR #150 redesign",
+    "description": "Demo star schema indicator snapshot - after DatumUitschrijvingWerkelijk hard bound fix (#163)",
+    "commit": "main + #163",
     "date": "2026-09-25",
-    "notes": "New correct implementation: as-of join per schooljaar for peildatum 1-okt. No row duplication. Matches audit recommendation."
+    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts."
   },
   "indicators": {
-    "_actief_1_oktober": {"true": 27, "total": 46},
-    "_hoofdinschrijving": {"true": 25, "total": 46},
-    "_telling": {"true": 25, "total": 46},
-    "_jr_noemer": {"true": 25, "total": 46},
+    "_actief_1_oktober": {"true": 22, "total": 46},
+    "_hoofdinschrijving": {"true": 22, "total": 46},
+    "_telling": {"true": 22, "total": 46},
+    "_jr_noemer": {"true": 22, "total": 46},
     "_jr_teller": {"true": 0, "total": 46},
-    "_dr_noemer": {"true": 21, "total": 46},
+    "_dr_noemer": {"true": 19, "total": 46},
     "_dr_teller": {"true": 5, "total": 46},
-    "_bekostigd_eerste_1okt": {"true": 24, "total": 46}
+    "_bekostigd_eerste_1okt": {"true": 20, "total": 46}
   },
   "tables": {
     "dim_deelnemer": 26,
@@ -29,17 +29,6 @@
     "meta_leveringen": 4
   },
   "per_levering": {
-    "GRONDSLAG_IP_MBO_27DV_20251119_2025": {
-      "rows": 19,
-      "_actief_1_oktober": 10,
-      "_hoofdinschrijving": 10,
-      "_telling": 10,
-      "_jr_noemer": 10,
-      "_jr_teller": 0,
-      "_dr_noemer": 9,
-      "_dr_teller": 0,
-      "_bekostigd_eerste_1okt": 10
-    },
     "RO_21CY_20250730_20250731": {
       "rows": 5,
       "_actief_1_oktober": 4,
@@ -53,25 +42,36 @@
     },
     "RO_25LX_20250101_20251231": {
       "rows": 3,
-      "_actief_1_oktober": 3,
-      "_hoofdinschrijving": 3,
-      "_telling": 3,
-      "_jr_noemer": 3,
+      "_actief_1_oktober": 2,
+      "_hoofdinschrijving": 2,
+      "_telling": 2,
+      "_jr_noemer": 2,
       "_jr_teller": 0,
-      "_dr_noemer": 3,
+      "_dr_noemer": 2,
       "_dr_teller": 1,
-      "_bekostigd_eerste_1okt": 2
+      "_bekostigd_eerste_1okt": 1
     },
     "RO_27DV_20240731_20260324": {
       "rows": 19,
-      "_actief_1_oktober": 10,
-      "_hoofdinschrijving": 8,
-      "_telling": 8,
-      "_jr_noemer": 8,
+      "_actief_1_oktober": 6,
+      "_hoofdinschrijving": 6,
+      "_telling": 6,
+      "_jr_noemer": 6,
       "_jr_teller": 0,
-      "_dr_noemer": 5,
+      "_dr_noemer": 4,
       "_dr_teller": 4,
-      "_bekostigd_eerste_1okt": 8
+      "_bekostigd_eerste_1okt": 5
+    },
+    "GRONDSLAG_IP_MBO_27DV_20251119_2025": {
+      "rows": 19,
+      "_actief_1_oktober": 10,
+      "_hoofdinschrijving": 10,
+      "_telling": 10,
+      "_jr_noemer": 10,
+      "_jr_teller": 0,
+      "_dr_noemer": 9,
+      "_dr_teller": 0,
+      "_bekostigd_eerste_1okt": 10
     }
   }
 }
