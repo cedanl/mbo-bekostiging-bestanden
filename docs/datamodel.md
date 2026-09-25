@@ -118,12 +118,14 @@ rij slechts één keer: de **meest recente levering** (alfabetisch laatste lever
 hun generatiedatum). De regel voorkomt dubbeltelling in analyses per inschrijving en zorgt ervoor dat
 correcties/bijwijzigingen (meestal in latere bestanden) voorrang krijgen.
 
-Overlappende rijen worden in `quality.json` geregistreerd als waarschuwing; een optionele `fail_on_overlap`-modus
-kan duplicering als fout behandelen.
+Deze deduplicatie gebeurt in `pipeline.py:run_star()` via `deduplicate_overlaps()` vóór het bouwen van het star schema.
+Per grain-kolom behouden we slechts de rij van de alfabetisch meest recente levering; dubbele rijen vallen weg.
+
+Overlappende rijen worden ook in `quality.json` geregistreerd als waarschuwing voor controle (zie `check_overlapping_deliveries()` in quality.py).
 
 **Voorbeeld:** dezelfde ISP in `RO_27DV_20240731.csv` (h15, vorige maand) en `RO_27DV_20250801.csv` (h15, vandaag):
 - De rij uit vandaag wint (alfabetisch later).
-- De oude rij valt weg vóór indicatorberekening.
+- De oude rij valt weg vóór indicatorberekening (in `deduplicate_overlaps()`).
 - `quality.json` toont: `overlaps: [{key: "P|2025|1", deliveries: ["20240731", "20250801"], count: 1}]`.
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 De bekostigingsrelevante BPV's (0..n per teldatum) en de TBGI-signalen (één rij per
