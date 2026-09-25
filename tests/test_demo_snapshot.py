@@ -13,9 +13,6 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.stack import stack_prepared
-from mbo_bekostiging_bestanden.star import build_star
-
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "demo_snapshot_main_baseline.json"
 
 INDICATOR_COLS = [
@@ -45,23 +42,11 @@ TABLE_NAMES = [
 
 
 @pytest.fixture(scope="session")
-def demo_star_snapshot():
-    """Bouw het demo-star schema (session-scoped voor snelheid)."""
+def demo_star_snapshot(demo_star):
+    """Load expected values from fixture; use conftest demo_star."""
     with open(FIXTURE_PATH) as f:
         expected = json.load(f)
-
-    prepared_dir = Path("data/02-prepared/demo")
-    sources = []
-    for h in ["h15", "h16", "h17"]:
-        h_dir = prepared_dir / h
-        if h_dir.exists():
-            for lev_dir in sorted(h_dir.iterdir()):
-                if lev_dir.is_dir() and not lev_dir.name.startswith("."):
-                    sources.append(lev_dir)
-
-    stacked = stack_prepared(sources)
-    star = build_star(stacked)
-    return star, expected
+    return demo_star, expected
 
 
 def test_indicator_totals_match_snapshot(demo_star_snapshot):
