@@ -33,7 +33,10 @@ from pathlib import Path
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.enrich import enrich_inschrijvingen
+from mbo_bekostiging_bestanden.enrich import (
+    _laad_sbb_koppeltabel,
+    enrich_inschrijvingen,
+)
 
 _METADATA = Path(__file__).parent / "metadata"
 
@@ -83,6 +86,19 @@ def _laad_pseudonimisering_salt() -> str:
     raise ValueError(
         "Geen pseudonimisering_salt beschikbaar. "
         "Zet MBO_PSEUDONIMISERING_SALT env-var of voeg toe aan app/config.toml"
+    )
+
+
+@functools.cache
+def _laad_sbb_niveau() -> pl.DataFrame:
+    """S-BB-koppeltabel als mapping code → ``MBO-n`` of ``n.v.t.``."""
+    niveau = pl.col("niveau")
+    return _laad_sbb_koppeltabel().select(
+        pl.col("opleidingscode").alias("_sbb_code"),
+        pl.when(niveau == _SBB_GEEN_NIVEAU)
+        .then(niveau)
+        .otherwise(_CREBO_PREFIX + niveau)
+        .alias("_sbb_niveau"),
     )
 
 
@@ -150,6 +166,15 @@ _STUDIEJAAR_START_DAG = 1
 _STUDIEJAAR_EIND_MONTH = 7
 _STUDIEJAAR_EIND_DAG = 31
 _CREBO_PREFIX = "MBO-"
+# Herkomst van Niveau, in terugvalvolgorde bron → CREBO → S-BB (#130). Een rij
+# zonder niveau valt buiten JR/DR; de herkomst onderscheidt dat van niveau 1.
+_NIVEAU_HERKOMST = "_niveau_herkomst"
+_NIVEAU_BRON = "bron"
+_NIVEAU_CREBO = "crebo"
+_NIVEAU_SBB = "sbb"
+_NIVEAU_SBB_NVT = "sbb_nvt"  # S-BB kent de code, maar zonder niveau
+_NIVEAU_ONBEKEND = "onbekend"
+_SBB_GEEN_NIVEAU = "n.v.t."
 _RESULTAAT_BEHAALD = "BEHAALD"
 
 
@@ -429,17 +454,37 @@ def _geo_pivot(
 
 
 def _vul_niveau_aan(df: pl.DataFrame) -> pl.DataFrame:
-    """Vul ontbrekend Niveau aan via de CREBO-tabel (Opleidingcode → MBO-n)."""
+    """Vul ontbrekend Niveau aan via CREBO en daarna S-BB; leg de herkomst vast.
+
+    ``crebo.csv`` kent de nieuwe codering (22xxx/23xxx/79xxx) zonder niveau; de
+    S-BB-koppeltabel wel.  ``_niveau_herkomst`` is ``bron``, ``crebo``, ``sbb``,
+    ``sbb_nvt`` (S-BB zonder niveau) of ``onbekend``.
+    """
     if "Niveau" not in df.columns or "Opleidingcode" not in df.columns:
         return df
-    if df["Niveau"].null_count() == 0:
-        return df
-    crebo = _laad_crebo_niveau()
-    df = df.join(crebo, on="Opleidingcode", how="left")
-    df = df.with_columns(
-        pl.coalesce(["Niveau", "_crebo_niveau"]).alias("Niveau"),
+    df = df.join(_laad_crebo_niveau(), on="Opleidingcode", how="left").join(
+        _laad_sbb_niveau(),
+        left_on=pl.col("Opleidingcode").cast(pl.Int64, strict=False),
+        right_on="_sbb_code",
+        how="left",
     )
-    return df.drop("_crebo_niveau")
+    sbb_zonder_niveau = pl.col("_sbb_niveau") == _SBB_GEEN_NIVEAU
+    sbb_niveau = pl.when(~sbb_zonder_niveau).then(pl.col("_sbb_niveau"))
+    herkomst = (
+        pl.when(pl.col("Niveau").is_not_null())
+        .then(pl.lit(_NIVEAU_BRON))
+        .when(pl.col("_crebo_niveau").is_not_null())
+        .then(pl.lit(_NIVEAU_CREBO))
+        .when(sbb_niveau.is_not_null())
+        .then(pl.lit(_NIVEAU_SBB))
+        .when(sbb_zonder_niveau)
+        .then(pl.lit(_NIVEAU_SBB_NVT))
+        .otherwise(pl.lit(_NIVEAU_ONBEKEND))
+    )
+    return df.with_columns(
+        pl.coalesce("Niveau", "_crebo_niveau", sbb_niveau).alias("Niveau"),
+        herkomst.alias(_NIVEAU_HERKOMST),
+    ).drop("_crebo_niveau", "_sbb_niveau")
 
 
 def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:

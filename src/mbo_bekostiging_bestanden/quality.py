@@ -1,4 +1,4 @@
-"""Datakwaliteitscontroles: SLR-reconciliatie, wees-feiten, sleuteluniciteit.
+"""Datakwaliteitscontroles: SLR-reconciliatie, wees-feiten, sleutels, niveau.
 
 Na validatie van schema: detecteer stille dataverlies en gedeeltelijke verwerking.
 Rapporteer problemen gestructureerd zonder te faillen op waarschuwingen.
@@ -13,6 +13,11 @@ import polars as pl
 from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
     filter_detail_op_inschrijvingen,
+)
+from mbo_bekostiging_bestanden.transform import (
+    _NIVEAU_HERKOMST,
+    _NIVEAU_ONBEKEND,
+    _NIVEAU_SBB_NVT,
 )
 
 # Icoon per tri-state SLR-status voor de app-weergave.
@@ -208,3 +213,25 @@ def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
             + ")"
         )
     return [melding]
+
+
+def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
+    """Signaleer inschrijvingen zonder bekend niveau in ``fact_inschrijving``.
+
+    Zonder niveau valt een rij stil buiten de JR/DR-populatie (niveau ≥ 2).
+    Onderscheidt een code die geen enkele referentietabel kent van een code die
+    S-BB zonder niveau voert (``n.v.t.``).  Geeft hooguit één melding.
+    """
+    feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    if _NIVEAU_HERKOMST not in feit.columns or feit.is_empty():
+        return []
+    herkomst = feit[_NIVEAU_HERKOMST]
+    onbekend = int((herkomst == _NIVEAU_ONBEKEND).sum())
+    sbb_nvt = int((herkomst == _NIVEAU_SBB_NVT).sum())
+    if onbekend + sbb_nvt == 0:
+        return []
+    return [
+        f"{_CENTRAAL_FEIT}: {onbekend + sbb_nvt} van {feit.height} rijen zonder "
+        f"bekend niveau ({onbekend} code onbekend, {sbb_nvt} S-BB zonder niveau); "
+        "ze vallen buiten JR/DR"
+    ]
