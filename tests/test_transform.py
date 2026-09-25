@@ -1085,6 +1085,12 @@ def test_vul_niveau_aan_zonder_ontbrekend_niveau_heeft_herkomst_bron():
     assert result["_niveau_herkomst"].to_list() == ["bron"]
 
 
+def test_vul_niveau_aan_voegt_alleen_herkomst_toe():
+    """Geen interne join-sleutels in de output (#145)."""
+    df = pl.DataFrame({"Opleidingcode": ["23023"], "Niveau": [None]})
+    assert set(_vul_niveau_aan(df).columns) - set(df.columns) == {"_niveau_herkomst"}
+
+
 def test_vul_niveau_aan_onbekende_code():
     """Onbekende Opleidingcode laat Niveau op null."""
     df = pl.DataFrame(

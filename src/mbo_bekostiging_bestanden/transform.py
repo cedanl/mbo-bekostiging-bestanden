@@ -481,10 +481,11 @@ def _vul_niveau_aan(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit(_NIVEAU_SBB_NVT))
         .otherwise(pl.lit(_NIVEAU_ONBEKEND))
     )
+    # Een join op een expressie houdt de rechtersleutel _sbb_code apart (#145).
     return df.with_columns(
         pl.coalesce("Niveau", "_crebo_niveau", sbb_niveau).alias("Niveau"),
         herkomst.alias(_NIVEAU_HERKOMST),
-    ).drop("_crebo_niveau", "_sbb_niveau")
+    ).drop("_crebo_niveau", "_sbb_niveau", "_sbb_code", strict=False)
 
 
 def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
