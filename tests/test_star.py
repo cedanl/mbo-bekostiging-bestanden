@@ -3,13 +3,13 @@
 from datetime import date
 
 import polars as pl
-from conftest import pseudoniem_van_identifier
 
 from mbo_bekostiging_bestanden.star import (
     _PERSON_IDENTIFIER_COLS,
     _build_dim,
     build_star,
 )
+from mbo_bekostiging_bestanden.transform import pseudoniem
 
 
 def _minimal_stacked() -> dict[str, pl.DataFrame]:
@@ -73,9 +73,7 @@ def test_dim_deelnemer_uniek_op_persoon():
     result = build_star(_minimal_stacked())
     dim = result["dim_deelnemer"]
     assert dim.shape[0] == 2
-    expected_personen = sorted(
-        [pseudoniem_van_identifier("P1"), pseudoniem_van_identifier("P2")]
-    )
+    expected_personen = sorted([pseudoniem("BSN", "P1"), pseudoniem("BSN", "P2")])
     actual_personen = sorted(dim["_persoon_id"].to_list())
     assert actual_personen == expected_personen
     assert "Geslacht" in dim.columns

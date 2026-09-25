@@ -104,8 +104,15 @@ def _laad_crebo_niveau() -> pl.DataFrame:
     )
 
 
-# Kolommen die een persoonsidentificatie bevatten (prioriteitsvolgorde).
-_PERSOON_COLS = ["PseudoNummer", "Burgerservicenummer", "Onderwijsnummer"]
+# Persoonsidentificerende kolommen (prioriteitsvolgorde) → identifierdomein.
+# Het domein gaat mee in het pseudoniem: GRONDSLAG levert een omgenummerd PGN,
+# geen BSN (PvE 4.8.2 §17.1), dus gelijke cijfers zijn niet dezelfde persoon.
+_PERSOON_DOMEIN = {
+    "PseudoNummer": "PGN",
+    "Burgerservicenummer": "BSN",
+    "Onderwijsnummer": "ONR",
+}
+_PERSOON_COLS = list(_PERSOON_DOMEIN)
 
 _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
@@ -151,29 +158,38 @@ _RESULTAAT_BEHAALD = "BEHAALD"
 # ---------------------------------------------------------------------------
 
 
-def _add_persoon_id(df: pl.DataFrame) -> pl.DataFrame:
-    """Voeg ``_persoon_id`` toe: HMAC-pseudoniem van eerste niet-lege identifier.
+def _hmac_pseudoniem(salt: str, sleutel: str) -> str:
+    """HMAC-SHA256 van ``sleutel`` (``"domein:identifier"``) met ``salt``."""
+    msg = f"{salt}:{sleutel}".encode()
+    return hmac.new(salt.encode("utf-8"), msg, hashlib.sha256).hexdigest()
 
-    Pseudonimiseert via HMAC-SHA256(salt + coalesce(PseudoNummer|BSN|ONr)).
-    Dit maakt identifier-herlinkage onmogelijk zonder kennis van de salt.
+
+def pseudoniem(domein: str, identifier: str) -> str:
+    """Pseudoniem van een identifier binnen zijn domein (PGN/BSN/ONR)."""
+    return _hmac_pseudoniem(_laad_pseudonimisering_salt(), f"{domein}:{identifier}")
+
+
+def _add_persoon_id(df: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_persoon_id`` toe: pseudoniem van de eerste niet-lege identifier.
+
+    De identifier wordt samen met zijn domein gepseudonimiseerd (zie
+    :func:`pseudoniem`), zodat een PGN, BSN of ONr met dezelfde cijfers nooit
+    als dezelfde persoon koppelt. Zonder salt is herlinkage onmogelijk.
     """
     beschikbaar = [c for c in _PERSOON_COLS if c in df.columns]
     if not beschikbaar:
         return df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("_persoon_id"))
 
     salt = _laad_pseudonimisering_salt()
-
-    def hash_identifier(value: str | None) -> str | None:
-        if value is None or value == "":
-            return None
-        msg = f"{salt}:{value}".encode()
-        return hmac.new(salt.encode("utf-8"), msg, hashlib.sha256).hexdigest()
-
-    coalesced = pl.coalesce([pl.col(c) for c in beschikbaar])
+    # "domein:waarde" van de eerste gevulde kolom; lege strings tellen als leeg.
+    sleutel = pl.coalesce(
+        pl.when(pl.col(c) != "").then(pl.lit(f"{_PERSOON_DOMEIN[c]}:") + pl.col(c))
+        for c in beschikbaar
+    )
     return df.with_columns(
-        coalesced.map_elements(hash_identifier, return_dtype=pl.Utf8).alias(
-            "_persoon_id"
-        )
+        sleutel.map_elements(
+            lambda k: _hmac_pseudoniem(salt, k), return_dtype=pl.Utf8
+        ).alias("_persoon_id")
     )
 
 

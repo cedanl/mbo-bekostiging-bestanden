@@ -14,7 +14,7 @@ import re
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.transform import _bouw_analysetabellen
+from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabellen
 
 # ---------------------------------------------------------------------------
 # Kolomdefinities per dimensie
@@ -81,9 +81,9 @@ _FK_COLS = {"_persoon_id", "Opleidingcode", "BRIN"}
 _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 
 # Kolommen die PII bevatten en uit de output verwijderd worden.
-# _persoon_id is gepseudonimiseerd (HMAC-SHA256), maar BSN en Onderwijsnummer
-# staan nog rechtstreeks in de brondata en moeten verwijderd worden.
-_PERSON_IDENTIFIER_COLS = {"Burgerservicenummer", "Onderwijsnummer", "PseudoNummer"}
+# _persoon_id is gepseudonimiseerd (HMAC-SHA256), maar de bron-identifiers
+# (PGN, BSN, ONr) staan nog rechtstreeks in de brondata en moeten weg.
+_PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
 _BEKOSTIGING_DROP = _PII_DROP
 
