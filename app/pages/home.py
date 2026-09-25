@@ -17,6 +17,7 @@ from mbo_bekostiging_bestanden.pipeline import (
 )
 from mbo_bekostiging_bestanden.quality import (
     controleer_koppelingen,
+    controleer_niveau,
     controleer_sleuteluniciteit,
     slr_status_icoon,
 )
@@ -32,6 +33,10 @@ _KWALITEITSMELDINGEN = {
         "**Dubbele periodesleutels** — dezelfde inschrijvingsperiode staat "
         "meer dan één keer in de bron; joins op `_inschrijving_periode_id` "
         "tellen deze rijen dubbel:"
+    ),
+    "niveau_onbekend": (
+        "**Niveau onbekend** — voor deze opleidingscodes kent geen bron of "
+        "referentietabel een niveau; ze tellen niet mee in JR/DR (niveau ≥ 2):"
     ),
 }
 
@@ -257,6 +262,7 @@ if not done:
                 "instelling_per_levering": _instelling_per_levering(star),
                 "wees_feiten": controleer_koppelingen(star),
                 "dubbele_sleutels": controleer_sleuteluniciteit(star),
+                "niveau_onbekend": controleer_niveau(star),
             }
         except Exception as exc:
             melding = str(exc)

@@ -108,6 +108,7 @@ vermenigvuldigen.
 | `_jr_noemer` / `_jr_teller` | Populatie en teller voor Jaarresultaat (JR) |
 | `_dr_noemer` / `_dr_teller` | Populatie en teller voor Diplomaresultaat (DR) |
 | `_entree_doorstroom` / `_entree_uitstroom` | Niveau-1 doorstroom- en uitstroomcategorieën |
+| `_niveau_herkomst` | Waar `Niveau` vandaan komt: `bron`, `crebo` (`crebo.csv`), `sbb` (S-BB-koppeltabel), `sbb_nvt` (S-BB kent de code zonder niveau) of `onbekend`. Rijen zonder niveau vallen buiten JR/DR; Home meldt ze (`quality.controleer_niveau`). |
 
 ### Relatie met QlikView-referentiemodel
 

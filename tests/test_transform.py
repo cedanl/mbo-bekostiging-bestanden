@@ -1051,6 +1051,40 @@ def test_vul_niveau_aan_behoudt_bestaand():
     assert result["Niveau"][0] == "MBO-3"
 
 
+def test_vul_niveau_aan_via_sbb_bij_nieuwe_codering():
+    """Nieuwe codering (23xxx) mist niveau in crebo.csv; S-BB kent het (#130)."""
+    result = _vul_niveau_aan(
+        pl.DataFrame({"Opleidingcode": ["23023"], "Niveau": [None]})
+    )
+    assert result["Niveau"][0] == "MBO-4"
+
+
+def test_vul_niveau_aan_legt_herkomst_vast():
+    """Onbekend niveau is iets anders dan niveau 1: de herkomst maakt dat zichtbaar."""
+    df = pl.DataFrame(
+        {
+            "Opleidingcode": ["25655", "25655", "23023", "22001", "99999"],
+            "Niveau": ["MBO-3", None, None, None, None],
+        }
+    )
+    result = _vul_niveau_aan(df)
+    assert result["Niveau"].to_list() == ["MBO-3", "MBO-4", "MBO-4", None, None]
+    assert result["_niveau_herkomst"].to_list() == [
+        "bron",
+        "crebo",
+        "sbb",
+        "sbb_nvt",
+        "onbekend",
+    ]
+
+
+def test_vul_niveau_aan_zonder_ontbrekend_niveau_heeft_herkomst_bron():
+    result = _vul_niveau_aan(
+        pl.DataFrame({"Opleidingcode": ["25655"], "Niveau": ["MBO-4"]})
+    )
+    assert result["_niveau_herkomst"].to_list() == ["bron"]
+
+
 def test_vul_niveau_aan_onbekende_code():
     """Onbekende Opleidingcode laat Niveau op null."""
     df = pl.DataFrame(

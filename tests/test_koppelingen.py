@@ -1,9 +1,10 @@
-"""Tests voor wees-feiten (#89) en uniciteit van de periodesleutel (#122)."""
+"""Tests voor wees-feiten (#89), sleuteluniciteit (#122) en niveau-dekking (#130)."""
 
 import polars as pl
 
 from mbo_bekostiging_bestanden.quality import (
     controleer_koppelingen,
+    controleer_niveau,
     controleer_sleuteluniciteit,
 )
 
@@ -93,3 +94,30 @@ def test_ontbrekende_sleutelkolom_wordt_overgeslagen():
 def test_demo_star_heeft_unieke_periodesleutels(demo_star, tbgi_star):
     assert controleer_sleuteluniciteit(demo_star) == []
     assert controleer_sleuteluniciteit(tbgi_star) == []
+
+
+# ---------------------------------------------------------------------------
+# controleer_niveau (#130)
+# ---------------------------------------------------------------------------
+
+
+def _star_met_herkomst(herkomst: list[str]) -> dict[str, pl.DataFrame]:
+    return {"fact_inschrijving": pl.DataFrame({"_niveau_herkomst": herkomst})}
+
+
+def test_niveau_melding_telt_onbekend_en_sbb_nvt():
+    star = _star_met_herkomst(
+        ["bron", "crebo", "sbb", "sbb_nvt", "onbekend", "onbekend"]
+    )
+    assert controleer_niveau(star) == [
+        "fact_inschrijving: 3 van 6 rijen zonder bekend niveau "
+        "(2 code onbekend, 1 S-BB zonder niveau); ze vallen buiten JR/DR"
+    ]
+
+
+def test_niveau_melding_leeg_als_alle_niveaus_bekend():
+    assert controleer_niveau(_star_met_herkomst(["bron", "crebo", "sbb"])) == []
+
+
+def test_niveau_melding_leeg_zonder_herkomstkolom():
+    assert controleer_niveau({"fact_inschrijving": pl.DataFrame({"x": [1]})}) == []
