@@ -434,7 +434,7 @@ def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any
     # Aggregate: count distinct deliveries per key
     grouped = feit.group_by(required).agg(
         pl.col("levering").n_unique().alias("_num_deliveries"),
-        pl.col("levering").collect().alias("_deliveries"),
+        pl.col("levering").unique().sort().alias("_deliveries"),
     ).filter(pl.col("_num_deliveries") > 1)
 
     for row in grouped.iter_rows(named=True):
