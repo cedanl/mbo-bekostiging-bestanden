@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Quality Report for MBO Ingest Star Schema",
+  "description": "Machine-readable quality metrics for each run. Written to data/03-output/{scenario}/star/quality.json by run_star().",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp of star build",
+      "example": "2025-09-25T12:34:56Z"
+    },
+    "scenario": {
+      "type": "string",
+      "description": "Data scenario (e.g. 'demo', 'prod')",
+      "example": "demo"
+    },
+    "deliveries": {
+      "type": "array",
+      "description": "Per-delivery quality report",
+      "items": {
+        "type": "object",
+        "properties": {
+          "levering": {
+            "type": "string",
+            "description": "Delivery identifier (filename stem)"
+          },
+          "schema_type": {
+            "type": "string",
+            "enum": ["ro", "grondslag", "tbgi", "unknown"],
+            "description": "Detected schema type from recordtypes"
+          },
+          "slr_status": {
+            "type": "string",
+            "enum": ["match", "mismatch", "unknown"],
+            "description": "SLR reconciliation status"
+          },
+          "slr_details": {
+            "type": "object",
+            "description": "Per recordtype: expected vs actual counts",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "verwacht": { "type": "integer" },
+                "gelezen": { "type": "integer" }
+              }
+            },
+            "example": { "PER": { "verwacht": 100, "gelezen": 100 } }
+          },
+          "parseverlies": {
+            "type": "object",
+            "description": "Fields where typed values became null (filled → empty)",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": { "type": "integer" }
+            },
+            "example": { "VLP": { "DatumBegin": 2 } }
+          },
+          "warnings": {
+            "type": "array",
+            "description": "Non-fatal issues",
+            "items": { "type": "string" }
+          },
+          "errors": {
+            "type": "array",
+            "description": "Fatal issues (should trigger fail)",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["levering", "schema_type", "slr_status"]
+      }
+    },
+    "star": {
+      "type": "object",
+      "description": "Cross-delivery star schema checks",
+      "properties": {
+        "orphaned_facts": {
+          "type": "object",
+          "description": "Detail facts not joining to fact_inschrijving",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "total_rows": { "type": "integer" },
+              "orphaned_rows": { "type": "integer" },
+              "orphaned_pct": { "type": "number" },
+              "details": { "type": "string" }
+            }
+          },
+          "example": {
+            "fact_bekostiging": {
+              "total_rows": 1000,
+              "orphaned_rows": 50,
+              "orphaned_pct": 0.05,
+              "details": "50/1000 rows do not match fact_inschrijving key"
+            }
+          }
+        },
+        "key_duplicates": {
+          "type": "object",
+          "description": "Period keys appearing >1x in fact_inschrijving",
+          "properties": {
+            "duplicate_keys": { "type": "integer" },
+            "affected_rows": { "type": "integer" },
+            "by_delivery": {
+              "type": "object",
+              "additionalProperties": { "type": "integer" }
+            }
+          }
+        },
+        "overlapping_deliveries": {
+          "type": "array",
+          "description": "persoon×inschrijving×schooljaar appearing in >1 delivery",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string", "description": "person|year|seq composite" },
+              "deliveries": { "type": "array", "items": { "type": "string" } },
+              "count": { "type": "integer" }
+            }
+          }
+        },
+        "nivel_issues": {
+          "type": "object",
+          "description": "Rows with unknown or missing niveau",
+          "properties": {
+            "unknown_code": { "type": "integer" },
+            "sbb_without_level": { "type": "integer" },
+            "total": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Summary metrics",
+      "properties": {
+        "total_deliveries": { "type": "integer" },
+        "total_inschrijvingen": { "type": "integer" },
+        "total_warnings": { "type": "integer" },
+        "total_errors": { "type": "integer" },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "warn", "fail"],
+          "description": "Overall status: pass (no errors), warn (warnings only), fail (has errors)"
+        }
+      }
+    }
+  },
+  "required": ["timestamp", "deliveries", "summary"]
+}

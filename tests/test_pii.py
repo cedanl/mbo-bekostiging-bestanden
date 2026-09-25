@@ -44,3 +44,27 @@ def test_star_bevat_nergens_ruwe_persoonsidentifiers(demo_star, tbgi_star):
     for star in (demo_star, tbgi_star):
         for naam, tabel in star.items():
             assert not ruw & set(tabel.columns), naam
+
+
+def test_alle_fact_tabellen_detecteren_pii_kolommen(demo_star, tbgi_star):
+    """Alle fact-tabellen moeten PII-kolommen herkennen.
+
+    Bijv. DatumOverlijden, Leeftijd, RedenUitschrijving.
+    Dit voorkomt dat ze per ongeluk in CSV-downloads komen.
+    """
+    nieuwe_patterns = ["DatumOverlijden", "Leeftijd", "RedenUitschrijving"]
+    for star in (demo_star, tbgi_star):
+        for naam, tabel in star.items():
+            if not naam.startswith("fact_"):
+                continue
+            if tabel.is_empty():
+                continue
+            pii_gevonden = detect_pii_columns(tabel.columns)
+            assert "_persoon_id" in pii_gevonden, (
+                f"{naam}: _persoon_id niet gedetecteerd als PII"
+            )
+            for kolom in tabel.columns:
+                if any(p in kolom for p in nieuwe_patterns):
+                    assert kolom in pii_gevonden, (
+                        f"{naam}: {kolom} niet gedetecteerd als PII"
+                    )

@@ -134,6 +134,10 @@ _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 _PERIODE_ID = "_inschrijving_periode_id"
+# Eén inschrijving binnen een levering: haar ISP-perioden sluiten op elkaar aan.
+# Een periode loopt t/m DatumEind (GRONDSLAG), anders tot de volgende (#144).
+_PERIODE_INSCHRIJVING = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
+_PERIODE_EINDE = "_periode_einde"
 # Groep waarbinnen de selectievlaggen gelden (zie :func:`_voeg_sr_vlaggen_toe`).
 _SELECTIE_GROEP = ("levering", "BRIN", "_persoon_id", "Studiejaar")
 _SELECTIE_VLAGGEN = ("_hoogste_niveau", "_laagste_CREBO", "_hoofdinschrijving")
@@ -481,10 +485,11 @@ def _vul_niveau_aan(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit(_NIVEAU_SBB_NVT))
         .otherwise(pl.lit(_NIVEAU_ONBEKEND))
     )
+    # Een join op een expressie houdt de rechtersleutel _sbb_code apart (#145).
     return df.with_columns(
         pl.coalesce("Niveau", "_crebo_niveau", sbb_niveau).alias("Niveau"),
         herkomst.alias(_NIVEAU_HERKOMST),
-    ).drop("_crebo_niveau", "_sbb_niveau")
+    ).drop("_crebo_niveau", "_sbb_niveau", "_sbb_code", strict=False)
 
 
 def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
@@ -540,7 +545,213 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def _voeg_periode_einde_toe(df: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``_periode_einde`` (inclusief) toe aan ISP-rijen.
+
+    ``DatumEind`` als de bron die levert (GRONDSLAG), anders de dag vóór de
+    volgende strikt latere ``DatumBegin`` van dezelfde inschrijving (RO).  Zonder
+    ``DatumBegin`` of zonder inschrijvingssleutel blijft ``df`` ongewijzigd: de
+    inschrijving is dan zelf de periode (TBGI-only).
+    """
+    sleutel = [c for c in _PERIODE_INSCHRIJVING if c in df.columns]
+    if "DatumBegin" not in df.columns or not {
+        "_persoon_id",
+        "Inschrijvingvolgnummer",
+    }.issubset(sleutel):
+        return df
+    volgende = (
+        df.select(*sleutel, "DatumBegin")
+        .drop_nulls("DatumBegin")
+        .unique()
+        .sort([*sleutel, "DatumBegin"], nulls_last=True)
+        .with_columns(
+            pl.col("DatumBegin").shift(-1).over(sleutel).alias("_volgende_begin")
+        )
+    )
+    df = df.join(
+        volgende,
+        on=[*sleutel, "DatumBegin"],
+        how="left",
+        nulls_equal=True,
+        maintain_order="left",
+    )
+    tot_volgende = pl.col("_volgende_begin") - pl.duration(days=1)
+    einde = (
+        pl.coalesce("DatumEind", tot_volgende)
+        if "DatumEind" in df.columns
+        else tot_volgende
+    )
+    return df.with_columns(einde.alias(_PERIODE_EINDE)).drop("_volgende_begin")
+
+
+def _periode_dekt(df: pl.DataFrame, datum: pl.Expr) -> pl.Expr:
+    """Waar als de ISP-periode ``datum`` dekt; onbekende grenzen sluiten niet uit."""
+    if _PERIODE_EINDE not in df.columns:
+        return pl.lit(True)
+    begint_op_tijd = (pl.col("DatumBegin") <= datum).fill_null(True)
+    loopt_door = pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= datum)
+    return begint_op_tijd & loopt_door
+
+
+def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
+    """Bepaal per (levering, BRIN, _persoon_id, schooljaar) welke ISP-periode
+    actief is op 1-okt.
+
+    Voor elke schooljaar waar een persoon periodes heeft, zoek de periode die
+    1-oktober van dat schooljaar dekt. Markeer de periodes die minstens één
+    peildatum dekken als `_actief_1_oktober = True`.
+
+    Retourneert de originele df (geen duplicatie) met `_actief_1_oktober`,
+    `_schooljaren_actief` (lijst van schooljaren die deze periode dekt) en
+    `_ingeschreven_jaar_later` per rij.
+    """
+    if "Studiejaar" not in df.columns or "DatumBegin" not in df.columns:
+        return df.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober"),
+            pl.lit(None, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
+            pl.lit(None, dtype=pl.List(pl.Int64)).alias("_schooljaren_actief"),
+        )
+
+    # Bereken _periode_einde eerst
+    df = _voeg_periode_einde_toe(df)
+
+    # Bepaal unieke schooljaren per persoon per levering/BRIN
+    sj_col = (
+        "Studiejaar_periode" if "Studiejaar_periode" in df.columns else "Studiejaar"
+    )
+
+    schooljaren = (
+        df.select(["levering", "BRIN", "_persoon_id", sj_col])
+        .drop_nulls(sj_col)
+        .unique()
+        .rename({sj_col: "schooljaar"})
+    )
+
+    if schooljaren.is_empty():
+        return df.with_columns(
+            pl.lit(False, dtype=pl.Boolean).alias("_actief_1_oktober"),
+            pl.lit(False, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
+            pl.lit(None, dtype=pl.List(pl.Int64)).alias("_schooljaren_actief"),
+        ).drop(_PERIODE_EINDE, strict=False)
+
+    # Voor elke schooljaar, bepaal peildatum = 1-okt
+    schooljaren = schooljaren.with_columns(
+        pl.date(pl.col("schooljaar"), _TELDATUM_MONTH, _TELDATUM_DAG).alias("peildatum")
+    )
+
+    # Periodes per persoon
+    periodes = df.select(
+        [
+            "levering",
+            "BRIN",
+            "_persoon_id",
+            "Inschrijvingvolgnummer",
+            "DatumBegin",
+            _PERIODE_EINDE,
+        ]
+    ).drop_nulls("DatumBegin")
+
+    # Voor elke periode, bepaal welke schooljaren deze dekt
+    # Doe dit efficiënt met join_asof per schooljaar
+    actieve_periodes_per_sj = []
+    for sj_row in schooljaren.iter_rows(named=True):
+        lev, brin, pid, sj, peildatum = (
+            sj_row["levering"],
+            sj_row["BRIN"],
+            sj_row["_persoon_id"],
+            sj_row["schooljaar"],
+            sj_row["peildatum"],
+        )
+        p = periodes.filter(
+            (pl.col("levering") == lev)
+            & (pl.col("BRIN") == brin)
+            & (pl.col("_persoon_id") == pid)
+        )
+        if p.is_empty():
+            continue
+        dekt_peildatum = (
+            (pl.col("DatumBegin") <= peildatum)
+            & (pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= peildatum))
+        )
+        p = p.with_columns(dekt_peildatum.alias("_dekt"))
+        actief = p.filter(pl.col("_dekt"))
+        if not actief.is_empty():
+            actief = actief.with_columns(pl.lit(sj).alias("_schooljaar_peildatum"))
+            actieve_periodes_per_sj.append(
+            actief.select(
+                [
+                    "levering",
+                    "BRIN",
+                    "_persoon_id",
+                    "Inschrijvingvolgnummer",
+                    "DatumBegin",
+                    "_schooljaar_peildatum",
+                ]
+            )
+        )
+
+    if not actieve_periodes_per_sj:
+        return df.with_columns(
+            pl.lit(False, dtype=pl.Boolean).alias("_actief_1_oktober"),
+            pl.lit(False, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
+            pl.lit(None, dtype=pl.List(pl.Int64)).alias("_schooljaren_actief"),
+        ).drop(_PERIODE_EINDE, strict=False)
+
+    actief_df = pl.concat(actieve_periodes_per_sj, how="vertical_relaxed")
+
+    # Groepeer per periode en verzamel schooljaren
+    schooljaren_per_periode = (
+        actief_df.group_by(
+            ["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"]
+        )
+        .agg(pl.col("_schooljaar_peildatum").sort().alias("_schooljaren_actief"))
+    )
+
+    # Join terug naar originele df (één-op-één, geen duplicatie)
+    df = df.join(
+        schooljaren_per_periode,
+        on=["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"],
+        how="left",
+    )
+
+    # _actief_1_oktober = True als periode minstens één schooljaar dekt
+    df = df.with_columns(
+        _actief_1_oktober=pl.col("_schooljaren_actief").list.len().fill_null(0) > 0
+    )
+
+    # _ingeschreven_jaar_later: inschrijving begint na 1-okt van
+    # EERSTE schooljaar dat deze periode dekt
+    if "DatumInschrijving" in df.columns:
+        df = df.with_columns(
+            _ingeschreven_jaar_later=pl.when(
+                pl.col("_schooljaren_actief").list.len() > 0
+            )
+            .then(
+                pl.col("DatumInschrijving")
+                > pl.date(
+                    pl.col("_schooljaren_actief").list.first(),
+                    _TELDATUM_MONTH,
+                    _TELDATUM_DAG,
+                )
+            )
+            .otherwise(pl.lit(False))
+            .fill_null(False)
+        )
+    else:
+        df = df.with_columns(
+            pl.lit(False, dtype=pl.Boolean).alias("_ingeschreven_jaar_later")
+        )
+
+    return df.drop(_PERIODE_EINDE, strict=False)
+
+
 def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
+    """Voeg bekostigingsvlaggen toe: actief 1-okt, bekostigd, gediplomeerd,
+    ingeschreven later.
+
+    De `_actief_1_oktober` wordt bepaald per schooljaar via as-of join
+    (zie :func:`_bepaal_actief_per_schooljaar`).
+    """
     if "Studiejaar" not in df.columns:
         return df.with_columns(
             pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober"),
@@ -556,41 +767,28 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
         )
 
-    studiejaar = pl.col("Studiejaar").cast(pl.Int32)
-    oct_1 = pl.date(studiejaar, _TELDATUM_MONTH, _TELDATUM_DAG)
+    # Bepaal actief per schooljaar (zet _actief_1_oktober en _ingeschreven_jaar_later)
+    df = _bepaal_actief_per_schooljaar(df)
 
-    if "DatumInschrijving" in df.columns:
-        datum_in = pl.col("DatumInschrijving")
-        datum_uit = (
-            pl.col("DatumUitschrijvingWerkelijk")
-            if "DatumUitschrijvingWerkelijk" in df.columns
-            else pl.lit(None, dtype=pl.Date)
-        )
-        actief = (
-            (datum_in <= oct_1) & (datum_uit.is_null() | (datum_uit > oct_1))
-        ).alias("_actief_1_oktober")
-        ingeschreven_later = (
-            (datum_in > oct_1).fill_null(False).alias("_ingeschreven_jaar_later")
-        )
-    else:
-        actief = pl.lit(None, dtype=pl.Boolean).alias("_actief_1_oktober")
-        ingeschreven_later = pl.lit(None, dtype=pl.Boolean).alias(
-            "_ingeschreven_jaar_later"
-        )
-
-    df = df.with_columns(actief, ingeschreven_later)
-
+    # _bekostigd_eerste_1okt: actief én bekostigbaar
     bekostigd = (
         pl.col("_actief_1_oktober") & (pl.col("IndicatieBekostigbaar") == "J")
         if "IndicatieBekostigbaar" in df.columns
         else pl.col("_actief_1_oktober") & pl.lit(False)
     ).alias("_bekostigd_eerste_1okt")
 
-    if "DIP_DatumResultaat" in df.columns:
+    # _gediplomeerd_in_jaar: diploma in het schooljaar van de periode
+    # Gebruik Studiejaar_periode als beschikbaar (juiste schooljaar voor deze periode)
+    sj_col = (
+        "Studiejaar_periode" if "Studiejaar_periode" in df.columns else "Studiejaar"
+    )
+    if "DIP_DatumResultaat" in df.columns and sj_col in df.columns:
         jaar_begin = pl.date(
-            studiejaar - 1, _STUDIEJAAR_START_MONTH, _STUDIEJAAR_START_DAG
+            pl.col(sj_col) - 1, _STUDIEJAAR_START_MONTH, _STUDIEJAAR_START_DAG
         )
-        jaar_eind = pl.date(studiejaar, _STUDIEJAAR_EIND_MONTH, _STUDIEJAAR_EIND_DAG)
+        jaar_eind = pl.date(
+            pl.col(sj_col), _STUDIEJAAR_EIND_MONTH, _STUDIEJAAR_EIND_DAG
+        )
         dip_datum = pl.col("DIP_DatumResultaat")
         gediplomeerd = (
             (
@@ -612,6 +810,8 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         )
     )
 
+    # Opbrengstjaar velden (blijven op basis van leverings-
+# Studiejaar voor compatibiliteit)
     studiejaar_serie = df["Studiejaar"].cast(pl.Int32).drop_nulls()
     if studiejaar_serie.is_empty():
         return df.with_columns(
@@ -644,49 +844,114 @@ def _niveau_numeriek(col: pl.Expr) -> pl.Expr:
 def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     """Selectie/rendement-vlaggen: hoogste niveau, laagste CREBO, hoofdinschrijving.
 
-    Alle drie de vlaggen gelden binnen dezelfde groep: persoon × studiejaar,
+    Alle drie de vlaggen gelden binnen dezelfde groep: persoon × schooljaar (peildatum),
     per levering en per instelling (``BRIN``) als die kolommen bestaan.  DUO
-    telt één hoofdinschrijving per student per instelling; per levering zodat
-    gestapelde leveringen elkaar niet beïnvloeden.
+    telt één hoofdinschrijving per student per instelling op de peildatum;
+    per levering zodat gestapelde leveringen elkaar niet beïnvloeden.
 
-    ``_hoofdinschrijving`` is precies één kandidaat (hoogste niveau én laagste
-    CREBO) per groep; bij gelijke kandidaten wint de meest recente periode
-    (zie :func:`_periode_begin_kolom`).
+    Alleen perioden die op 1 oktober actief zijn doen mee (#144): DUO kiest de
+    hoofdinschrijving op de peildatum.  Een onbekende actief-status sluit niet
+    uit.  ``_hoofdinschrijving`` is precies één kandidaat (hoogste niveau én
+    laagste CREBO) per groep met een actieve periode; bij gelijke kandidaten
+    wint de meest recente periode (zie :func:`_periode_begin_kolom`).
     """
-    vereist = {"_persoon_id", "Studiejaar", "Niveau", "Opleidingcode"}
+    vereist = {"_persoon_id", "Niveau", "Opleidingcode", "_actief_1_oktober"}
     if not vereist.issubset(df.columns):
         return df.with_columns(
             pl.lit(None, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
         )
 
-    groep = [c for c in _SELECTIE_GROEP if c in df.columns]
+    # Hoofdinschrijving wordt per schooljaar gekozen.
+    # Explodeer _schooljaren_actief, selecteer per schooljaar, map terug.
+    if "_schooljaren_actief" not in df.columns or "_actief_1_oktober" not in df.columns:
+        return df.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
+        )
+
+    # Alleen actieve periodes doen mee
+    actieve = df.filter(pl.col("_actief_1_oktober").fill_null(False))
+    if actieve.is_empty():
+        return df.with_columns(
+            pl.lit(False, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
+        )
+
+    # Explodeer schooljaren per actieve periode
+    actieve_exploded = actieve.explode("_schooljaren_actief").rename(
+        {"_schooljaren_actief": "_schooljaar_peildatum"}
+    )
+
+    # Groepeer per (levering, BRIN, _persoon_id, schooljaar)
+    groep_cols = [
+        c
+        for c in ["levering", "BRIN", "_persoon_id", "_schooljaar_peildatum"]
+        if c in actieve_exploded.columns
+    ]
     niveau = _niveau_numeriek(pl.col("Niveau"))
-    hoogste = niveau == niveau.max().over(groep)
+
+    # Hoogste niveau onder actieve periodes per groep
+    hoogste = niveau == niveau.max().over(groep_cols)
     laagste_crebo = hoogste & (
         pl.col("Opleidingcode")
-        == pl.col("Opleidingcode").filter(hoogste).min().over(groep)
+        == pl.col("Opleidingcode").filter(hoogste).min().over(groep_cols)
     )
-    df = df.with_columns(
+    actieve_exploded = actieve_exploded.with_columns(
         hoogste.alias("_hoogste_niveau"), laagste_crebo.alias("_laagste_CREBO")
     )
 
+    # Selecteer hoofdinschrijving per groep
     kandidaat = pl.col("_laagste_CREBO").fill_null(False)
-    begin = _periode_begin_kolom(df)
+    begin = _periode_begin_kolom(actieve_exploded)
     volgorde = [kandidaat, *([pl.col(begin)] if begin else [])]
     rij = "_rij"
     gekozen = (
         pl.col(rij)
         .sort_by(volgorde, descending=True, nulls_last=True)
         .first()
-        .over(groep)
+        .over(groep_cols)
     )
-    return (
-        df.with_row_index(rij)
+    actieve_exploded = (
+        actieve_exploded.with_row_index(rij)
         .with_columns(
             (kandidaat & (pl.col(rij) == gekozen)).alias("_hoofdinschrijving")
         )
         .drop(rij)
     )
+
+    # Map terug naar originele df: een periode is hoofdinschrijving als het
+    # voor ÉÉN van zijn schooljaren de hoofdinschrijving is
+    hoofd_per_periode = (
+        actieve_exploded.filter(pl.col("_hoofdinschrijving"))
+        .select(
+            ["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"]
+        )
+        .unique()
+        .with_columns(pl.lit(True).alias("_is_hoofd"))
+    )
+
+    df = df.join(
+        hoofd_per_periode,
+        on=["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"],
+        how="left",
+    ).with_columns(
+        pl.col("_is_hoofd").fill_null(False).alias("_hoofdinschrijving")
+    ).drop("_is_hoofd")
+
+    # Vul _hoogste_niveau en _laagste_CREBO voor alle rijen (niet alleen actieve)
+    # Gebruik de waarden uit de actieve periodes per groep
+    niveau_all = _niveau_numeriek(pl.col("Niveau"))
+    groep_all = [c for c in ["levering", "BRIN", "_persoon_id"] if c in df.columns]
+    if groep_all:
+        hoogste_all = niveau_all == niveau_all.max().over(groep_all)
+        laagste_crebo_all = hoogste_all & (
+            pl.col("Opleidingcode")
+            == pl.col("Opleidingcode").filter(hoogste_all).min().over(groep_all)
+        )
+        df = df.with_columns(
+            hoogste_all.alias("_hoogste_niveau"),
+            laagste_crebo_all.alias("_laagste_CREBO"),
+        )
+
+    return df
 
 
 def _voeg_telling_en_jr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:

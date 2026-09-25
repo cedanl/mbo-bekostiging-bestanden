@@ -9,7 +9,12 @@ import polars as pl
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
-from mbo_bekostiging_bestanden.quality import check_slr_reconciliation, tel_parseverlies
+from mbo_bekostiging_bestanden.quality import (
+    check_slr_reconciliation,
+    compile_quality_report,
+    tel_parseverlies,
+    write_quality_json,
+)
 from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
@@ -169,9 +174,19 @@ def run_star(
         Dict met de elf star-schema-tabellen; tevens geschreven naar
         ``<target>/datamodel/``.
     """
+    target = Path(target)
     stacked = stack_prepared(sources, relative_to=relative_to)
     star_tables = build_star(stacked)
-    export_frames(star_tables, Path(target) / "datamodel")
+    export_frames(star_tables, target / "datamodel")
+
+    # Compile and write quality report
+    quality_report = compile_quality_report(
+        star_tables,
+        deliveries=None,  # Delivery reports would be built separately in full pipeline
+        scenario="unknown",
+    )
+    write_quality_json(quality_report, target / "quality.json")
+
     return star_tables
 
 
