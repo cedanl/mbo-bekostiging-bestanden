@@ -174,6 +174,8 @@ def run_star(
         Dict met de elf star-schema-tabellen; tevens geschreven naar
         ``<target>/datamodel/``.
     """
+    from mbo_bekostiging_bestanden.quality import QualityReport
+
     target = Path(target)
     stacked = stack_prepared(sources, relative_to=relative_to)
 
@@ -183,12 +185,33 @@ def run_star(
     star_tables = build_star(stacked)
     export_frames(star_tables, target / "datamodel")
 
+    # Read quality reports from prepared sources to include SLR + parseverlies
+    deliveries_dict: dict[str, QualityReport] = {}
+    for source in sources:
+        source_path = Path(source)
+        quality_json = source_path / "quality.json"
+        if quality_json.exists():
+            with open(quality_json) as f:
+                report_data = json.load(f)
+                # Reconstruct QualityReport from JSON
+                levering = report_data.get("levering", source_path.name)
+                report = QualityReport(
+                    levering=levering,
+                    schema_type=report_data.get("schema_type", "unknown"),
+                    slr_status=report_data.get("slr_status", "unknown"),
+                    slr_checks=report_data.get("slr_details", {}),
+                    parseverlies=report_data.get("parseverlies", {}),
+                    warnings=report_data.get("warnings", []),
+                    errors=report_data.get("errors", []),
+                )
+                deliveries_dict[levering] = report
+
     # Compile and write quality report
     # Detect if this is demo data based on target path
     scenario = "demo" if "demo" in str(target).lower() else "prod"
     quality_report = compile_quality_report(
         star_tables,
-        deliveries=None,  # Delivery reports would be built separately in full pipeline
+        deliveries=deliveries_dict if deliveries_dict else None,
         scenario=scenario,
     )
     write_quality_json(quality_report, target / "quality.json")
