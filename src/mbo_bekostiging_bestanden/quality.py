@@ -6,11 +6,11 @@ Alle controles retourneren gestructureerde dicts (JSON-serialiseerbaar).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import json
 
 import polars as pl
 
@@ -352,7 +352,7 @@ def compile_quality_report(
     """
     deliveries_list = []
     if deliveries:
-        for levering, report in sorted(deliveries.items()):
+        for _levering, report in sorted(deliveries.items()):
             deliveries_list.append(report.as_dict())
 
     # Star-level checks
@@ -377,7 +377,7 @@ def compile_quality_report(
     status = "fail" if total_errors > 0 else ("warn" if total_warnings > 0 else "pass")
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "scenario": scenario,
         "deliveries": deliveries_list,
         "star": star_checks,
