@@ -335,6 +335,35 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
     ]
 
 
+def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]:
+    """Evaluate star-checks; return (errors, warnings).
+
+    Errors: orphaned_facts with pct > 0, key duplicates > 0
+    Warnings: niveau_issues > 0, overlapping_deliveries > 0
+    """
+    errors = 0
+    warnings = 0
+
+    # Check orphaned facts
+    for tabla, metrics in star_checks.get("orphaned_facts", {}).items():
+        if metrics.get("orphaned_pct", 0) > 0:
+            errors += 1
+
+    # Check key duplicates
+    if star_checks.get("key_duplicates", {}).get("duplicate_keys", 0) > 0:
+        errors += 1
+
+    # Check niveau issues
+    if star_checks.get("niveau_issues", {}).get("total", 0) > 0:
+        warnings += 1
+
+    # Check overlapping deliveries
+    if len(star_checks.get("overlapping_deliveries", [])) > 0:
+        warnings += 1
+
+    return errors, warnings
+
+
 def compile_quality_report(
     star: dict[str, pl.DataFrame],
     deliveries: dict[str, QualityReport] | None = None,
@@ -363,7 +392,7 @@ def compile_quality_report(
         **check_overlapping_deliveries(star),
     }
 
-    # Count totals
+    # Count totals from deliveries
     total_warnings = 0
     total_errors = 0
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
@@ -373,7 +402,12 @@ def compile_quality_report(
         total_warnings += len(delivery.get("warnings", []))
         total_errors += len(delivery.get("errors", []))
 
-    # Overall status
+    # Add star-check findings to totals
+    star_errors, star_warnings = _evaluate_star_checks_status(star_checks)
+    total_errors += star_errors
+    total_warnings += star_warnings
+
+    # Overall status: FAIL if any errors, WARN if warnings, PASS otherwise
     status = "fail" if total_errors > 0 else ("warn" if total_warnings > 0 else "pass")
 
     return {

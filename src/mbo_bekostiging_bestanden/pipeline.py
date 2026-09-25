@@ -184,10 +184,12 @@ def run_star(
     export_frames(star_tables, target / "datamodel")
 
     # Compile and write quality report
+    # Detect if this is demo data based on target path
+    scenario = "demo" if "demo" in str(target).lower() else "prod"
     quality_report = compile_quality_report(
         star_tables,
         deliveries=None,  # Delivery reports would be built separately in full pipeline
-        scenario="unknown",
+        scenario=scenario,
     )
     write_quality_json(quality_report, target / "quality.json")
 
