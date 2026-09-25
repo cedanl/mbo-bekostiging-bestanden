@@ -7,7 +7,10 @@ Alle controles retourneren gestructureerde dicts (JSON-serialiseerbaar).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+import json
 
 import polars as pl
 
@@ -330,3 +333,80 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
         f"bekend niveau ({onbekend} code onbekend, {sbb_nvt} S-BB zonder niveau); "
         "ze vallen buiten JR/DR"
     ]
+
+
+def compile_quality_report(
+    star: dict[str, pl.DataFrame],
+    deliveries: dict[str, QualityReport] | None = None,
+    scenario: str = "unknown",
+) -> dict[str, Any]:
+    """Compile quality report for quality.json output.
+
+    Args:
+        star: Star schema tables (from build_star)
+        deliveries: Per-delivery quality reports (from check_slr_reconciliation)
+        scenario: Scenario label (e.g., 'demo', 'prod')
+
+    Returns:
+        Dict matching quality.schema.json structure, ready for JSON export.
+    """
+    deliveries_list = []
+    if deliveries:
+        for levering, report in sorted(deliveries.items()):
+            deliveries_list.append(report.as_dict())
+
+    # Star-level checks
+    star_checks = {
+        **_check_orphaned_facts_structured(star),
+        **_check_key_duplicates_structured(star),
+        **_check_niveau_structured(star),
+    }
+
+    # Count totals
+    total_warnings = 0
+    total_errors = 0
+    inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    total_inschrijvingen = inschrijvingen.height if not inschrijvingen.is_empty() else 0
+
+    for delivery in deliveries_list:
+        total_warnings += len(delivery.get("warnings", []))
+        total_errors += len(delivery.get("errors", []))
+
+    # Overall status
+    status = "fail" if total_errors > 0 else ("warn" if total_warnings > 0 else "pass")
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "scenario": scenario,
+        "deliveries": deliveries_list,
+        "star": star_checks,
+        "summary": {
+            "total_deliveries": len(deliveries_list),
+            "total_inschrijvingen": total_inschrijvingen,
+            "total_warnings": total_warnings,
+            "total_errors": total_errors,
+            "status": status,
+        },
+    }
+
+
+def write_quality_json(
+    report: dict[str, Any],
+    output_path: Path | str,
+) -> Path:
+    """Write quality report to JSON file.
+
+    Args:
+        report: Quality report dict (from compile_quality_report)
+        output_path: Path to write quality.json to
+
+    Returns:
+        Path to written file
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w") as f:
+        json.dump(report, f, indent=2, default=str)
+
+    return output_path
