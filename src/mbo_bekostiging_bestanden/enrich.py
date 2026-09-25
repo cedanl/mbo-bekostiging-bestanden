@@ -287,18 +287,27 @@ def enrich_inschrijvingen(df: pl.DataFrame) -> pl.DataFrame:
         df = df.join(crebolijst_lookup, on="Opleidingcode", how="left")
 
     # ── BRIN → instelling ────────────────────────────────────────────────────
-    if "BRIN" in df.columns:
-        brin_lookup = (
-            _laad_brinnummer()
-            .rename(
-                {
-                    "brin": "BRIN",
-                    "naam": "Instelling_naam",
-                    "plaats": "Instelling_plaats",
-                }
-            )
-            .unique(subset=["BRIN"], keep="first", maintain_order=True)
-        )
-        df = df.join(brin_lookup, on="BRIN", how="left")
+    df = verrijk_instelling(df)
 
     return df
+
+
+def verrijk_instelling(df: pl.DataFrame) -> pl.DataFrame:
+    """Voeg ``Instelling_naam`` en ``Instelling_plaats`` toe via ``BRIN``.
+
+    Zonder ``BRIN``-kolom blijft ``df`` ongewijzigd.
+    """
+    if "BRIN" not in df.columns:
+        return df
+    brin_lookup = (
+        _laad_brinnummer()
+        .rename(
+            {
+                "brin": "BRIN",
+                "naam": "Instelling_naam",
+                "plaats": "Instelling_plaats",
+            }
+        )
+        .unique(subset=["BRIN"], keep="first", maintain_order=True)
+    )
+    return df.join(brin_lookup, on="BRIN", how="left")

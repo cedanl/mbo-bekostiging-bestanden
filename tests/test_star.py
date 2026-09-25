@@ -1,9 +1,13 @@
 """Tests voor star.py (dimensionaal model)."""
 
 from datetime import date
+from pathlib import Path
 
 import polars as pl
+import pytest
 
+from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
+from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import (
     _PERSON_IDENTIFIER_COLS,
     _build_dim,
@@ -257,3 +261,51 @@ def test_no_person_identifiers_in_star_facts():
             f"{table_name} contains person identifiers: {found_identifiers}. "
             f"These must be removed before star export."
         )
+
+
+RAW = Path("data/01-raw/demo")
+
+# ---------------------------------------------------------------------------
+# dim_instelling dekt alle BRIN's (#133)
+# ---------------------------------------------------------------------------
+
+
+def _brins(tabel: pl.DataFrame) -> set[str]:
+    if "BRIN" not in tabel.columns:
+        return set()
+    return set(tabel["BRIN"].drop_nulls().to_list())
+
+
+@pytest.fixture(scope="module")
+def star_ro_27dv_met_tbgi_25lx(tmp_path_factory):
+    """RO van 27DV plus TBGI van 25LX: 25LX komt alleen in de bekostiging voor.
+
+    In de ISP-route tellen TBGI-inschrijvingen niet mee in ``inschrijvingen``.
+    """
+    prepared = tmp_path_factory.mktemp("prepared_ro_tbgi")
+    bronnen = [
+        RAW / "h15" / "RO_27DV_20240731_20260324.csv",
+        RAW / "h16" / "TBGI_25LX_2027_20251124.XML",
+    ]
+    dirs = []
+    for bron in bronnen:
+        doel = prepared / bron.parent.name / bron.stem
+        run_auto_pipeline(bron, doel)
+        dirs.append(doel)
+    return build_star(stack_prepared(dirs, relative_to=prepared))
+
+
+def test_dim_instelling_bevat_elke_brin_uit_de_feiten(star_ro_27dv_met_tbgi_25lx):
+    star = star_ro_27dv_met_tbgi_25lx
+    in_feiten = set().union(
+        *(_brins(t) for naam, t in star.items() if naam.startswith("fact_"))
+    )
+    assert in_feiten == {"27DV", "25LX"}
+    assert _brins(star["dim_instelling"]) == in_feiten
+
+
+def test_dim_instelling_verrijkt_brin_uit_bekostiging(star_ro_27dv_met_tbgi_25lx):
+    dim = star_ro_27dv_met_tbgi_25lx["dim_instelling"]
+    assert dim.filter(pl.col("BRIN") == "25LX")["Instelling_naam"].to_list() == [
+        "Curio"
+    ]

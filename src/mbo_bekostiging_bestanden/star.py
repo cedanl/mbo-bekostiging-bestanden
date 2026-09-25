@@ -14,6 +14,7 @@ import re
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.enrich import verrijk_instelling
 from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabellen
 
 # ---------------------------------------------------------------------------
@@ -108,7 +109,7 @@ def build_star(
         Dimensies:
           ``dim_deelnemer``              — uniek per ``_persoon_id``
           ``dim_opleiding``              — uniek per ``Opleidingcode``
-          ``dim_instelling``             — uniek per ``BRIN``
+          ``dim_instelling``             — uniek per ``BRIN``, uit alle feiten
 
         Feiten:
           ``fact_inschrijving``          — ISP-periode-grain, uniek per sleutel
@@ -127,7 +128,7 @@ def build_star(
 
     dim_deelnemer = _build_dim(inschrijvingen, _DIM_DEELNEMER_COLS, "_persoon_id")
     dim_opleiding = _build_dim(inschrijvingen, _DIM_OPLEIDING_COLS, "Opleidingcode")
-    dim_instelling = _build_dim(inschrijvingen, _DIM_INSTELLING_COLS, "BRIN")
+    dim_instelling = _build_dim_instelling(tables)
 
     dim_col_set = (
         set(_DIM_DEELNEMER_COLS) | set(_DIM_OPLEIDING_COLS) | set(_DIM_INSTELLING_COLS)
@@ -254,6 +255,25 @@ def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 # Interne helpers
 # ---------------------------------------------------------------------------
+
+
+def _build_dim_instelling(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
+    """Eén rij per BRIN uit álle analysetabellen, verrijkt via ``brinnummer.csv``.
+
+    Niet alleen uit ``inschrijvingen``: in de ISP-route tellen TBGI-inschrijvingen
+    daar niet mee, dus een BRIN die alleen in de bekostiging staat zou ontbreken.
+    """
+    brins = [t.select("BRIN") for t in tables.values() if "BRIN" in t.columns]
+    if not brins:
+        return pl.DataFrame()
+    unieke = (
+        pl.concat(brins, how="vertical_relaxed")
+        .filter(pl.col("BRIN").is_not_null() & (pl.col("BRIN") != ""))
+        .unique()
+        .sort("BRIN")
+    )
+    verrijkt = verrijk_instelling(unieke)
+    return verrijkt.select([c for c in _DIM_INSTELLING_COLS if c in verrijkt.columns])
 
 
 def _build_dim(
