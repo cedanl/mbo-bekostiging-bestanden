@@ -116,6 +116,14 @@ from mbo_bekostiging_bestanden.pipeline import (
 )
 ```
 
+Naast de tabellen schrijft elke run een `quality.json` in de doelmap:
+
+| Sleutel | Betekenis |
+|---|---|
+| `slr_status` / `slr_details` | Gelezen recordaantallen tegen de controletotalen in het sluitrecord (`match`, `mismatch` of `unknown`) |
+| `parseverlies` | Per recordtype en kolom het aantal gevulde bronwaarden dat na typering leeg is (ongeldige datum of getal) |
+| `warnings` / `errors` | Leesbare meldingen; de app toont ze op Home |
+
 ### Star schema bouwen
 
 ```python

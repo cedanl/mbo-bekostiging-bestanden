@@ -69,7 +69,7 @@ def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) 
 
 def _to_float_expr(col: pl.Expr) -> pl.Expr:
     """Converteer een string-kolom naar ``pl.Float64`` (null bij lege waarde)."""
-    return pl.when(col == "").then(None).otherwise(col).cast(pl.Float64)
+    return pl.when(col == "").then(None).otherwise(col).cast(pl.Float64, strict=False)
 
 
 _BEKOSTIGBAAR_JA = frozenset({"J", "j", "1", "true", "True", "TRUE"})
@@ -102,6 +102,8 @@ def decode_frames(
     - Datumvelden worden ``pl.Date`` (null bij lege waarde).
     - Integer-velden worden ``pl.Int64``.
     - Float-velden worden ``pl.Float64``.
+    - Alle casts zijn niet-strikt: een ongeldige waarde wordt null en telt als
+      parseverlies in ``quality.json`` (zie :func:`quality.tel_parseverlies`).
     - ``IndicatieBekostigbaar`` wordt genormaliseerd naar ``"J"``/``"N"``.
     - Overige velden blijven ``pl.Utf8``.
 
@@ -138,7 +140,7 @@ def decode_frames(
                     pl.when(pl.col(col) == "")
                     .then(None)
                     .otherwise(pl.col(col))
-                    .cast(pl.Int64)
+                    .cast(pl.Int64, strict=False)
                     .alias(col)
                 )
             elif col in float_fields:

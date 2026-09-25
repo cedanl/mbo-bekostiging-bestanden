@@ -1,4 +1,4 @@
-"""Datakwaliteitscontroles: SLR-reconciliatie, wees-feiten, sleutels, niveau.
+"""Datakwaliteitscontroles: SLR, parseverlies, wees-feiten, sleutels, niveau.
 
 Na validatie van schema: detecteer stille dataverlies en gedeeltelijke verwerking.
 Rapporteer problemen gestructureerd zonder te faillen op waarschuwingen.
@@ -6,7 +6,7 @@ Rapporteer problemen gestructureerd zonder te faillen op waarschuwingen.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import polars as pl
 
@@ -66,18 +66,24 @@ class QualityReport:
 
     levering: str
     schema_type: str
-    slr_checks: dict[str, dict[str, int]] = None  # type: ignore
+    slr_checks: dict[str, dict[str, int]] = field(default_factory=dict)
     slr_status: str = "unknown"  # match | mismatch | unknown
-    warnings: list[str] = None  # type: ignore
-    errors: list[str] = None  # type: ignore
+    parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.slr_checks is None:
-            self.slr_checks = {}
-        if self.warnings is None:
-            self.warnings = []
-        if self.errors is None:
-            self.errors = []
+    def meld_parseverlies(self, verlies: dict[str, dict[str, int]]) -> None:
+        """Neem parseverlies (zie :func:`tel_parseverlies`) op, met waarschuwing."""
+        self.parseverlies = verlies
+        if verlies:
+            details = "; ".join(
+                f"{tabel}.{kolom}: {n}"
+                for tabel, per_kolom in verlies.items()
+                for kolom, n in per_kolom.items()
+            )
+            self.warnings.append(
+                f"Parseverlies (gevulde waarden die na typering leeg zijn): {details}"
+            )
 
     def as_dict(self) -> dict:
         """Zet rapport om naar dict voor JSON-export."""
@@ -86,9 +92,39 @@ class QualityReport:
             "schema_type": self.schema_type,
             "slr_status": self.slr_status,
             "slr_details": self.slr_checks,
+            "parseverlies": self.parseverlies,
             "warnings": self.warnings,
             "errors": self.errors,
         }
+
+
+def tel_parseverlies(
+    ruw: dict[str, pl.DataFrame], getypeerd: dict[str, pl.DataFrame]
+) -> dict[str, dict[str, int]]:
+    """Tel per tabel en kolom de gevulde bronwaarden die na typering leeg zijn.
+
+    Alleen kolommen die van tekst naar een ander type gingen tellen mee: een
+    ongeldige datum of een getal met tekst wordt bij het decoderen niet-strikt
+    null.  ``ruw`` en ``getypeerd`` hebben per tabel dezelfde rijvolgorde.
+    """
+    verlies: dict[str, dict[str, int]] = {}
+    for tabel, typed in getypeerd.items():
+        bron = ruw.get(tabel)
+        if bron is None:
+            continue
+        per_kolom = {}
+        for kolom in typed.columns:
+            if kolom not in bron.columns or typed[kolom].dtype == pl.Utf8:
+                continue
+            if bron[kolom].dtype != pl.Utf8:
+                continue
+            gevuld = bron[kolom].is_not_null() & (bron[kolom] != "")
+            aantal = int((gevuld & typed[kolom].is_null()).sum())
+            if aantal:
+                per_kolom[kolom] = aantal
+        if per_kolom:
+            verlies[tabel] = per_kolom
+    return verlies
 
 
 def check_slr_reconciliation(

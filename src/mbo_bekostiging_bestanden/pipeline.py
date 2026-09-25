@@ -9,7 +9,7 @@ import polars as pl
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
-from mbo_bekostiging_bestanden.quality import check_slr_reconciliation
+from mbo_bekostiging_bestanden.quality import check_slr_reconciliation, tel_parseverlies
 from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
@@ -78,13 +78,14 @@ def _run(
     source_path = Path(source)
     target_path = Path(target)
 
-    frames = reader(source_path)
-    frames = decoder(frames)
+    ruw = reader(source_path)
+    frames = decoder(ruw)
     validator(frames)
 
-    # Genereer kwaliteitsrapport (SLR-reconciliatie, etc.)
+    # Genereer kwaliteitsrapport (SLR-reconciliatie, parseverlies)
     levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
     quality_report = check_slr_reconciliation(frames, levering)
+    quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
 
     # Sla rapport op als JSON
     report_path = target_path / "quality.json"
