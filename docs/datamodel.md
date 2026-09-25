@@ -61,6 +61,12 @@ geschreven.
 | `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
 | `meta_leveringen` | Leveringsbestand | `levering` | VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) per bronbestand |
 
+**S-BB-attributen in `dim_opleiding`.** `Opleiding_geldig_van`/`Opleiding_geldig_tot` zijn de
+looptijd van de kwalificatie in de S-BB-crebolijst, niet van de prijsfactor: een verlopen
+code is voor inschrijvingen uit die looptijd gewoon correct. `Opleiding_prijsfactor` is de
+referentiewaarde uit die lijst. De prijsfactor waarmee DUO werkelijk bekostigt, staat per
+teldatum als `PrijsfactorMBO` in `fact_bekostiging`; gebruik die voor bekostigingsanalyses.
+
 Alle detail-feiten zijn zonder fan-out joinbaar met `fact_inschrijving` via `_inschrijving_periode_id`.
 Die sleutel wijst per detailrij de ISP-periode aan waarin de referentiedatum valt
 (`DatumBegin` voor BPV, `DatumResultaat` voor KZD/AMO/GEO, `Teldatum` voor bekostiging,
