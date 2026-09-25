@@ -32,3 +32,15 @@ def test_niet_persoonsgebonden_dimensies_bevatten_geen_pii(demo_star):
     for naam in ("dim_opleiding", "dim_instelling"):
         kolommen = demo_star[naam].columns
         assert detect_pii_columns(kolommen) == [], naam
+
+
+def test_star_bevat_nergens_ruwe_persoonsidentifiers(demo_star, tbgi_star):
+    """Alleen het pseudoniem ``_persoon_id`` mag het star schema in (#125).
+
+    TBGI-kindrijen dragen sinds #125 BSN/ONr tot in de detailtabellen; geen
+    enkel star-feit of -dimensie mag die doorgeven.
+    """
+    ruw = {"Burgerservicenummer", "Onderwijsnummer", "PseudoNummer"}
+    for star in (demo_star, tbgi_star):
+        for naam, tabel in star.items():
+            assert not ruw & set(tabel.columns), naam
