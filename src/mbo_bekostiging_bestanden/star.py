@@ -88,6 +88,10 @@ _PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
 _BEKOSTIGING_DROP = _PII_DROP
 
+# Interne implementatie-details die niet in het exporteerbare star schema horen.
+# Deze kolommen zijn tussenstappen in transformatie en niet bedoeld voor analyse.
+_INTERNAL_COLS = {"_schooljaren_actief"}  # List aggregaat uit _bepaal_actief_per_schooljaar
+
 
 # ---------------------------------------------------------------------------
 # Publieke API
@@ -141,10 +145,16 @@ def build_star(
         c for c in inschrijvingen.columns if c not in dim_col_set and c not in geo_cols
     ]
     fact_inschrijving = inschrijvingen.select(fact_cols)
-    # Verwijder persoonsidentificerende gegevens
+
+    # Verwijder persoonsidentificerende gegevens en interne kolommen
+    to_drop = []
     pii_to_drop = [c for c in _PII_DROP if c in fact_inschrijving.columns]
-    if pii_to_drop:
-        fact_inschrijving = fact_inschrijving.drop(pii_to_drop)
+    internal_to_drop = [c for c in _INTERNAL_COLS if c in fact_inschrijving.columns]
+    to_drop.extend(pii_to_drop)
+    to_drop.extend(internal_to_drop)
+
+    if to_drop:
+        fact_inschrijving = fact_inschrijving.drop(to_drop)
 
     return {
         "dim_deelnemer": dim_deelnemer,

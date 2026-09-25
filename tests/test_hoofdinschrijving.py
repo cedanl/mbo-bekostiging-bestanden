@@ -100,17 +100,29 @@ def test_zonder_datumbegin_telt_niveau_en_crebo():
     assert _hoofd(df) == [False, False]
 
 
-def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(demo_star):
+def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(demo_star, demo_tabellen):
     """Precies één per groep met een actieve periode op 1 oktober (#117, #144).
 
     Groepeert per (levering, BRIN, _persoon_id, schooljaar_peildatum) door
-    _schooljaren_actief te exploderen.
+    _schooljaren_actief te exploderen (uit de transform-laag, niet uit star).
+
+    _schooljaren_actief is een interne kolom en wordt uit de ster verwijderd (#171).
+    We testen de invariant via de prepared inschrijvingen-tabel.
     """
+    # Neem inschrijvingen uit analysetabellen (bevat _schooljaren_actief)
+    inschrijvingen = demo_tabellen["inschrijvingen"]
     fact = demo_star["fact_inschrijving"]
 
     # Explodeer _schooljaren_actief om per schooljaar te groeperen
-    fact_exploded = fact.explode("_schooljaren_actief").rename(
+    inschrijvingen_exploded = inschrijvingen.explode("_schooljaren_actief").rename(
         {"_schooljaren_actief": "_schooljaar_peildatum"}
+    )
+
+    # Map naar star met behoud van hoofdinschrijving-indicator
+    fact_exploded = inschrijvingen_exploded.join(
+        fact.select("_inschrijving_periode_id", "_hoofdinschrijving"),
+        on="_inschrijving_periode_id",
+        how="inner",
     )
 
     groep = ["levering", "BRIN", "_persoon_id", "_schooljaar_peildatum"]
