@@ -9,6 +9,12 @@ from mbo_bekostiging_bestanden.metadata import load_schema
 
 _XSI_NIL = "{http://www.w3.org/2001/XMLSchema-instance}nil"
 
+# TBGI: velden die een kind-rij (Teldatum, Signaal) van zijn ouder-element erft.
+_TBGI_PERSOON = ("BRIN", "Burgerservicenummer", "Onderwijsnummer")
+_TBGI_INSCHRIJVING_CONTEXT = (*_TBGI_PERSOON, "Inschrijvingvolgnummer")
+_TBGI_DIPLOMA_CONTEXT = (*_TBGI_PERSOON, "Resultaatvolgnummer")
+_TBGI_BPV_PREFIX = "BPV_"
+
 
 def _elem_text(parent: ET.Element | None, tag: str) -> str | None:
     """Haal tekst op uit een child-element; None bij ontbrekend of xsi:nil."""
@@ -107,6 +113,28 @@ def read_grondslag(path: str | Path) -> dict[str, pl.DataFrame]:
     return read_multi_record_csv(path, "grondslag")
 
 
+def _lees_velden(
+    elem: ET.Element | None, velden: list[str], prefix: str = ""
+) -> dict[str, str | None]:
+    """Lees ``velden`` als child-elementen van ``elem`` (tag zonder ``prefix``)."""
+    return {veld: _elem_text(elem, veld.removeprefix(prefix)) for veld in velden}
+
+
+def _signaal_rijen(
+    ouder: ET.Element, context: dict[str, str | None], velden: list[str]
+) -> list[dict[str, str | None]]:
+    """Eén rij per ``<Signaal>`` onder ``ouder``, aangevuld met de ouder-``context``."""
+    signaal_velden = [v for v in velden if v.startswith("Signaal")]
+    parameter_velden = [v for v in velden if v.startswith("Parameter")]
+    return [
+        dict.fromkeys(velden)
+        | context
+        | _lees_velden(sig, signaal_velden)
+        | _lees_velden(sig.find("Parameter"), parameter_velden)
+        for sig in ouder.findall("Signaal")
+    ]
+
+
 def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     """Lees een TBGI XML-bestand in en plat het naar vier DataFrames.
 
@@ -118,6 +146,10 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     - ``Diploma`` — één rij per diploma.
     - ``Signaal`` — één rij per signaal (van Teldatum of Diploma);
       kolom ``Bron`` geeft de herkomst aan.
+
+    Teldatum- en Signaal-rijen dragen de persoons-identifiers van hun
+    ouder-element: ``Inschrijvingvolgnummer`` is alleen uniek per persoon
+    (PvE §16.5.1), dus achteraf koppelen via het volgnummer is niet eenduidig.
 
     Args:
         path: Pad naar het TBGI XML-bestand.
@@ -132,8 +164,15 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     if not path.exists():
         raise FileNotFoundError(f"Bronbestand niet gevonden: {path}")
 
-    schema = load_schema("tbgi")
+    velden = {tabel: spec["fields"] for tabel, spec in load_schema("tbgi").items()}
     root = ET.parse(path).getroot()
+
+    teldatum_eigen = [
+        v
+        for v in velden["Teldatum"]
+        if v not in _TBGI_INSCHRIJVING_CONTEXT and not v.startswith(_TBGI_BPV_PREFIX)
+    ]
+    teldatum_bpv = [v for v in velden["Teldatum"] if v.startswith(_TBGI_BPV_PREFIX)]
 
     inschrijving_rows: list[dict] = []
     teldatum_rows: list[dict] = []
@@ -141,162 +180,43 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     signaal_rows: list[dict] = []
 
     for isg in root.findall("Inschrijving"):
-        brin = _elem_text(isg, "BRIN")
-        invnr = _elem_text(isg, "Inschrijvingvolgnummer")
-
-        inschrijving_rows.append(
-            {
-                "BRIN": brin,
-                "Burgerservicenummer": _elem_text(isg, "Burgerservicenummer"),
-                "Onderwijsnummer": _elem_text(isg, "Onderwijsnummer"),
-                "Inschrijvingvolgnummer": invnr,
-                "DatumInschrijving": _elem_text(isg, "DatumInschrijving"),
-                "DatumUitschrijvingGepland": _elem_text(
-                    isg, "DatumUitschrijvingGepland"
-                ),
-                "DatumUitschrijvingWerkelijk": (
-                    _elem_text(isg, "DatumUitschrijvingWerkelijk")
-                ),
-                "NiveauHoogstBekostigdeDiploma": (
-                    _elem_text(isg, "NiveauHoogstBekostigdeDiploma")
-                ),
-            }
-        )
+        inschrijving = _lees_velden(isg, velden["Inschrijving"])
+        inschrijving_rows.append(inschrijving)
+        context = {v: inschrijving[v] for v in _TBGI_INSCHRIJVING_CONTEXT}
 
         for td in isg.findall("Teldatum"):
-            bpv = td.find("BekostigingsrelevanteBPV")
-            teldatum_rows.append(
-                {
-                    "BRIN": brin,
-                    "Inschrijvingvolgnummer": invnr,
-                    "Teldatum": _elem_text(td, "Teldatum"),
-                    "DatumTijdBepalingBekostigingsgrondslagen": _elem_text(
-                        td, "DatumTijdBepalingBekostigingsgrondslagen"
-                    ),
-                    "StatusBepalingBekostigingsstatus": _elem_text(
-                        td, "StatusBepalingBekostigingsstatus"
-                    ),
-                    "LeeftijdOpEenAugustusStudiejaar": _elem_text(
-                        td, "LeeftijdOpEenAugustusStudiejaar"
-                    ),
-                    "Opleidingcode": _elem_text(td, "Opleidingcode"),
-                    "Niveau": _elem_text(td, "Niveau"),
-                    "Leertraject": _elem_text(td, "Leertraject"),
-                    "Leerroutefase": _elem_text(td, "Leerroutefase"),
-                    "IndicatieBekostigbaar": _elem_text(td, "IndicatieBekostigbaar"),
-                    "Bekostigingsstatus": _elem_text(td, "Bekostigingsstatus"),
-                    "InschrijvingVoorCorrectiefactor": _elem_text(
-                        td, "InschrijvingVoorCorrectiefactor"
-                    ),
-                    "BBLBOLFactor": _elem_text(td, "BBLBOLFactor"),
-                    "PrijsfactorMBO": _elem_text(td, "PrijsfactorMBO"),
-                    "AantalBekostigdeVerblijfsjarenMBO": _elem_text(
-                        td, "AantalBekostigdeVerblijfsjarenMBO"
-                    ),
-                    "Verblijfsjaarfactor": _elem_text(td, "Verblijfsjaarfactor"),
-                    "BijdrageInschrijvingAanDeelnemerswaarde": _elem_text(
-                        td, "BijdrageInschrijvingAanDeelnemerswaarde"
-                    ),
-                    "BPV_Inschrijvingvolgnummer": _elem_text(
-                        bpv, "Inschrijvingvolgnummer"
-                    ),
-                    "BPV_Volgnummer": _elem_text(bpv, "Volgnummer"),
-                    "BPV_Afsluitdatum": _elem_text(bpv, "Afsluitdatum"),
-                    "BPV_DatumBegin": _elem_text(bpv, "DatumBegin"),
-                    "BPV_DatumEindGepland": _elem_text(bpv, "DatumEindGepland"),
-                    "BPV_DatumEindWerkelijk": _elem_text(bpv, "DatumEindWerkelijk"),
-                    "BPV_Opleidingcode": _elem_text(bpv, "Opleidingcode"),
-                }
-            )
-
-            for sig in td.findall("Signaal"):
-                param = sig.find("Parameter")
-                signaal_rows.append(
-                    {
-                        "Bron": "Inschrijving",
-                        "BRIN": brin,
-                        "Inschrijvingvolgnummer": invnr,
-                        "Teldatum": _elem_text(td, "Teldatum"),
-                        "Resultaatvolgnummer": None,
-                        "Signaalvolgnummer": _elem_text(sig, "Signaalvolgnummer"),
-                        "Signaalcode": _elem_text(sig, "Signaalcode"),
-                        "Signaalomschrijving": _elem_text(sig, "Signaalomschrijving"),
-                        "Parametervolgnummer": _elem_text(param, "Parametervolgnummer"),
-                        "Parameternaam": _elem_text(param, "Parameternaam"),
-                        "Parameterwaarde": _elem_text(param, "Parameterwaarde"),
-                    }
+            teldatum = (
+                context
+                | _lees_velden(td, teldatum_eigen)
+                | _lees_velden(
+                    td.find("BekostigingsrelevanteBPV"), teldatum_bpv, _TBGI_BPV_PREFIX
                 )
+            )
+            teldatum_rows.append(teldatum)
+            signaal_rows += _signaal_rijen(
+                td,
+                context | {"Bron": "Inschrijving", "Teldatum": teldatum["Teldatum"]},
+                velden["Signaal"],
+            )
 
     for dip in root.findall("Diploma"):
-        brin = _elem_text(dip, "BRIN")
-        resvnr = _elem_text(dip, "Resultaatvolgnummer")
-
-        diploma_rows.append(
-            {
-                "BRIN": brin,
-                "Burgerservicenummer": _elem_text(dip, "Burgerservicenummer"),
-                "Onderwijsnummer": _elem_text(dip, "Onderwijsnummer"),
-                "Resultaatvolgnummer": resvnr,
-                "Opleidingcode": _elem_text(dip, "Opleidingcode"),
-                "Inschrijvingvolgnummer": _elem_text(dip, "Inschrijvingvolgnummer"),
-                "DatumBehaald": _elem_text(dip, "DatumBehaald"),
-                "Niveau": _elem_text(dip, "Niveau"),
-                "IndicatieSpecialistendiploma": (
-                    _elem_text(dip, "IndicatieSpecialistendiploma")
-                ),
-                "NiveauHoogstBekostigdeDiploma": (
-                    _elem_text(dip, "NiveauHoogstBekostigdeDiploma")
-                ),
-                "IndicatieHoogstBekostigdeDiplomaIsSpecialist": _elem_text(
-                    dip, "IndicatieHoogstBekostigdeDiplomaIsSpecialist"
-                ),
-                "DatumTijdBepalingBekostigingsgrondslagen": _elem_text(
-                    dip, "DatumTijdBepalingBekostigingsgrondslagen"
-                ),
-                "StatusBepalingBekostigingsstatus": _elem_text(
-                    dip, "StatusBepalingBekostigingsstatus"
-                ),
-                "Bekostigingsstatus": _elem_text(dip, "Bekostigingsstatus"),
-                "BijdrageDiplomawaarde": _elem_text(dip, "BijdrageDiplomawaarde"),
-            }
+        diploma = _lees_velden(dip, velden["Diploma"])
+        diploma_rows.append(diploma)
+        context = {v: diploma[v] for v in _TBGI_DIPLOMA_CONTEXT}
+        signaal_rows += _signaal_rijen(
+            dip, context | {"Bron": "Diploma"}, velden["Signaal"]
         )
 
-        for sig in dip.findall("Signaal"):
-            param = sig.find("Parameter")
-            signaal_rows.append(
-                {
-                    "Bron": "Diploma",
-                    "BRIN": brin,
-                    "Inschrijvingvolgnummer": None,
-                    "Teldatum": None,
-                    "Resultaatvolgnummer": resvnr,
-                    "Signaalvolgnummer": _elem_text(sig, "Signaalvolgnummer"),
-                    "Signaalcode": _elem_text(sig, "Signaalcode"),
-                    "Signaalomschrijving": _elem_text(sig, "Signaalomschrijving"),
-                    "Parametervolgnummer": _elem_text(param, "Parametervolgnummer"),
-                    "Parameternaam": _elem_text(param, "Parameternaam"),
-                    "Parameterwaarde": _elem_text(param, "Parameterwaarde"),
-                }
-            )
-
-    result: dict[str, pl.DataFrame] = {}
     tables = {
         "Inschrijving": inschrijving_rows,
         "Teldatum": teldatum_rows,
         "Diploma": diploma_rows,
         "Signaal": signaal_rows,
     }
-    for tabel, rows in tables.items():
-        fields = schema[tabel]["fields"]
-        if rows:
-            df = pl.DataFrame(rows).select(fields)
-        else:
-            df = pl.DataFrame({f: pl.Series([], dtype=pl.Utf8) for f in fields})
-        # xsi:nil-elementen leveren pl.Null-kolommen op; cast naar Utf8 zodat
-        # decode_frames ze uniform als string kan verwerken.
-        null_cols = [c for c in df.columns if df[c].dtype == pl.Null]
-        if null_cols:
-            df = df.with_columns(pl.col(c).cast(pl.Utf8) for c in null_cols)
-        result[tabel] = df
-
+    # Expliciet Utf8: typeherkenning op de eerste rijen faalt als een kolom daar
+    # alleen xsi:nil bevat (bijv. Onderwijsnummer); decode_frames typeert daarna.
+    result = {
+        tabel: pl.DataFrame(rows, schema=dict.fromkeys(velden[tabel], pl.Utf8))
+        for tabel, rows in tables.items()
+    }
     return result

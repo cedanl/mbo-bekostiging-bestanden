@@ -119,3 +119,63 @@ def test_read_tbgi_null_fields_are_utf8():
     df = read_tbgi(TBGI)["Inschrijving"]
     null_typed = [c for c in df.columns if str(df[c].dtype) == "Null"]
     assert null_typed == [], f"Kolommen met pl.Null dtype: {null_typed}"
+
+
+# ---------------------------------------------------------------------------
+# Persoon per teldatum en signaal (#125)
+# ---------------------------------------------------------------------------
+# Inschrijvingvolgnummer is alleen uniek per persoon binnen een instelling
+# (PvE 4.8.2 §16.5.1). Teldatum- en Signaal-rijen moeten daarom de BSN/ONr van
+# hun eigen ouder-element dragen, niet achteraf via het volgnummer gezocht worden.
+
+_TBGI_GEDEELD_VOLGNUMMER = """<?xml version="1.0" encoding="utf-8"?>
+<Bekostigingsgrondslagen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Inschrijving>
+    <BRIN>25LX</BRIN>
+    <Burgerservicenummer>111111110</Burgerservicenummer>
+    <Onderwijsnummer xsi:nil="true"/>
+    <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
+    <Teldatum>
+      <Teldatum>2025-10-01</Teldatum>
+      <Signaal><Signaalcode>S1</Signaalcode></Signaal>
+    </Teldatum>
+  </Inschrijving>
+  <Inschrijving>
+    <BRIN>25LX</BRIN>
+    <Burgerservicenummer xsi:nil="true"/>
+    <Onderwijsnummer>222222220</Onderwijsnummer>
+    <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
+    <Teldatum>
+      <Teldatum>2025-10-01</Teldatum>
+    </Teldatum>
+  </Inschrijving>
+  <Diploma>
+    <BRIN>25LX</BRIN>
+    <Burgerservicenummer>333333330</Burgerservicenummer>
+    <Resultaatvolgnummer>R1</Resultaatvolgnummer>
+    <Signaal><Signaalcode>S2</Signaalcode></Signaal>
+  </Diploma>
+</Bekostigingsgrondslagen>
+"""
+
+
+@pytest.fixture
+def tbgi_gedeeld_volgnummer(tmp_path: Path) -> dict[str, pl.DataFrame]:
+    pad = tmp_path / "TBGI_25LX_2027_20251124.XML"
+    pad.write_text(_TBGI_GEDEELD_VOLGNUMMER, encoding="utf-8")
+    return read_tbgi(pad)
+
+
+def test_teldatum_draagt_persoon_van_eigen_inschrijving(tbgi_gedeeld_volgnummer):
+    teldatum = tbgi_gedeeld_volgnummer["Teldatum"]
+    assert teldatum.select(
+        "Inschrijvingvolgnummer", "Burgerservicenummer", "Onderwijsnummer"
+    ).rows() == [("C1", "111111110", None), ("C1", None, "222222220")]
+
+
+def test_signaal_draagt_persoon_van_eigen_bron(tbgi_gedeeld_volgnummer):
+    signaal = tbgi_gedeeld_volgnummer["Signaal"]
+    assert signaal.select("Bron", "Signaalcode", "Burgerservicenummer").rows() == [
+        ("Inschrijving", "S1", "111111110"),
+        ("Diploma", "S2", "333333330"),
+    ]

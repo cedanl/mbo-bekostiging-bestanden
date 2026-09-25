@@ -17,8 +17,10 @@ float_fields = []
 [Teldatum]
 # BPV-velden zijn geprefixed met "BPV_" (BekostigingsrelevanteBPV is 1:1 met Teldatum).
 # DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
+# BRIN t/m Inschrijvingvolgnummer komen van de ouder-Inschrijving: het volgnummer
+# is alleen uniek per persoon, dus de persoon moet op de rij zelf staan (#125).
 fields = [
-    "BRIN", "Inschrijvingvolgnummer",
+    "BRIN", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer",
     "Teldatum",
     "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
     "LeeftijdOpEenAugustusStudiejaar", "Opleidingcode", "Niveau", "Leertraject",
@@ -53,8 +55,9 @@ float_fields = ["BijdrageDiplomawaarde"]
 [Signaal]
 # Bron = "Inschrijving" of "Diploma".
 # Teldatum en Resultaatvolgnummer zijn null voor respectievelijk Diploma en Inschrijving.
+# Persoons-identifiers komen van de ouder (Inschrijving of Diploma), zie #125.
 fields = [
-    "Bron", "BRIN", "Inschrijvingvolgnummer", "Teldatum", "Resultaatvolgnummer",
+    "Bron", "BRIN", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "Teldatum", "Resultaatvolgnummer",
     "Signaalvolgnummer", "Signaalcode", "Signaalomschrijving",
     "Parametervolgnummer", "Parameternaam", "Parameterwaarde",
 ]

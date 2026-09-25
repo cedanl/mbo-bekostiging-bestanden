@@ -1048,24 +1048,9 @@ def _bouw_detail_bekostiging(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
         frames.append(bii)
 
     if "Teldatum" in stacked and not stacked["Teldatum"].is_empty():
-        td = stacked["Teldatum"].clone()
-        # Voeg _persoon_id toe via de TBGI Inschrijving-tabel (heeft BSN)
-        if "Inschrijving" in stacked and not stacked["Inschrijving"].is_empty():
-            inschrijving_sleutel = stacked["Inschrijving"].select(
-                [
-                    "levering",
-                    "BRIN",
-                    "Inschrijvingvolgnummer",
-                    "Burgerservicenummer",
-                    "Onderwijsnummer",
-                ]
-            )
-            td = td.join(
-                inschrijving_sleutel,
-                on=["levering", "BRIN", "Inschrijvingvolgnummer"],
-                how="left",
-            )
-        td = _add_persoon_id(td)
+        # BSN/ONr staan al op de rij (read_tbgi); het volgnummer alleen is niet
+        # uniek genoeg om de persoon via de Inschrijving-tabel terug te zoeken.
+        td = _add_persoon_id(stacked["Teldatum"])
         td = td.with_columns(pl.lit("TBGI").alias("_bron"))
         frames.append(td)
 

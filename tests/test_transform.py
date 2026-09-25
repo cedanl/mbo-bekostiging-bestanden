@@ -1197,3 +1197,29 @@ def test_laad_pseudonimisering_salt_fails_without_env_or_config(monkeypatch, tmp
 
     # Cleanup
     _laad_pseudonimisering_salt.cache_clear()
+
+
+def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
+    """Twee personen met hetzelfde Inschrijvingvolgnummer (#125).
+
+    Elke teldatum hoort bij precies één persoon; koppelen via
+    (BRIN, Inschrijvingvolgnummer) zou elke teldatum aan beide personen hangen.
+    """
+    inschrijving = pl.DataFrame(
+        {
+            "levering": ["L1", "L1"],
+            "BRIN": ["25LX", "25LX"],
+            "Burgerservicenummer": ["P1", "P2"],
+            "Onderwijsnummer": [None, None],
+            "Inschrijvingvolgnummer": ["C1", "C1"],
+        },
+        schema_overrides={"Onderwijsnummer": pl.Utf8},
+    )
+    teldatum = inschrijving.with_columns(pl.lit("2025-10-01").alias("Teldatum"))
+
+    detail = _bouw_detail_bekostiging(
+        {"Inschrijving": inschrijving, "Teldatum": teldatum}
+    )
+
+    assert detail.height == 2
+    assert detail["_persoon_id"].n_unique() == 2
