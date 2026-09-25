@@ -22,6 +22,9 @@ _PII_PATTERNS = {
     "DatumVertrek",
     "Geslacht",
     "Vertrokken",
+    "DatumOverlijden",
+    "Leeftijd",
+    "RedenUitschrijving",
     "_persoon_id",  # Hashed ID is still person-bound
 }
 

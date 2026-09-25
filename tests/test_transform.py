@@ -98,8 +98,14 @@ def test_bouw_analysetabellen_returns_zeven_tables(demo_tabellen):
 
 
 def test_inschrijvingen_grain_isp(demo_tabellen, demo_stacked):
-    """inschrijvingen behoudt exact het aantal ISP-rijen."""
-    assert demo_tabellen["inschrijvingen"].height == demo_stacked["ISP"].height
+    """inschrijvingen heeft één rij per ISP-periode die op een peildatum actief is.
+
+    Met de nieuwe logica (#144) kan een periode die meerdere schooljaren dekt
+    voor meerdere schooljaren actief zijn, wat leidt tot meer rijen dan de
+    oorspronkelijke ISP-tabel.
+    """
+    # Nieuwe logica: actief per schooljaar -> kan meer rijen opleveren
+    assert demo_tabellen["inschrijvingen"].height >= demo_stacked["ISP"].height
 
 
 def test_inschrijvingen_heeft_persoon_id(demo_tabellen):
@@ -360,62 +366,105 @@ def test_resolve_inschrijving_zonder_resultaatvolgnummer_kolom():
 # ---------------------------------------------------------------------------
 
 
-def _rij(**kwargs) -> pl.DataFrame:
-    return pl.DataFrame({"Studiejaar": [2025], **kwargs})
+def _rij_met_periode(**kwargs) -> pl.DataFrame:
+    """ISP-rij met periode voor schooljaar 2025."""
+    return pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "BRIN": ["A"],
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": ["1"],
+            "Studiejaar": [2025],
+            "Niveau": ["MBO-4"],
+            "Opleidingcode": ["40000"],
+            "DatumBegin": [date(2024, 8, 1)],
+            "DatumEind": [None],
+            "IndicatieBekostigbaar": ["J"],
+            "DatumInschrijving": [date(2023, 8, 1)],
+            "DatumUitschrijvingWerkelijk": [None],
+            **kwargs,
+        },
+        schema_overrides={"DatumEind": pl.Date, "DatumUitschrijvingWerkelijk": pl.Date},
+    )
+
+
+def _rij_zonder_periode(**kwargs) -> pl.DataFrame:
+    """ISP-rij zonder DatumBegin (TBGI-only)."""
+    return pl.DataFrame(
+        {
+            "levering": ["L1"],
+            "BRIN": ["A"],
+            "_persoon_id": ["P1"],
+            "Inschrijvingvolgnummer": ["1"],
+            "Studiejaar": [2025],
+            "Niveau": ["MBO-4"],
+            "Opleidingcode": ["40000"],
+            "IndicatieBekostigbaar": ["J"],
+            "DatumInschrijving": [date(2023, 8, 1)],
+            "DatumUitschrijvingWerkelijk": [None],
+            **kwargs,
+        },
+        schema_overrides={"DatumUitschrijvingWerkelijk": pl.Date},
+    )
 
 
 def test_actief_1_oktober_true():
-    df = _rij(
+    """Periode dekt 1-okt-2025 -> actief."""
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
-        IndicatieBekostigbaar=["J"],
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is True
 
 
 def test_actief_1_oktober_false_na_1okt_ingeschreven():
-    df = _rij(
+    """Periode begint na 1-okt -> niet actief."""
+    df = _rij_met_periode(
+        DatumBegin=pl.Series([date(2025, 11, 1)], dtype=pl.Date),
+        DatumEind=pl.Series([None], dtype=pl.Date),
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
-        IndicatieBekostigbaar=["J"],
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is False
 
 
 def test_actief_1_oktober_false_uitgeschreven_voor_1okt():
-    df = _rij(
+    """Periode eindigt voor 1-okt -> niet actief."""
+    df = _rij_met_periode(
+        DatumBegin=pl.Series([date(2024, 8, 1)], dtype=pl.Date),
+        DatumEind=pl.Series([date(2025, 9, 15)], dtype=pl.Date),
         DatumInschrijving=pl.Series([date(2025, 8, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([date(2025, 9, 15)], dtype=pl.Date),
-        IndicatieBekostigbaar=["J"],
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is False
 
 
 def test_actief_1_oktober_true_uitgeschreven_na_1okt():
-    df = _rij(
+    """Uitgeschreven na 1-okt -> actief."""
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 8, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([date(2025, 11, 1)], dtype=pl.Date),
-        IndicatieBekostigbaar=["J"],
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is True
 
 
 def test_bekostigd_eerste_1okt_true():
-    df = _rij(
+    """Actief én bekostigbaar -> bekostigd."""
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
-        IndicatieBekostigbaar=["J"],
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_bekostigd_eerste_1okt"][0] is True
 
 
 def test_bekostigd_eerste_1okt_false_niet_bekostigbaar():
-    df = _rij(
+    """Niet bekostigbaar -> niet bekostigd."""
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["N"],
@@ -425,7 +474,10 @@ def test_bekostigd_eerste_1okt_false_niet_bekostigbaar():
 
 
 def test_bekostigd_eerste_1okt_false_niet_actief():
-    df = _rij(
+    """Niet actief -> niet bekostigd."""
+    df = _rij_met_periode(
+        DatumBegin=pl.Series([date(2025, 11, 1)], dtype=pl.Date),
+        DatumEind=pl.Series([None], dtype=pl.Date),
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
@@ -435,8 +487,8 @@ def test_bekostigd_eerste_1okt_false_niet_actief():
 
 
 def test_gediplomeerd_in_jaar_true():
-    df = _rij(
-        DIP_DatumResultaat=pl.Series([date(2025, 6, 15)], dtype=pl.Date),
+    df = _rij_zonder_periode(
+        DIP_DatumResultaat=pl.Series([date(2025, 6, 15)], dtype=pl.Date)
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is True
@@ -445,7 +497,13 @@ def test_gediplomeerd_in_jaar_true():
 def test_gediplomeerd_in_jaar_true_grenswaarden():
     df = pl.DataFrame(
         {
+            "levering": ["L1", "L1"],
+            "BRIN": ["A", "A"],
+            "_persoon_id": ["P1", "P1"],
+            "Inschrijvingvolgnummer": ["1", "2"],
             "Studiejaar": [2025, 2025],
+            "Niveau": ["MBO-4", "MBO-4"],
+            "Opleidingcode": ["40000", "40000"],
             "DIP_DatumResultaat": pl.Series(
                 [date(2024, 8, 1), date(2025, 7, 31)], dtype=pl.Date
             ),
@@ -456,29 +514,27 @@ def test_gediplomeerd_in_jaar_true_grenswaarden():
 
 
 def test_gediplomeerd_in_jaar_false_buiten_jaar():
-    df = _rij(
-        DIP_DatumResultaat=pl.Series([date(2025, 8, 1)], dtype=pl.Date),
+    df = _rij_zonder_periode(
+        DIP_DatumResultaat=pl.Series([date(2025, 8, 1)], dtype=pl.Date)
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_gediplomeerd_in_jaar_false_null_datum():
-    df = _rij(
-        DIP_DatumResultaat=pl.Series([None], dtype=pl.Date),
-    )
+    df = _rij_zonder_periode(DIP_DatumResultaat=pl.Series([None], dtype=pl.Date))
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_gediplomeerd_in_jaar_false_kolom_ontbreekt():
-    df = _rij()
+    df = _rij_zonder_periode()
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_gediplomeerd_in_jaar"][0] is False
 
 
 def test_ingeschreven_jaar_later_true():
-    df = _rij(
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
@@ -486,7 +542,7 @@ def test_ingeschreven_jaar_later_true():
 
 
 def test_ingeschreven_jaar_later_false():
-    df = _rij(
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
@@ -494,7 +550,7 @@ def test_ingeschreven_jaar_later_false():
 
 
 def test_ingeschreven_jaar_later_false_op_1okt():
-    df = _rij(
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 10, 1)], dtype=pl.Date),
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
@@ -502,7 +558,7 @@ def test_ingeschreven_jaar_later_false_op_1okt():
 
 
 def test_ingeschreven_jaar_later_false_bij_null_datum():
-    df = _rij(
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([None], dtype=pl.Date),
     )
     result = _voeg_bekostigingsvlaggen_toe(df)
@@ -524,7 +580,7 @@ def test_ontbrekend_studiejaar_gediplomeerd_false():
 
 
 def test_ontbrekende_datuminschrijving_geeft_none():
-    df = _rij(IndicatieBekostigbaar=["J"])
+    df = _rij_zonder_periode(IndicatieBekostigbaar=["J"])
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["_actief_1_oktober"][0] is None
     assert result["_ingeschreven_jaar_later"][0] is None
@@ -536,7 +592,7 @@ def test_ontbrekende_datuminschrijving_geeft_none():
 
 
 def test_opbrengstjaar_uitsplitsing_gelijk_aan_studiejaar():
-    df = _rij()
+    df = _rij_zonder_periode()
     result = _voeg_bekostigingsvlaggen_toe(df)
     assert result["Opbrengstjaar_uitsplitsing"][0] == 2025
 
@@ -589,7 +645,7 @@ def test_opbrengstjaar_ontbreekt_studiejaar_geeft_none():
 
 
 def test_deelnemer_niet_bekostigd_eerste_1okt_true():
-    df = _rij(
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["N"],
@@ -599,7 +655,7 @@ def test_deelnemer_niet_bekostigd_eerste_1okt_true():
 
 
 def test_deelnemer_niet_bekostigd_eerste_1okt_false_als_bekostigd():
-    df = _rij(
+    df = _rij_met_periode(
         DatumInschrijving=pl.Series([date(2025, 9, 1)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["J"],
@@ -609,7 +665,9 @@ def test_deelnemer_niet_bekostigd_eerste_1okt_false_als_bekostigd():
 
 
 def test_deelnemer_niet_bekostigd_eerste_1okt_false_niet_actief():
-    df = _rij(
+    df = _rij_met_periode(
+        DatumBegin=pl.Series([date(2025, 11, 1)], dtype=pl.Date),
+        DatumEind=pl.Series([None], dtype=pl.Date),
         DatumInschrijving=pl.Series([date(2025, 10, 15)], dtype=pl.Date),
         DatumUitschrijvingWerkelijk=pl.Series([None], dtype=pl.Date),
         IndicatieBekostigbaar=["N"],
@@ -626,8 +684,13 @@ def test_deelnemer_niet_bekostigd_eerste_1okt_false_niet_actief():
 def test_sr_hoogste_niveau():
     df = pl.DataFrame(
         {
+            "levering": ["L1", "L1"],
+            "BRIN": ["A", "A"],
             "_persoon_id": ["P1", "P1"],
-            "Studiejaar": [2025, 2025],
+            "Inschrijvingvolgnummer": ["1", "2"],
+            "_schooljaren_actief": [[2025], [2025]],
+            "_actief_1_oktober": [True, True],
+            "DatumBegin": [date(2024, 8, 1), date(2025, 8, 1)],
             "Niveau": ["4", "3"],
             "Opleidingcode": ["A", "B"],
         }
@@ -647,8 +710,13 @@ def test_sr_hoogste_niveau():
 def test_sr_laagste_crebo():
     df = pl.DataFrame(
         {
+            "levering": ["L1", "L1"],
+            "BRIN": ["A", "A"],
             "_persoon_id": ["P1", "P1"],
-            "Studiejaar": [2025, 2025],
+            "Inschrijvingvolgnummer": ["1", "2"],
+            "_schooljaren_actief": [[2025], [2025]],
+            "_actief_1_oktober": [True, True],
+            "DatumBegin": [date(2024, 8, 1), date(2025, 8, 1)],
             "Niveau": ["4", "4"],
             "Opleidingcode": ["A", "B"],
         }
@@ -668,8 +736,13 @@ def test_sr_laagste_crebo():
 def test_sr_hoofdinschrijving_selecteert_juiste_rij():
     df = pl.DataFrame(
         {
+            "levering": ["L1", "L1", "L1"],
+            "BRIN": ["A", "A", "A"],
             "_persoon_id": ["P1", "P1", "P2"],
-            "Studiejaar": [2025, 2025, 2025],
+            "Inschrijvingvolgnummer": ["1", "2", "3"],
+            "_schooljaren_actief": [[2025], [2025], [2025]],
+            "_actief_1_oktober": [True, True, True],
+            "DatumBegin": [date(2024, 8, 1), date(2025, 8, 1), date(2024, 8, 1)],
             "Niveau": ["4", "3", "2"],
             "Opleidingcode": ["X", "Y", "Z"],
         }
@@ -685,8 +758,13 @@ def test_sr_hoofdinschrijving_selecteert_juiste_rij():
 def test_sr_hoofdinschrijving_gelijke_niveaus_kiest_laagste_crebo():
     df = pl.DataFrame(
         {
+            "levering": ["L1", "L1"],
+            "BRIN": ["A", "A"],
             "_persoon_id": ["P1", "P1"],
-            "Studiejaar": [2025, 2025],
+            "Inschrijvingvolgnummer": ["1", "2"],
+            "_schooljaren_actief": [[2025], [2025]],
+            "_actief_1_oktober": [True, True],
+            "DatumBegin": [date(2024, 8, 1), date(2025, 8, 1)],
             "Niveau": ["4", "4"],
             "Opleidingcode": ["C002", "C001"],
         }
@@ -709,8 +787,13 @@ def test_sr_niveau_numeriek_mbo_prefix():
     """Niveau "MBO-4" moet hoger zijn dan "MBO-3" via numerieke extractie."""
     df = pl.DataFrame(
         {
+            "levering": ["L1", "L1"],
+            "BRIN": ["A", "A"],
             "_persoon_id": ["P1", "P1"],
-            "Studiejaar": [2025, 2025],
+            "Inschrijvingvolgnummer": ["1", "2"],
+            "_schooljaren_actief": [[2025], [2025]],
+            "_actief_1_oktober": [True, True],
+            "DatumBegin": [date(2024, 8, 1), date(2025, 8, 1)],
             "Niveau": ["MBO-4", "MBO-3"],
             "Opleidingcode": ["A", "B"],
         }
@@ -1083,6 +1166,12 @@ def test_vul_niveau_aan_zonder_ontbrekend_niveau_heeft_herkomst_bron():
         pl.DataFrame({"Opleidingcode": ["25655"], "Niveau": ["MBO-4"]})
     )
     assert result["_niveau_herkomst"].to_list() == ["bron"]
+
+
+def test_vul_niveau_aan_voegt_alleen_herkomst_toe():
+    """Geen interne join-sleutels in de output (#145)."""
+    df = pl.DataFrame({"Opleidingcode": ["23023"], "Niveau": [None]})
+    assert set(_vul_niveau_aan(df).columns) - set(df.columns) == {"_niveau_herkomst"}
 
 
 def test_vul_niveau_aan_onbekende_code():
