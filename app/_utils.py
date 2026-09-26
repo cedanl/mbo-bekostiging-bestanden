@@ -37,6 +37,11 @@ def output_dir() -> Path:
     return _config_pad("output")
 
 
+def scenario() -> str:
+    """Scenariolabel voor ``quality.json`` uit ``config.toml``."""
+    return load_config()["data"]["scenario"]
+
+
 def star_dir() -> Path:
     """Standaardlocatie van het star schema binnen de output-map."""
     return output_dir() / _STAR_SUBMAP

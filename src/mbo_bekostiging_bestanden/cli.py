@@ -4,7 +4,7 @@ Gebruik:
     mbo verwerk <source> <target> [--fmt parquet|csv]
     mbo stapel <dir...> --output <dir> [--fmt parquet|csv]
               [--label-col <naam>] [--relative-to <pad>]
-    mbo star <dir...> --output <dir> [--relative-to <pad>]
+    mbo star <dir...> --output <dir> [--relative-to <pad>] [--scenario <label>]
 """
 
 import argparse
@@ -12,6 +12,7 @@ from pathlib import Path
 
 from mbo_bekostiging_bestanden.export import export_frames
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
+from mbo_bekostiging_bestanden.quality import SCENARIO_ONBEKEND
 from mbo_bekostiging_bestanden.stack import stack_prepared
 
 
@@ -33,7 +34,12 @@ def _stapel(args: argparse.Namespace) -> None:
 
 
 def _star(args: argparse.Namespace) -> None:
-    star = run_star(args.sources, args.output, relative_to=args.relative_to)
+    star = run_star(
+        args.sources,
+        args.output,
+        relative_to=args.relative_to,
+        scenario=args.scenario,
+    )
     total = sum(df.height for df in star.values())
     print(f"Star schema gebouwd: {len(star)} tabellen, {total} rijen → {args.output}")
 
@@ -109,6 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         dest="relative_to",
         help="Basispad voor relatieve leveringslabels",
+    )
+    p_star.add_argument(
+        "--scenario",
+        default=SCENARIO_ONBEKEND,
+        help="Scenariolabel in quality.json, bijv. 'demo' of 'prod'",
     )
     p_star.set_defaults(func=_star)
 

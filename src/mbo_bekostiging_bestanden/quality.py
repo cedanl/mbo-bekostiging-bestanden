@@ -193,6 +193,8 @@ def check_slr_reconciliation(
 
 _FEIT_PREFIX = "fact_"
 _CENTRAAL_FEIT = "fact_inschrijving"
+# Scenario als de aanroeper er geen opgeeft; nooit afgeleid uit een pad (#176).
+SCENARIO_ONBEKEND = "unknown"
 
 
 def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
@@ -367,7 +369,7 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
 def compile_quality_report(
     star: dict[str, pl.DataFrame],
     deliveries: dict[str, QualityReport] | None = None,
-    scenario: str = "unknown",
+    scenario: str = SCENARIO_ONBEKEND,
 ) -> dict[str, Any]:
     """Compile quality report for quality.json output.
 

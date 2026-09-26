@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from _utils import prepared_dir, raw_dir, star_dir
+from _utils import prepared_dir, raw_dir, scenario, star_dir
 
 from mbo_bekostiging_bestanden.pipeline import (
     detect_bestandstype,
@@ -246,7 +246,12 @@ if not done:
         star_output.mkdir(parents=True, exist_ok=True)
 
         try:
-            star = run_star(prep_dirs_met_data, star_output, relative_to=prepared)
+            star = run_star(
+                prep_dirs_met_data,
+                star_output,
+                relative_to=prepared,
+                scenario=scenario(),
+            )
             star_summary = {
                 "isp_rijen": star["fact_inschrijving"].height,
                 "bekostiging_rijen": star["fact_bekostiging"].height,
