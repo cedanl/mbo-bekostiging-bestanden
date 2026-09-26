@@ -15,7 +15,7 @@ from mbo_bekostiging_bestanden.quality import (
     tel_parseverlies,
     write_quality_json,
 )
-from mbo_bekostiging_bestanden.stack import deduplicate_overlaps, stack_prepared
+from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
     validate_grondslag,
@@ -178,10 +178,6 @@ def run_star(
 
     target = Path(target)
     stacked = stack_prepared(sources, relative_to=relative_to)
-
-    # Deduplicate overlapping deliveries vóór build_star (#162)
-    stacked, dedup_stats = deduplicate_overlaps(stacked)
-
     star_tables = build_star(stacked)
     export_frames(star_tables, target / "datamodel")
 

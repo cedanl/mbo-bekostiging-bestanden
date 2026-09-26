@@ -33,6 +33,10 @@ from pathlib import Path
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.canonicalisatie import (
+    vervangen_inschrijvingen,
+    verwijder_vervangen,
+)
 from mbo_bekostiging_bestanden.enrich import (
     _laad_sbb_koppeltabel,
     enrich_inschrijvingen,
@@ -1230,11 +1234,34 @@ def _amo_aggregaat(
 # ---------------------------------------------------------------------------
 
 
-def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """ISP-grain: alle record-types samengevoegd tot één platte analysetabel."""
+def _isp_met_instelling(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
+    """ISP met ``_persoon_id`` en ``BRIN``; RO-ISP krijgt BRIN uit het VLP-record."""
+    isp = _drop(_add_persoon_id(stacked["ISP"]), "Recordsoort")
+    vlp = stacked.get("VLP", pl.DataFrame())
+    if "BRIN" not in vlp.columns:
+        return isp
+    isp = isp.join(
+        vlp.select("levering", pl.col("BRIN").alias("_brin_vlp")).unique("levering"),
+        on="levering",
+        how="left",
+    )
+    brin = ["BRIN", "_brin_vlp"] if "BRIN" in isp.columns else ["_brin_vlp"]
+    return isp.with_columns(pl.coalesce(brin).alias("BRIN")).drop("_brin_vlp")
+
+
+def _bouw_inschrijvingen(
+    stacked: dict[str, pl.DataFrame], isp: pl.DataFrame
+) -> pl.DataFrame:
+    """ISP-grain: alle record-types samengevoegd tot één platte analysetabel.
+
+    Args:
+        stacked: Gestapelde genormaliseerde records.
+        isp:     Canonieke ISP-rijen uit :func:`_isp_met_instelling`; ISG, DIP,
+                 BPV e.d. worden alleen aan deze inschrijvingen gekoppeld.
+    """
 
     # ── Basis: ISP ───────────────────────────────────────────────────────────
-    df = _voeg_periode_id_toe(_drop(_add_persoon_id(stacked["ISP"]), "Recordsoort"))
+    df = _voeg_periode_id_toe(isp)
     # Periodes waarop BPV/KZD/AMO-aantallen worden geaggregeerd, zodat een
     # inschrijving met meerdere perioden haar aantallen niet herhaalt (#105).
     perioden = df.select([*_JOIN_INSCHRIJVING, "DatumBegin", _PERIODE_ID])
@@ -1262,20 +1289,9 @@ def _bouw_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
         on=_JOIN_INSCHRIJVING,
     )
 
-    # ── VLP: bestandsmetadata; BRIN invullen voor RO-rijen ───────────────────
-    vlp = _drop(stacked["VLP"], "Recordsoort")
-    vlp_extra = [c for c in vlp.columns if c not in ["levering", "BRIN"]]
-    df = _join_left(
-        df,
-        vlp.select(["levering", "BRIN", *vlp_extra]),
-        on=["levering"],
-        suffix="_vlp",
-    )
-    # RO-ISP heeft geen BRIN: vul op uit VLP
-    if "BRIN_vlp" in df.columns:
-        df = df.with_columns(pl.coalesce(["BRIN", "BRIN_vlp"]).alias("BRIN")).drop(
-            "BRIN_vlp"
-        )
+    # ── VLP: bestandsmetadata (BRIN al aangevuld in _isp_met_instelling) ─────
+    vlp = _drop(stacked["VLP"], "Recordsoort", "BRIN")
+    df = _join_left(df, vlp, on=["levering"], suffix="_vlp")
 
     # ── ISE: extra ondersteuning (0-1 per inschrijving) ──────────────────────
     if "ISE" in stacked and not stacked["ISE"].is_empty():
@@ -1493,17 +1509,27 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
             "analysetabellen kunnen niet worden gebouwd."
         )
 
-    inschrijvingen = enrich_inschrijvingen(
-        _bouw_inschrijvingen(stacked)
-        if heeft_isp
-        else _bouw_tbgi_inschrijvingen(stacked)
-    )
+    # Canonicalisatie vóór alle indicatoren: per inschrijving telt alleen de
+    # meest recente levering, ook in de detailfeiten (#134, #174).
+    if heeft_isp:
+        isp = _isp_met_instelling(stacked)
+        vervangen = vervangen_inschrijvingen(isp, stacked.get("VLP", pl.DataFrame()))
+        inschrijvingen = _bouw_inschrijvingen(
+            stacked, verwijder_vervangen(isp, vervangen)
+        )
+    else:
+        vervangen = pl.DataFrame()
+        inschrijvingen = _bouw_tbgi_inschrijvingen(stacked)
+    inschrijvingen = enrich_inschrijvingen(inschrijvingen)
     details = {
-        "detail_bpv": _bouw_detail_bpv(stacked),
-        "detail_kzd_amo": _bouw_detail_kzd_amo(stacked),
-        "detail_bekostiging": _bouw_detail_bekostiging(stacked),
-        "detail_bekostiging_diploma": _bouw_detail_bekostiging_diploma(stacked),
-        "detail_geo": _bouw_detail_geo(stacked),
+        naam: verwijder_vervangen(detail, vervangen)
+        for naam, detail in {
+            "detail_bpv": _bouw_detail_bpv(stacked),
+            "detail_kzd_amo": _bouw_detail_kzd_amo(stacked),
+            "detail_bekostiging": _bouw_detail_bekostiging(stacked),
+            "detail_bekostiging_diploma": _bouw_detail_bekostiging_diploma(stacked),
+            "detail_geo": _bouw_detail_geo(stacked),
+        }.items()
     }
     return {
         "inschrijvingen": inschrijvingen,

@@ -104,29 +104,36 @@ instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagi
 ## Grain en Deduplicatie
 
 **Tellingseenheid (grain).** Elke feitstabel hoort uniek te zijn per zijn eigen grain-kolommen (zie tabel "Grain" hierboven).
-De centrale *tellingseenheid* is:
+`fact_inschrijving` heeft de grain van een **ISP-periode**; een periode kan meerdere schooljaren dekken. Een aparte
+feitstabel per `persoon × instelling × inschrijving × schooljaar` staat gepland in #164.
 
-- **Eénmalig inschrijving per persoon + schooljaar**: `persoon × inschrijving × schooljaar`
-- **Niet** per levering: een *levering* is een bronbestand en een tellingseenheid.
+Een *levering* is een bronbestand van DUO (bijv. `RO_27DV_20240731.csv` of `GRONDSLAG_IP_MBO_27DV_20251119.csv`),
+**geen** tellingseenheid. Dezelfde inschrijving kan in meerdere leveringen staan (herlevering, correctie, overlappende
+periode).
 
-Een levering is altijd één bestand van DUO (bijv. `RO_27DV_20240731.csv` of `GRONDSLAG_IP_MBO_27DV_20251119.csv`).
-Dezelfde persoon kan in meerdere leveringen voorkomen (bijv. bijgewerkte bestanden, correcties, of GRONDSLAG-data van
-een ander schooljaar dan RO). Die leveringen kunnen dezelfde inschrijving bevatten.
+**Canonicalisatie.** Een inschrijving is `BRIN × _persoon_id × Inschrijvingvolgnummer`. Staat die in meerdere
+leveringen, dan telt alleen de **meest recente levering**:
 
-**Overlap en Canonicalisatie.** Als `persoon × inschrijving × schooljaar` in meerdere leveringen voorkomt, tellen we die
-rij slechts één keer: de **meest recente levering** (alfabetisch laatste leveringsnaam; DUO bestandsnamen eindigen op
-hun generatiedatum). De regel voorkomt dubbeltelling in analyses per inschrijving en zorgt ervoor dat
-correcties/bijwijzigingen (meestal in latere bestanden) voorrang krijgen.
+1. hoogste `DatumAanmaak` uit het VLP-record van de levering;
+2. bij gelijke of ontbrekende aanmaakdatum: de alfabetisch laatste leveringsnaam.
 
-Deze deduplicatie gebeurt in `pipeline.py:run_star()` via `deduplicate_overlaps()` vóór het bouwen van het star schema.
-Per grain-kolom behouden we slechts de rij van de alfabetisch meest recente levering; dubbele rijen vallen weg.
+Alle rijen van die inschrijving uit oudere leveringen vallen weg — in ISP (dus vóór alle indicatoren) én in de
+detailfeiten (`fact_bpv`, `fact_kzd`, `fact_amo`, `fact_geo`, bekostiging), zodat detailrijen altijd bij de gekozen
+levering horen. Dit gebeurt in `_bouw_analysetabellen()` via `canonicalisatie.py`.
 
-Overlappende rijen worden ook in `quality.json` geregistreerd als waarschuwing voor controle (zie `check_overlapping_deliveries()` in quality.py).
+- **Per inschrijving, niet per levering:** een inschrijving die alleen in de oudere levering staat, blijft staan.
+- **BRIN hoort bij de sleutel:** een inschrijvingvolgnummer is niet instellingsoverstijgend uniek.
+- **Bronfamilies blijven gescheiden:** `_persoon_id` bevat het identifierdomein (PGN/BSN/ONR, #128), dus RO- en
+  GRONDSLAG-inschrijvingen worden nooit samengevoegd.
+- **Zonder volledige sleutel geen canonicalisatie:** rijen zonder BRIN, persoon of inschrijvingvolgnummer (bijv. een
+  KZD/GEO-rij die niet via DIP aan een inschrijving te koppelen is) worden niet als dubbel aangemerkt.
 
-**Voorbeeld:** dezelfde ISP in `RO_27DV_20240731.csv` (h15, vorige maand) en `RO_27DV_20250801.csv` (h15, vandaag):
-- De rij uit vandaag wint (alfabetisch later).
-- De oude rij valt weg vóór indicatorberekening (in `deduplicate_overlaps()`).
-- `quality.json` toont: `overlaps: [{key: "P|2025|1", deliveries: ["20240731", "20250801"], count: 1}]`.
+**Voorbeeld:** dezelfde inschrijving in `RO_27DV_20240731.csv` (aangemaakt 2024-08-01) en `RO_27DV_20250801.csv`
+(aangemaakt 2025-08-02): alle ISP-perioden en detailrijen van die inschrijving komen uit `RO_27DV_20250801`.
+
+`check_overlapping_deliveries()` in `quality.py` controleert achteraf of `fact_inschrijving` nog inschrijvingen uit
+meerdere leveringen bevat.
+
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 De bekostigingsrelevante BPV's (0..n per teldatum) en de TBGI-signalen (één rij per
 parameter) staan als `BekostigingsrelevanteBPV` en `Signaal` in de prepared-output van een
