@@ -467,6 +467,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fastexcel" },
+    { name = "jsonschema" },
     { name = "playwright" },
     { name = "pytest" },
     { name = "ruff" },
@@ -487,6 +488,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "fastexcel", specifier = ">=0.20.2" },
+    { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "playwright", specifier = ">=1.62.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.6" },
