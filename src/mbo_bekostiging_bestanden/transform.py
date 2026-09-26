@@ -34,6 +34,7 @@ from pathlib import Path
 import polars as pl
 
 from mbo_bekostiging_bestanden.canonicalisatie import (
+    canonicalisatie_overzicht,
     vervangen_inschrijvingen,
     verwijder_vervangen,
 )
@@ -1493,10 +1494,10 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
                  dict van tabelnaam → DataFrame.
 
     Returns:
-        Dict met zeven sleutels:
+        Dict met acht sleutels:
         ``inschrijvingen``, ``detail_bpv``, ``detail_kzd_amo``,
         ``detail_bekostiging``, ``detail_bekostiging_diploma``,
-        ``detail_geo``, ``meta_leveringen``.
+        ``detail_geo``, ``meta_leveringen``, ``meta_canonicalisatie``.
     """
     heeft_isp = "ISP" in stacked and not stacked["ISP"].is_empty()
     heeft_inschrijving = (
@@ -1517,8 +1518,10 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
         inschrijvingen = _bouw_inschrijvingen(
             stacked, verwijder_vervangen(isp, vervangen)
         )
+        overzicht = canonicalisatie_overzicht(isp, vervangen)
     else:
         vervangen = pl.DataFrame()
+        overzicht = canonicalisatie_overzicht(pl.DataFrame(), vervangen)
         inschrijvingen = _bouw_tbgi_inschrijvingen(stacked)
     inschrijvingen = enrich_inschrijvingen(inschrijvingen)
     details = {
@@ -1543,4 +1546,5 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
             for naam, detail in details.items()
         },
         "meta_leveringen": _bouw_meta_leveringen(stacked),
+        "meta_canonicalisatie": overzicht,
     }
