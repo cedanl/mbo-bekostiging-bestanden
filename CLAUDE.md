@@ -58,6 +58,18 @@ mbo-bekostiging-bestanden/
 - Pipeline (Python): `run_pipeline(source, target)` uit `pipeline.py`
 - De pipeline pseudonimiseert persoons-identifiers en faalt zonder een geldige salt (fail-closed, zie env-var `MBO_PSEUDONIMISERING_SALT`).
 
+## Releases
+Alleen via een tag op `main`; `.github/workflows/release.yml` is de gate.
+1. PR die `version` in `pyproject.toml` ophoogt → merge naar `main`.
+2. Wacht tot CI en Docs op `main` groen zijn.
+3. `git fetch && git tag vX.Y.Z origin/main && git push origin vX.Y.Z`.
+
+De workflow controleert dat de tag op `main` staat, gelijk is aan de
+pyproject-versie en dat CI én Docs voor die commit groen zijn, en maakt dan
+de GitHub Release met notes gegenereerd uit de gemergde PR's.
+**Nooit** zelf `gh release create` draaien of handmatig release-notes met
+cijfers/issuenummers schrijven — dat omzeilt de gate.
+
 ## Data
 - **Input**: ruwe DUO-bekostigingsbestanden in `data/01-raw/`. Multi-record,
   `;`-gescheiden (regeltypes `VLP`/`PER`/`ISG`/…) plus XML (TBGI). Demo-data

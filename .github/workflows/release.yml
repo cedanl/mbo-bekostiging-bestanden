@@ -1,0 +1,69 @@
+name: Release
+
+# Een release ontstaat alleen door een v*-tag te pushen, en alleen als:
+# - de tag-commit op main staat,
+# - de tag gelijk is aan de versie in pyproject.toml,
+# - CI én Docs op main voor precies die commit groen zijn.
+# De release-notes worden gegenereerd uit de gemergde PR's sinds de vorige tag.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  # Hoe lang de gate wacht tot de main-runs van deze commit zichtbaar zijn.
+  RUN_ZOEK_POGINGEN: 30
+  RUN_ZOEK_INTERVAL_S: 10
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag staat op main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) staat niet op main. Merge eerst naar main en tag daarna."
+            exit 1
+          fi
+
+      - name: Tag volgt pyproject-versie
+        run: |
+          versie=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ "$GITHUB_REF_NAME" != "v$versie" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME wijkt af van pyproject.toml (v$versie)."
+            exit 1
+          fi
+
+      - name: CI en Docs groen op deze commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for workflow in ci.yml docs.yml; do
+            run_id=""
+            for _ in $(seq "$RUN_ZOEK_POGINGEN"); do
+              run_id=$(gh run list --workflow "$workflow" --branch main --event push \
+                --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
+              [ -n "$run_id" ] && break
+              sleep "$RUN_ZOEK_INTERVAL_S"
+            done
+            if [ -z "$run_id" ]; then
+              echo "::error::Geen $workflow-run op main gevonden voor $GITHUB_SHA."
+              exit 1
+            fi
+            gh run watch "$run_id" --exit-status
+          done
+
+      - name: GitHub Release met gegenereerde notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
+            --title "$GITHUB_REF_NAME"
