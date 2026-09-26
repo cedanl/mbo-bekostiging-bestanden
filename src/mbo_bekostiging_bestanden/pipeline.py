@@ -11,13 +11,13 @@ from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
 from mbo_bekostiging_bestanden.quality import (
     SCENARIO_ONBEKEND,
-    QualityReport,
     check_slr_reconciliation,
     compile_quality_report,
+    lees_leveringsrapport,
     tel_parseverlies,
     write_quality_json,
 )
-from mbo_bekostiging_bestanden.stack import stack_prepared
+from mbo_bekostiging_bestanden.stack import leveringslabels, stack_prepared
 from mbo_bekostiging_bestanden.star import build_star
 from mbo_bekostiging_bestanden.validate import (
     validate_grondslag,
@@ -179,35 +179,17 @@ def run_star(
         ``<target>/datamodel/``.
     """
     target = Path(target)
-    stacked = stack_prepared(sources, relative_to=relative_to)
-    star_tables = build_star(stacked)
+    labels = leveringslabels(sources, relative_to)
+    star_tables = build_star(stack_prepared(sources, labels=labels))
     export_frames(star_tables, target / "datamodel")
-
-    # Read quality reports from prepared sources to include SLR + parseverlies
-    deliveries_dict: dict[str, QualityReport] = {}
-    for source in sources:
-        source_path = Path(source)
-        quality_json = source_path / "quality.json"
-        if quality_json.exists():
-            with open(quality_json) as f:
-                report_data = json.load(f)
-                # Reconstruct QualityReport from JSON
-                levering = report_data.get("levering", source_path.name)
-                report = QualityReport(
-                    levering=levering,
-                    schema_type=report_data.get("schema_type", "unknown"),
-                    slr_status=report_data.get("slr_status", "unknown"),
-                    slr_checks=report_data.get("slr_details", {}),
-                    parseverlies=report_data.get("parseverlies", {}),
-                    warnings=report_data.get("warnings", []),
-                    errors=report_data.get("errors", []),
-                )
-                deliveries_dict[levering] = report
+    # Per-levering SLR + parseverlies, onder hetzelfde label als in de ster.
+    deliveries = {
+        label: lees_leveringsrapport(Path(source) / "quality.json", label)
+        for source, label in zip(sources, labels, strict=True)
+    }
 
     quality_report = compile_quality_report(
-        star_tables,
-        deliveries=deliveries_dict if deliveries_dict else None,
-        scenario=scenario,
+        star_tables, deliveries=deliveries, scenario=scenario
     )
     write_quality_json(quality_report, target / "quality.json")
 

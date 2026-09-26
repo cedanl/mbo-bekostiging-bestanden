@@ -59,7 +59,7 @@ geschreven.
 | `fact_geo` | GEO-examenonderdeel | `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | Eindcijfers IE/CE per onderdeel in long format |
 | `fact_bekostiging` | TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2) |
 | `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
-| `meta_leveringen` | Leveringsbestand | `levering` | VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) per bronbestand |
+| `meta_leveringen` | Leveringsbestand | `levering` | Elke verwerkte levering, met VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) waar het bestand die heeft; bij TBGI (XML) zijn die velden leeg. Zelfde `levering`-labels als in de feiten en `quality.json` |
 | `meta_canonicalisatie` | Leveringspaar | `levering`, `vervangen_door`, `reden` | Vervangen leveringen: aantal inschrijvingen en ISP-perioden dat door een recentere levering is vervangen; leeg zonder overlap |
 
 **S-BB-attributen in `dim_opleiding`.** `Opleiding_geldig_van`/`Opleiding_geldig_tot` zijn de

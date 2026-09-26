@@ -3,7 +3,7 @@
     "description": "Demo star schema indicator snapshot - after DatumUitschrijvingWerkelijk hard bound fix (#163)",
     "commit": "main + #163",
     "date": "2026-09-25",
-    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts."
+    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts. meta_leveringen 4 -> 5: TBGI-levering (zonder VLP/SLR) staat er nu ook in (#188)."
   },
   "indicators": {
     "_actief_1_oktober": {"true": 22, "total": 46},
@@ -26,7 +26,7 @@
     "fact_geo": 22,
     "fact_bekostiging": 1,
     "fact_bekostiging_diploma": 1,
-    "meta_leveringen": 4
+    "meta_leveringen": 5
   },
   "per_levering": {
     "h15/RO_21CY_20250730_20250731": {

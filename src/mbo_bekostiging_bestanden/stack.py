@@ -6,6 +6,20 @@ from pathlib import Path
 import polars as pl
 
 
+def leveringslabels(
+    sources: Sequence[Path | str], relative_to: Path | str | None = None
+) -> list[str]:
+    """Label per levering: pad t.o.v. ``relative_to``, anders de mapnaam.
+
+    Eén bron voor het label in de ster (``levering``-kolom), ``meta_leveringen``
+    en ``quality.json`` (#188).
+    """
+    paths = [Path(s) for s in sources]
+    if relative_to is None:
+        return [p.name for p in paths]
+    return [p.relative_to(relative_to).as_posix() for p in paths]
+
+
 def stack_prepared(
     sources: Sequence[Path | str],
     label_col: str = "levering",
@@ -47,10 +61,7 @@ def stack_prepared(
             raise FileNotFoundError(f"Bronmap niet gevonden: {p}")
 
     if labels is None:
-        root = Path(relative_to) if relative_to is not None else None
-        labels = [
-            str(p.relative_to(root)) if root is not None else p.name for p in paths
-        ]
+        labels = leveringslabels(paths, relative_to)
 
     tables: dict[str, list[pl.DataFrame]] = {}
     for path, label in zip(paths, labels, strict=True):
