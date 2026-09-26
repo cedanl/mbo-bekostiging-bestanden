@@ -85,7 +85,7 @@ def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():
 # ---------------------------------------------------------------------------
 
 
-def test_bouw_analysetabellen_returns_zeven_tables(demo_tabellen):
+def test_bouw_analysetabellen_returns_acht_tables(demo_tabellen):
     assert set(demo_tabellen.keys()) == {
         "inschrijvingen",
         "detail_bpv",
@@ -94,18 +94,17 @@ def test_bouw_analysetabellen_returns_zeven_tables(demo_tabellen):
         "detail_bekostiging_diploma",
         "detail_geo",
         "meta_leveringen",
+        "meta_canonicalisatie",
     }
 
 
 def test_inschrijvingen_grain_isp(demo_tabellen, demo_stacked):
-    """inschrijvingen heeft één rij per ISP-periode die op een peildatum actief is.
+    """inschrijvingen heeft precies één rij per (canonieke) ISP-periode.
 
-    Met de nieuwe logica (#144) kan een periode die meerdere schooljaren dekt
-    voor meerdere schooljaren actief zijn, wat leidt tot meer rijen dan de
-    oorspronkelijke ISP-tabel.
+    De demo bevat geen overlappende leveringen, dus niets wordt vervangen.
     """
-    # Nieuwe logica: actief per schooljaar -> kan meer rijen opleveren
-    assert demo_tabellen["inschrijvingen"].height >= demo_stacked["ISP"].height
+    assert demo_tabellen["meta_canonicalisatie"].is_empty()
+    assert demo_tabellen["inschrijvingen"].height == demo_stacked["ISP"].height
 
 
 def test_inschrijvingen_heeft_persoon_id(demo_tabellen):

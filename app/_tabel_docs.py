@@ -141,6 +141,20 @@ TABEL_DOCS: dict[str, dict[str, str]] = {
             "verwerkt bestand."
         ),
     },
+    "meta_canonicalisatie": {
+        "titel": "Vervangen leveringen (metadata)",
+        "wat": (
+            "Welke leveringen zijn vervangen door een nieuwere levering van "
+            "dezelfde instelling, met het aantal inschrijvingen en ISP-perioden "
+            "en de reden. Zo telt een inschrijving die in meerdere leveringen "
+            "staat maar één keer. Leeg als geen leveringen overlappen."
+        ),
+        "bron": (
+            "Afgeleid bij het bouwen van het star schema: per inschrijving "
+            "(instelling × deelnemer × volgnummer) wint de levering met de "
+            "nieuwste aanmaakdatum (VLP)."
+        ),
+    },
 }
 
 

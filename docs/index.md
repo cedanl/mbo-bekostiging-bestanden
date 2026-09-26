@@ -41,7 +41,7 @@ Datumvelden zijn `Date`, telvelden zijn `Int64`, lege velden zijn `null` (geen l
 
 ### Stap 2 — Star schema (gecombineerd over alle leveringen)
 
-Alle prepared-mappen worden gecombineerd tot elf Parquet-bestanden in `data/03-output/star/datamodel/`:
+Alle prepared-mappen worden gecombineerd tot twaalf Parquet-bestanden in `data/03-output/star/datamodel/`:
 
 | Bestand | Grain | Inhoud |
 |---|---|---|
@@ -56,6 +56,7 @@ Alle prepared-mappen worden gecombineerd tot elf Parquet-bestanden in `data/03-o
 | `fact_bekostiging.parquet` | TBGI Teldatum | Bekostigingsgrondslagen per teldatum |
 | `fact_bekostiging_diploma.parquet` | TBGI Diploma | Diplomawaarde-bijdragen per diploma |
 | `meta_leveringen.parquet` | Leveringsbestand | VLP + SLR metadata (één rij per bronbestand) |
+| `meta_canonicalisatie.parquet` | Leveringspaar | Vervangen leveringen bij overlap (aantallen + reden) |
 
 Zie [Datamodel](datamodel.md) voor een volledig schema-overzicht.
 

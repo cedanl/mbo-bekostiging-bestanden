@@ -175,7 +175,7 @@ def run_star(
         scenario:    Label voor ``quality.json`` (bijv. ``"demo"``, ``"prod"``).
 
     Returns:
-        Dict met de elf star-schema-tabellen; tevens geschreven naar
+        Dict met de twaalf star-schema-tabellen; tevens geschreven naar
         ``<target>/datamodel/``.
     """
     target = Path(target)

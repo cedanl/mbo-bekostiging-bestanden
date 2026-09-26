@@ -14,6 +14,7 @@ from typing import Any
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.canonicalisatie import INSCHRIJVING, REGEL
 from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
     filter_detail_op_inschrijvingen,
@@ -193,6 +194,7 @@ def check_slr_reconciliation(
 
 _FEIT_PREFIX = "fact_"
 _CENTRAAL_FEIT = "fact_inschrijving"
+_META_CANONICALISATIE = "meta_canonicalisatie"
 # Scenario als de aanroeper er geen opgeeft; nooit afgeleid uit een pad (#176).
 SCENARIO_ONBEKEND = "unknown"
 
@@ -340,8 +342,9 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
 def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]:
     """Evaluate star-checks; return (errors, warnings).
 
-    Errors: orphaned_facts with pct > 0, key duplicates > 0
-    Warnings: niveau_issues > 0, overlapping_deliveries > 0
+    Errors: orphaned_facts with pct > 0, key duplicates > 0,
+            overlapping_deliveries > 0 (na canonicalisatie telt dat dubbel)
+    Warnings: niveau_issues > 0
     """
     errors = 0
     warnings = 0
@@ -359,9 +362,9 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     if star_checks.get("niveau_issues", {}).get("total", 0) > 0:
         warnings += 1
 
-    # Check overlapping deliveries
+    # Overlap die na canonicalisatie (#174) in de ster blijft, telt dubbel
     if len(star_checks.get("overlapping_deliveries", [])) > 0:
-        warnings += 1
+        errors += 1
 
     return errors, warnings
 
@@ -392,6 +395,7 @@ def compile_quality_report(
         **_check_key_duplicates_structured(star),
         **_check_niveau_structured(star),
         **check_overlapping_deliveries(star),
+        **_check_canonicalisatie_structured(star),
     }
 
     # Count totals from deliveries
@@ -450,38 +454,47 @@ def write_quality_json(
 
 
 def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
-    """Detect persoon×inschrijving×schooljaar appearing in multiple deliveries.
+    """Inschrijvingen die na canonicalisatie nog in meerdere leveringen staan.
 
-    Returns structured dict with overlaps: [{key, deliveries, count}, ...]
+    Een inschrijving is ``BRIN × _persoon_id × Inschrijvingvolgnummer`` (zie
+    :mod:`~mbo_bekostiging_bestanden.canonicalisatie`). Na canonicalisatie hoort
+    elke inschrijving uit precies één levering te komen; elke treffer hier is
+    dubbeltelling in de output.
+
+    Returns:
+        ``{"overlapping_deliveries": [{key, deliveries, count}, ...]}``
     """
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
-    overlaps = []
+    if not {"levering", *INSCHRIJVING} <= set(feit.columns):
+        return {"overlapping_deliveries": []}
 
-    if feit.is_empty() or "levering" not in feit.columns:
-        return {"overlapping_deliveries": overlaps}
-
-    # Group by (persoon, inschrijving, schooljaar) and count deliveries
-    key_cols = ["_persoon_id", "Inschrijvingvolgnummer", "Studiejaar"]
-    required = [c for c in key_cols if c in feit.columns]
-
-    if not required:
-        return {"overlapping_deliveries": overlaps}
-
-    # Aggregate: count distinct deliveries per key
-    grouped = feit.group_by(required).agg(
-        pl.col("levering").n_unique().alias("_num_deliveries"),
-        pl.col("levering").unique().sort().alias("_deliveries"),
-    ).filter(pl.col("_num_deliveries") > 1)
-
-    for row in grouped.iter_rows(named=True):
-        key = "|".join(
-            str(row.get(c, "")) for c in required
-        )
-        deliveries = sorted(set(row["_deliveries"]))  # type: ignore
-        overlaps.append({
-            "key": key,
-            "deliveries": deliveries,
-            "count": row["_num_deliveries"],
-        })
-
+    grouped = (
+        feit.group_by(INSCHRIJVING)
+        .agg(pl.col("levering").unique().sort().alias("deliveries"))
+        .filter(pl.col("deliveries").list.len() > 1)
+    )
+    overlaps = [
+        {
+            "key": "|".join(str(row[c]) for c in INSCHRIJVING),
+            "deliveries": row["deliveries"],
+            "count": len(row["deliveries"]),
+        }
+        for row in grouped.iter_rows(named=True)
+    ]
     return {"overlapping_deliveries": sorted(overlaps, key=lambda x: x["key"])}
+
+
+def _check_canonicalisatie_structured(
+    star: dict[str, pl.DataFrame],
+) -> dict[str, Any]:
+    """Samenvatting van ``meta_canonicalisatie``: wat is vervangen en waarom."""
+    meta = star.get(_META_CANONICALISATIE, pl.DataFrame())
+    per_levering = meta.to_dicts() if not meta.is_empty() else []
+    return {
+        "canonicalisatie": {
+            "regel": REGEL,
+            "vervangen_inschrijvingen": sum(r["inschrijvingen"] for r in per_levering),
+            "vervangen_isp_perioden": sum(r["isp_perioden"] for r in per_levering),
+            "per_levering": per_levering,
+        }
+    }

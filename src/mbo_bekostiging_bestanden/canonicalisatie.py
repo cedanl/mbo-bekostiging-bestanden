@@ -30,6 +30,25 @@ INSCHRIJVING = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer"]
 # Recentheid van een levering, in voorkeursvolgorde (hoogste wint).
 _RECENTHEID = ["DatumAanmaak", LEVERING]
 VERVANGEN_DOOR = "_vervangen_door"
+REDEN = "_reden"
+# Waarom de winnende levering is gekozen (lineage in meta_canonicalisatie).
+REDEN_AANMAAKDATUM = "recentere_aanmaakdatum"
+REDEN_LEVERINGSNAAM = "leveringsnaam"
+# Voorkeursregel in leesbare vorm, voor quality.json.
+REGEL = (
+    "Per inschrijving (BRIN × _persoon_id × Inschrijvingvolgnummer) wint de "
+    "levering met de hoogste VLP-DatumAanmaak; bij gelijke of ontbrekende "
+    "aanmaakdatum de alfabetisch laatste leveringsnaam."
+)
+OVERZICHT_KOLOMMEN = pl.Schema(
+    {
+        "levering": pl.Utf8,
+        "vervangen_door": pl.Utf8,
+        "reden": pl.Utf8,
+        "inschrijvingen": pl.UInt32,
+        "isp_perioden": pl.UInt32,
+    }
+)
 
 
 def vervangen_inschrijvingen(isp: pl.DataFrame, vlp: pl.DataFrame) -> pl.DataFrame:
@@ -43,10 +62,11 @@ def vervangen_inschrijvingen(isp: pl.DataFrame, vlp: pl.DataFrame) -> pl.DataFra
 
     Returns:
         Eén rij per vervangen inschrijving: ``levering``, ``_persoon_id``,
-        ``Inschrijvingvolgnummer`` en ``_vervangen_door`` (winnende levering).
+        ``Inschrijvingvolgnummer``, ``_vervangen_door`` (winnende levering) en
+        ``_reden`` (:data:`REDEN_AANMAAKDATUM` of :data:`REDEN_LEVERINGSNAAM`).
     """
     if not set(INSCHRIJVING) <= set(isp.columns):
-        return pl.DataFrame(schema=[*INSCHRIJVING_IN_LEVERING, VERVANGEN_DOOR])
+        return pl.DataFrame(schema=[*INSCHRIJVING_IN_LEVERING, VERVANGEN_DOOR, REDEN])
     aanmaak = (
         vlp.select(LEVERING, "DatumAanmaak").unique(LEVERING)
         if {LEVERING, "DatumAanmaak"} <= set(vlp.columns)
@@ -63,10 +83,53 @@ def vervangen_inschrijvingen(isp: pl.DataFrame, vlp: pl.DataFrame) -> pl.DataFra
         .group_by(INSCHRIJVING, maintain_order=True)
         .agg(pl.col(LEVERING).first().alias(VERVANGEN_DOOR))
     )
+    aanmaak_winnaar = aanmaak.rename(
+        {LEVERING: VERVANGEN_DOOR, "DatumAanmaak": "_aanmaak_winnaar"}
+    )
     return (
         voorkomens.join(recentst, on=INSCHRIJVING)
         .filter(pl.col(LEVERING) != pl.col(VERVANGEN_DOOR))
-        .select(*INSCHRIJVING_IN_LEVERING, VERVANGEN_DOOR)
+        .join(aanmaak_winnaar, on=VERVANGEN_DOOR, how="left")
+        .with_columns(
+            pl.when(pl.col("_aanmaak_winnaar") > pl.col("DatumAanmaak"))
+            .then(pl.lit(REDEN_AANMAAKDATUM))
+            .otherwise(pl.lit(REDEN_LEVERINGSNAAM))
+            .alias(REDEN)
+        )
+        .select(*INSCHRIJVING_IN_LEVERING, VERVANGEN_DOOR, REDEN)
+    )
+
+
+def canonicalisatie_overzicht(
+    isp: pl.DataFrame, vervangen: pl.DataFrame
+) -> pl.DataFrame:
+    """Lineage per leveringspaar: wat is vervangen, door welke levering en waarom.
+
+    Args:
+        isp:       ISP-rijen vóór canonicalisatie (één rij per periode).
+        vervangen: Output van :func:`vervangen_inschrijvingen`.
+
+    Returns:
+        Eén rij per (levering, vervangen_door, reden) met het aantal vervangen
+        inschrijvingen en ISP-perioden; leeg (met vast schema) zonder overlap.
+    """
+    if vervangen.is_empty():
+        return pl.DataFrame(schema=OVERZICHT_KOLOMMEN)
+    perioden = isp.join(vervangen, on=INSCHRIJVING_IN_LEVERING, how="semi")
+    per_inschrijving = vervangen.join(
+        perioden.group_by(INSCHRIJVING_IN_LEVERING).len("_perioden"),
+        on=INSCHRIJVING_IN_LEVERING,
+        how="left",
+    )
+    return (
+        per_inschrijving.group_by(LEVERING, VERVANGEN_DOOR, REDEN)
+        .agg(
+            pl.len().alias("inschrijvingen"),
+            pl.col("_perioden").sum().alias("isp_perioden"),
+        )
+        .rename({VERVANGEN_DOOR: "vervangen_door", REDEN: "reden"})
+        .sort(LEVERING, "vervangen_door")
+        .cast(OVERZICHT_KOLOMMEN)
     )
 
 

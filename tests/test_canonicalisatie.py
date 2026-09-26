@@ -6,6 +6,7 @@ leveringen, dan telt alleen die uit de meest recente levering. Detailfeiten
 volgen de gekozen levering van hun inschrijving.
 """
 
+import json
 import shutil
 from datetime import date, timedelta
 from pathlib import Path
@@ -14,6 +15,9 @@ import polars as pl
 import pytest
 
 from mbo_bekostiging_bestanden.canonicalisatie import (
+    REDEN_AANMAAKDATUM,
+    REDEN_LEVERINGSNAAM,
+    canonicalisatie_overzicht,
     vervangen_inschrijvingen,
     verwijder_vervangen,
 )
@@ -117,6 +121,69 @@ def test_meerdere_perioden_per_inschrijving_geven_een_vervangen_sleutel():
     assert vervangen_inschrijvingen(isp, vlp).height == 1
 
 
+def test_reden_recentere_aanmaakdatum():
+    isp = _isp(("L_oud", "27DV", "P", "1"), ("L_nieuw", "27DV", "P", "1"))
+    vlp = _vlp(("L_oud", date(2025, 1, 1)), ("L_nieuw", date(2025, 6, 1)))
+
+    assert vervangen_inschrijvingen(isp, vlp)["_reden"].to_list() == [
+        REDEN_AANMAAKDATUM
+    ]
+
+
+def test_reden_leveringsnaam_bij_gelijke_aanmaakdatum():
+    isp = _isp(("L_a", "27DV", "P", "1"), ("L_b", "27DV", "P", "1"))
+    vlp = _vlp(("L_a", date(2025, 1, 1)), ("L_b", date(2025, 1, 1)))
+
+    assert vervangen_inschrijvingen(isp, vlp)["_reden"].to_list() == [
+        REDEN_LEVERINGSNAAM
+    ]
+
+
+# ---------------------------------------------------------------------------
+# canonicalisatie_overzicht
+# ---------------------------------------------------------------------------
+
+
+def test_overzicht_telt_inschrijvingen_en_perioden_per_leveringspaar():
+    isp = _isp(
+        ("L_oud", "27DV", "P", "1"),
+        ("L_oud", "27DV", "P", "1"),
+        ("L_oud", "27DV", "Q", "1"),
+        ("L_oud", "27DV", "R", "1"),
+        ("L_nieuw", "27DV", "P", "1"),
+        ("L_nieuw", "27DV", "Q", "1"),
+    )
+    vlp = _vlp(("L_oud", date(2025, 1, 1)), ("L_nieuw", date(2025, 6, 1)))
+
+    overzicht = canonicalisatie_overzicht(isp, vervangen_inschrijvingen(isp, vlp))
+
+    assert overzicht.to_dicts() == [
+        {
+            "levering": "L_oud",
+            "vervangen_door": "L_nieuw",
+            "reden": REDEN_AANMAAKDATUM,
+            "inschrijvingen": 2,
+            "isp_perioden": 3,
+        }
+    ]
+
+
+def test_overzicht_zonder_overlap_is_leeg_met_vast_schema():
+    isp = _isp(("L", "27DV", "P", "1"))
+    overzicht = canonicalisatie_overzicht(
+        isp, vervangen_inschrijvingen(isp, _vlp(("L", date(2025, 1, 1))))
+    )
+
+    assert overzicht.is_empty()
+    assert overzicht.columns == [
+        "levering",
+        "vervangen_door",
+        "reden",
+        "inschrijvingen",
+        "isp_perioden",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # verwijder_vervangen
 # ---------------------------------------------------------------------------
@@ -213,3 +280,20 @@ def test_correctielevering_wint_op_aanmaakdatum(ro_27dv, tmp_path):
     ]
 
     assert feit["levering"].unique().to_list() == ["h00/A_correctie"]
+
+
+def test_canonicalisatie_zichtbaar_in_ster_en_quality(ro_27dv, tmp_path):
+    kopie = _kopieer_levering(ro_27dv, tmp_path / "h15" / "RO_27DV_kopie")
+    enkel = run_star([ro_27dv], tmp_path / "enkel")["fact_inschrijving"].height
+
+    star = run_star([ro_27dv, kopie], tmp_path / "dubbel")
+    quality = json.loads((tmp_path / "dubbel" / "quality.json").read_text())
+
+    meta = star["meta_canonicalisatie"]
+    assert meta["levering"].to_list() == [ro_27dv.name]
+    assert meta["vervangen_door"].to_list() == [kopie.name]
+    assert meta["isp_perioden"].to_list() == [enkel]
+    canon = quality["star"]["canonicalisatie"]
+    assert canon["vervangen_isp_perioden"] == enkel
+    assert canon["per_levering"][0]["vervangen_door"] == kopie.name
+    assert quality["star"]["overlapping_deliveries"] == []

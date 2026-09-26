@@ -60,6 +60,7 @@ geschreven.
 | `fact_bekostiging` | TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2) |
 | `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
 | `meta_leveringen` | Leveringsbestand | `levering` | VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) per bronbestand |
+| `meta_canonicalisatie` | Leveringspaar | `levering`, `vervangen_door`, `reden` | Vervangen leveringen: aantal inschrijvingen en ISP-perioden dat door een recentere levering is vervangen; leeg zonder overlap |
 
 **S-BB-attributen in `dim_opleiding`.** `Opleiding_geldig_van`/`Opleiding_geldig_tot` zijn de
 looptijd van de kwalificatie in de S-BB-crebolijst, niet van de prijsfactor: een verlopen
@@ -131,8 +132,13 @@ levering horen. Dit gebeurt in `_bouw_analysetabellen()` via `canonicalisatie.py
 **Voorbeeld:** dezelfde inschrijving in `RO_27DV_20240731.csv` (aangemaakt 2024-08-01) en `RO_27DV_20250801.csv`
 (aangemaakt 2025-08-02): alle ISP-perioden en detailrijen van die inschrijving komen uit `RO_27DV_20250801`.
 
-`check_overlapping_deliveries()` in `quality.py` controleert achteraf of `fact_inschrijving` nog inschrijvingen uit
-meerdere leveringen bevat.
+**Lineage.** Welke leveringen zijn vervangen, door welke en waarom (`recentere_aanmaakdatum` of `leveringsnaam`) staat
+in de star-tabel `meta_canonicalisatie` en samengevat in `quality.json` onder `star.canonicalisatie`, met de toegepaste
+regel en de aantallen vervangen inschrijvingen en ISP-perioden.
+
+`check_overlapping_deliveries()` in `quality.py` controleert achteraf of `fact_inschrijving` nog een inschrijving
+(`BRIN × _persoon_id × Inschrijvingvolgnummer`) uit meerdere leveringen bevat. Dat is dubbeltelling en maakt de
+status `fail`.
 
 `fact_bekostiging` en `fact_bekostiging_diploma` zijn ook joinbaar met `dim_instelling` via `BRIN`.
 De bekostigingsrelevante BPV's (0..n per teldatum) en de TBGI-signalen (één rij per

@@ -182,13 +182,13 @@
         },
         "overlapping_deliveries": {
           "type": "array",
-          "description": "persoon×inschrijving×schooljaar appearing in >1 delivery",
+          "description": "Inschrijvingen (BRIN × _persoon_id × Inschrijvingvolgnummer) die na canonicalisatie nog in meer dan één levering staan. Elke treffer is dubbeltelling en maakt de status 'fail'.",
           "items": {
             "type": "object",
             "properties": {
               "key": {
                 "type": "string",
-                "description": "person|year|seq composite"
+                "description": "BRIN|_persoon_id|Inschrijvingvolgnummer"
               },
               "deliveries": {
                 "type": "array",
@@ -228,13 +228,78 @@
             "total"
           ],
           "additionalProperties": false
+        },
+        "canonicalisatie": {
+          "type": "object",
+          "description": "Canonicalisatie van overlappende leveringen (#174/#175): welke leveringen zijn vervangen, door welke en waarom. Bron: star-tabel meta_canonicalisatie.",
+          "properties": {
+            "regel": {
+              "type": "string",
+              "description": "Toegepaste voorkeursregel in leesbare vorm"
+            },
+            "vervangen_inschrijvingen": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "vervangen_isp_perioden": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "per_levering": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "levering": {
+                    "type": "string",
+                    "description": "Vervangen (oudere) levering"
+                  },
+                  "vervangen_door": {
+                    "type": "string",
+                    "description": "Winnende levering"
+                  },
+                  "reden": {
+                    "type": "string",
+                    "enum": [
+                      "recentere_aanmaakdatum",
+                      "leveringsnaam"
+                    ]
+                  },
+                  "inschrijvingen": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "isp_perioden": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "levering",
+                  "vervangen_door",
+                  "reden",
+                  "inschrijvingen",
+                  "isp_perioden"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "regel",
+            "vervangen_inschrijvingen",
+            "vervangen_isp_perioden",
+            "per_levering"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
         "orphaned_facts",
         "key_duplicates",
         "overlapping_deliveries",
-        "niveau_issues"
+        "niveau_issues",
+        "canonicalisatie"
       ],
       "additionalProperties": false
     },

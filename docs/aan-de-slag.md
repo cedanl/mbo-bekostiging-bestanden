@@ -60,7 +60,7 @@ per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De ap
 1. Detecteert automatisch alle herkenbare bestanden in `data/01-raw/`.
 2. Verwerkt elk bestand naar `data/02-prepared/`.
 3. Stapelt alle leveringen en bouwt het star schema.
-4. Schrijft elf Parquet-bestanden naar `data/03-output/star/datamodel/`.
+4. Schrijft twaalf Parquet-bestanden naar `data/03-output/star/datamodel/`.
 
 Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
 
