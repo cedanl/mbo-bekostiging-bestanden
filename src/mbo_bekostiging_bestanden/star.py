@@ -15,6 +15,7 @@ import re
 import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
+from mbo_bekostiging_bestanden.schooljaar import bouw_inschrijving_schooljaar
 from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabellen
 
 # ---------------------------------------------------------------------------
@@ -108,7 +109,7 @@ def build_star(
                  dict van tabelnaam → DataFrame.
 
     Returns:
-        Dict met twaalf sleutels:
+        Dict met dertien sleutels:
 
         Dimensies:
           ``dim_deelnemer``              — uniek per ``_persoon_id``
@@ -117,6 +118,8 @@ def build_star(
 
         Feiten:
           ``fact_inschrijving``          — ISP-periode-grain, uniek per sleutel
+          ``fact_inschrijving_schooljaar`` — persoon × BRIN × inschrijving ×
+                                           schooljaar; jaargebonden vlaggen
           ``fact_bpv``                   — BPV-periodes per inschrijving
           ``fact_kzd``                   — Keuzedelen per inschrijving
           ``fact_amo``                   — AMO-onderdelen per inschrijving
@@ -162,6 +165,9 @@ def build_star(
         "dim_opleiding": dim_opleiding,
         "dim_instelling": dim_instelling,
         "fact_inschrijving": fact_inschrijving,
+        "fact_inschrijving_schooljaar": bouw_inschrijving_schooljaar(
+            inschrijvingen, tables["meta_leveringen"]
+        ),
         "fact_bpv": _build_fact_bpv(tables),
         "fact_kzd": _build_fact_kzd(tables),
         "fact_amo": _build_fact_amo(tables),

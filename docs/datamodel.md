@@ -52,7 +52,8 @@ geschreven.
 | `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …) |
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
-| `fact_inschrijving` | ISP-inschrijvingsperiode | `_inschrijving_periode_id` | Centrale feittabel; bevat vlaggen (`_actief_1_oktober`, `_jr_*`, `_dr_*`, `_entree_*`) en aggregaten |
+| `fact_inschrijving` | ISP-inschrijvingsperiode | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |
+| `fact_inschrijving_schooljaar` | Persoon × instelling × inschrijving × schooljaar | `BRIN` + `_persoon_id` + `Inschrijvingvolgnummer` + `Schooljaar` | Eén rij per schooljaar waarin een inschrijving op de peildatum (1 oktober) actief is, met hoofdinschrijving, telling, bekostigd, JR en DR. FK `_inschrijving_periode_id` wijst de periode aan die de peildatum dekt |
 | `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
 | `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving |
 | `fact_amo` | AMO-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
@@ -105,8 +106,8 @@ instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagi
 ## Grain en Deduplicatie
 
 **Tellingseenheid (grain).** Elke feitstabel hoort uniek te zijn per zijn eigen grain-kolommen (zie tabel "Grain" hierboven).
-`fact_inschrijving` heeft de grain van een **ISP-periode**; een periode kan meerdere schooljaren dekken. Een aparte
-feitstabel per `persoon × instelling × inschrijving × schooljaar` staat gepland in #164.
+`fact_inschrijving` heeft de grain van een **ISP-periode**; een periode kan meerdere schooljaren dekken. Jaargebonden tellingen staan in `fact_inschrijving_schooljaar` (één rij per
+`persoon × instelling × inschrijving × schooljaar`).
 
 Een *levering* is een bronbestand van DUO (bijv. `RO_27DV_20240731.csv` of `GRONDSLAG_IP_MBO_27DV_20251119.csv`),
 **geen** tellingseenheid. Dezelfde inschrijving kan in meerdere leveringen staan (herlevering, correctie, overlappende
@@ -146,7 +147,30 @@ parameter) staan als `BekostigingsrelevanteBPV` en `Signaal` in de prepared-outp
 TBGI-levering, niet in het star schema: ze zouden de teldatum-grain van `fact_bekostiging`
 vermenigvuldigen.
 
-### Indicatoren in fact_inschrijving
+### Indicatoren per schooljaar (`fact_inschrijving_schooljaar`)
+
+Schooljaar `t` loopt van 1-8-t t/m 31-7-(t+1); de peildatum is **1-10-t**. Eén rij per inschrijving per schooljaar
+waarvan een ISP-periode de peildatum dekt. Deze tabel is de bron voor tellingen, JR en DR.
+
+| Kolom | Definitie |
+|---|---|
+| `Schooljaar`, `Peildatum` | Schooljaar `t` en peildatum 1-10-t |
+| *Welke jaren* | Elk `t` met `DatumBegin ≤ 1-10-t ≤ einde`. Einde = `_periode_einde` (volgende periode − 1 dag, `DatumEind` of `DatumUitschrijvingWerkelijk`, de vroegste), **begrensd door de peildatum van de levering** (VLP `DatumEindePeriode`, anders `DatumAanmaak`). Zonder einde en zonder peildatum (TBGI zonder VLP): alleen het eerste schooljaar |
+| `_hoofdinschrijving` | Precies één per deelnemer × instelling × schooljaar, **over leveringen heen**: hoogste niveau, dan laagste CREBO, dan meest recente `DatumBegin`, dan inschrijvingvolgnummer. Zonder bekend niveau nooit hoofdinschrijving |
+| `_telling` | Gelijk aan `_hoofdinschrijving`: telt de deelnemer één keer per instelling per schooljaar |
+| `_bekostigd` | `IndicatieBekostigbaar = J` van de periode die de peildatum dekt |
+| `_gediplomeerd_in_jaar` | `DIP_DatumResultaat` valt in het schooljaar zelf (1-8-t t/m 31-7-(t+1)) |
+| `_jr_noemer` / `_jr_teller` | Noemer = `_telling`; teller = noemer én gediplomeerd in het jaar |
+| `_dr_noemer` / `_dr_teller` | Noemer = hoofdinschrijving, niveau ≥ 2, geen inschrijving bij dezelfde instelling in `t+1`, **en** `t+1` is waarneembaar (1-10-(t+1) ligt vóór de laatste leveringspeildatum van die instelling). Teller = noemer met een diploma (zonder formeel zesjaarsvenster, zie #119; uitstroom binnen dezelfde BRIN, zie #118) |
+
+Invariant (getest op de star-output): precies één `_hoofdinschrijving` per `BRIN × _persoon_id × Schooljaar`.
+
+### Indicatoren in fact_inschrijving (verouderd)
+
+!!! warning "Verouderd — verdwijnt in v4.0.0"
+    Deze vlaggen staan op periode-grain: één Boolean voor een periode die meerdere schooljaren kan dekken. Ze missen
+    tussenliggende schooljaren (#193) en gebruiken een verschoven diplomavenster (#194). Gebruik
+    `fact_inschrijving_schooljaar`.
 
 | Vlag | Definitie |
 |---|---|
@@ -163,8 +187,8 @@ vermenigvuldigen.
 | QlikView | Deze ETL | Status |
 |---|---|---|
 | `Facttabel` | `fact_inschrijving` | Geïmplementeerd |
-| `Studiesucces` JR | `_jr_noemer` / `_jr_teller` in `fact_inschrijving` | Geïmplementeerd |
-| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving` | Geïmplementeerd |
+| `Studiesucces` JR | `_jr_noemer` / `_jr_teller` in `fact_inschrijving_schooljaar` | Geïmplementeerd |
+| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving_schooljaar` | Benaderd (#118, #119) |
 | `Studiesucces` SR | — | Vereist 6-jaar inschrijvingshistorie buiten eigen leveringen; buiten scope |
 | `CREBOs` | `dim_opleiding` | Geïmplementeerd |
 | `Deelnemers` | `dim_deelnemer` | Geïmplementeerd |

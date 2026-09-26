@@ -41,14 +41,15 @@ Datumvelden zijn `Date`, telvelden zijn `Int64`, lege velden zijn `null` (geen l
 
 ### Stap 2 — Star schema (gecombineerd over alle leveringen)
 
-Alle prepared-mappen worden gecombineerd tot twaalf Parquet-bestanden in `data/03-output/star/datamodel/`:
+Alle prepared-mappen worden gecombineerd tot dertien Parquet-bestanden in `data/03-output/star/datamodel/`:
 
 | Bestand | Grain | Inhoud |
 |---|---|---|
 | `dim_deelnemer.parquet` | Persoon | Persoonskenmerken (geslacht, geboorteland, gemeente …) |
 | `dim_opleiding.parquet` | Opleiding | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling.parquet` | Instelling | Naam en vestigingsplaats |
-| `fact_inschrijving.parquet` | ISP-inschrijvingsperiode | Centrale feittabel met vlaggen en aggregaten |
+| `fact_inschrijving.parquet` | ISP-inschrijvingsperiode | Centrale feittabel op periode-grain met attributen en aggregaten |
+| `fact_inschrijving_schooljaar.parquet` | Inschrijving × schooljaar | Actief op 1 oktober, hoofdinschrijving, telling, JR en DR per schooljaar |
 | `fact_bpv.parquet` | BPV-overeenkomst | Alle BPV-periodes per inschrijving |
 | `fact_kzd.parquet` | Keuzedeel-resultaat | KZD-resultaten per inschrijving |
 | `fact_amo.parquet` | AMO-resultaat | AMvB-onderdelen per inschrijving |

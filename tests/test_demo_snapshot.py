@@ -31,6 +31,7 @@ TABLE_NAMES = [
     "dim_opleiding",
     "dim_instelling",
     "fact_inschrijving",
+    "fact_inschrijving_schooljaar",
     "fact_bpv",
     "fact_kzd",
     "fact_amo",
@@ -38,6 +39,16 @@ TABLE_NAMES = [
     "fact_bekostiging",
     "fact_bekostiging_diploma",
     "meta_leveringen",
+    "meta_canonicalisatie",
+]
+
+SCHOOLJAAR_COLS = [
+    "_telling",
+    "_bekostigd",
+    "_jr_noemer",
+    "_jr_teller",
+    "_dr_noemer",
+    "_dr_teller",
 ]
 
 
@@ -79,9 +90,7 @@ def test_table_row_counts_match_snapshot(demo_star_snapshot):
             pytest.skip(f"Tabel {table_name} niet in star output")
         actual = star[table_name].height
         exp = expected["tables"][table_name]
-        assert actual == exp, (
-            f"{table_name}: {actual} rijen != {exp} (fixture)"
-        )
+        assert actual == exp, f"{table_name}: {actual} rijen != {exp} (fixture)"
 
 
 def test_per_levering_indicators_match_snapshot(demo_star_snapshot):
@@ -136,3 +145,20 @@ def test_snapshot_has_all_required_keys():
         f"Som per_levering rijen ({total_rows}) != fact_inschrijving totaal "
         f"({data['tables']['fact_inschrijving']})"
     )
+
+
+def test_schooljaar_indicatoren_match_snapshot(demo_star_snapshot):
+    """Rijen en indicatortotalen per schooljaar in fact_inschrijving_schooljaar."""
+    star, expected = demo_star_snapshot
+    actual = {
+        str(r["Schooljaar"]): r
+        for r in star["fact_inschrijving_schooljaar"]
+        .group_by("Schooljaar")
+        .agg(pl.len().alias("rows"), *[pl.col(c).sum() for c in SCHOOLJAAR_COLS])
+        .iter_rows(named=True)
+    }
+
+    assert set(actual) == set(expected["per_schooljaar"])
+    for jaar, verwacht in expected["per_schooljaar"].items():
+        for kolom, waarde in verwacht.items():
+            assert actual[jaar][kolom] == waarde, f"{jaar} {kolom}"
