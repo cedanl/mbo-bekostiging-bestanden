@@ -75,6 +75,19 @@ TABEL_DOCS: dict[str, dict[str, str]] = {
             "dubbeltelling te voorkomen."
         ),
     },
+    "fact_inschrijving_schooljaar": {
+        "titel": "Inschrijvingen per schooljaar",
+        "wat": (
+            "Eén rij per deelnemer, instelling, inschrijving en schooljaar waarin "
+            "de inschrijving op 1 oktober actief is. Hier staan de tellingen: "
+            "hoofdinschrijving (één per deelnemer per instelling per jaar), "
+            "bekostigd, jaarresultaat (JR) en diplomaresultaat (DR)."
+        ),
+        "bron": (
+            "Afgeleid uit de ISP-perioden: een periode telt in elk schooljaar "
+            "waarvan zij 1 oktober dekt, tot de peildatum van de levering."
+        ),
+    },
     "fact_bpv": {
         "titel": "BPV (stages)",
         "wat": (

@@ -3,17 +3,41 @@
     "description": "Demo star schema indicator snapshot - after DatumUitschrijvingWerkelijk hard bound fix (#163)",
     "commit": "main + #163",
     "date": "2026-09-25",
-    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts. meta_leveringen 4 -> 5: TBGI-levering (zonder VLP/SLR) staat er nu ook in (#188)."
+    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts. meta_leveringen 4 -> 5: TBGI-levering (zonder VLP/SLR) staat er nu ook in (#188). fact_inschrijving_schooljaar (#164): jaren uit het periodebereik (#193), JR-venster = schooljaar zelf (#194), DR alleen als t+1 waarneembaar is."
   },
   "indicators": {
-    "_actief_1_oktober": {"true": 22, "total": 46},
-    "_hoofdinschrijving": {"true": 22, "total": 46},
-    "_telling": {"true": 22, "total": 46},
-    "_jr_noemer": {"true": 22, "total": 46},
-    "_jr_teller": {"true": 0, "total": 46},
-    "_dr_noemer": {"true": 19, "total": 46},
-    "_dr_teller": {"true": 5, "total": 46},
-    "_bekostigd_eerste_1okt": {"true": 20, "total": 46}
+    "_actief_1_oktober": {
+      "true": 22,
+      "total": 46
+    },
+    "_hoofdinschrijving": {
+      "true": 22,
+      "total": 46
+    },
+    "_telling": {
+      "true": 22,
+      "total": 46
+    },
+    "_jr_noemer": {
+      "true": 22,
+      "total": 46
+    },
+    "_jr_teller": {
+      "true": 0,
+      "total": 46
+    },
+    "_dr_noemer": {
+      "true": 19,
+      "total": 46
+    },
+    "_dr_teller": {
+      "true": 5,
+      "total": 46
+    },
+    "_bekostigd_eerste_1okt": {
+      "true": 20,
+      "total": 46
+    }
   },
   "tables": {
     "dim_deelnemer": 26,
@@ -26,7 +50,9 @@
     "fact_geo": 22,
     "fact_bekostiging": 1,
     "fact_bekostiging_diploma": 1,
-    "meta_leveringen": 5
+    "meta_leveringen": 5,
+    "fact_inschrijving_schooljaar": 48,
+    "meta_canonicalisatie": 0
   },
   "per_levering": {
     "h15/RO_21CY_20250730_20250731": {
@@ -72,6 +98,62 @@
       "_dr_noemer": 9,
       "_dr_teller": 0,
       "_bekostigd_eerste_1okt": 10
+    }
+  },
+  "per_schooljaar": {
+    "2020": {
+      "rows": 1,
+      "_telling": 1,
+      "_bekostigd": 1,
+      "_jr_noemer": 1,
+      "_jr_teller": 0,
+      "_dr_noemer": 0,
+      "_dr_teller": 0
+    },
+    "2021": {
+      "rows": 3,
+      "_telling": 3,
+      "_bekostigd": 3,
+      "_jr_noemer": 3,
+      "_jr_teller": 0,
+      "_dr_noemer": 0,
+      "_dr_teller": 0
+    },
+    "2022": {
+      "rows": 7,
+      "_telling": 7,
+      "_bekostigd": 7,
+      "_jr_noemer": 7,
+      "_jr_teller": 0,
+      "_dr_noemer": 0,
+      "_dr_teller": 0
+    },
+    "2023": {
+      "rows": 11,
+      "_telling": 11,
+      "_bekostigd": 11,
+      "_jr_noemer": 11,
+      "_jr_teller": 0,
+      "_dr_noemer": 3,
+      "_dr_teller": 3
+    },
+    "2024": {
+      "rows": 12,
+      "_telling": 12,
+      "_bekostigd": 12,
+      "_jr_noemer": 12,
+      "_jr_teller": 4,
+      "_dr_noemer": 3,
+      "_dr_teller": 3
+    },
+    "2025": {
+      "rows": 14,
+      "_telling": 14,
+      "_bekostigd": 12,
+      "_jr_noemer": 14,
+      "_jr_teller": 0,
+      "_dr_noemer": 0,
+      "_dr_teller": 0
     }
   }
 }
