@@ -14,9 +14,8 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
-from _utils import vind_star_dir
+from _utils import groepeer_prepared, vind_star_dir
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from mbo_bekostiging_bestanden.pii import detect_pii_columns
 
 _MAX_WEERGAVE_RIJEN = 1_000  # rijen in de tabelweergave; de download is volledig
@@ -130,19 +129,9 @@ star_tabellen = (
     else {}
 )
 
-# Verzamel prepared-tabellen, gescheiden naar type
-# TBGI recordtypes: Teldatum, Diploma, Signaal, Inschrijving (prepared output)
-_TBGI_RECORDTYPES = {"teldatum", "diploma", "signaal", "inschrijving"}
-tbgi_prepared = {}
-other_prepared = {}
-for prep_dir in st.session_state.get("prepared_dirs", []):
-    prep_pad = Path(prep_dir)
-    for parquet in sorted(prep_pad.glob("*.parquet")):
-        name = parquet.stem
-        if name.lower() in _TBGI_RECORDTYPES:
-            tbgi_prepared[name] = parquet
-        else:
-            other_prepared[f"{prep_pad.name} / {name}"] = parquet
+tbgi_prepared, other_prepared = groepeer_prepared(
+    st.session_state.get("prepared_dirs", [])
+)
 
 if not star_tabellen and not tbgi_prepared and not other_prepared:
     st.warning(

@@ -1,8 +1,10 @@
 """Gedeelde hulpfuncties voor de Streamlit-app."""
 
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+
+from mbo_bekostiging_bestanden.metadata import load_schema
 
 # Relatieve datapaden in config.toml gelden t.o.v. de projectroot, zodat de app
 # vanuit elke werkmap hetzelfde gedrag heeft.
@@ -12,6 +14,9 @@ _STAR_SUBMAP = "star"
 _STAR_KERNTABEL = Path("datamodel") / "fact_inschrijving.parquet"
 # Sessiesleutels waarin Home het pad van het gebouwde star schema bewaart.
 _STAR_SESSIESLEUTELS = ("resultaten_dir", "star_pad")
+# TBGI-recordtypen (Teldatum, BekostigingsrelevanteBPV, …) uit het schema, zodat
+# een nieuw recordtype automatisch in de TBGI-sectie van Resultaten verschijnt.
+_TBGI_SCHEMA = "tbgi"
 
 
 def load_config() -> dict:
@@ -59,3 +64,24 @@ def vind_star_dir(sessie: Mapping) -> Path | None:
         if (kandidaat / _STAR_KERNTABEL).exists():
             return kandidaat
     return None
+
+
+def groepeer_prepared(
+    prepared_dirs: Iterable[Path | str],
+) -> tuple[dict[str, Path], dict[str, Path]]:
+    """Verdeel prepared-tabellen over een TBGI- en een overige groep.
+
+    Sleutels zijn ``"<levering> / <tabel>"``, zodat tabellen met dezelfde naam
+    uit verschillende leveringen elkaar niet overschrijven.
+
+    Returns:
+        ``(tbgi, overig)``: dicts van weergavenaam naar Parquet-pad.
+    """
+    tbgi_recordtypen = set(load_schema(_TBGI_SCHEMA))
+    tbgi: dict[str, Path] = {}
+    overig: dict[str, Path] = {}
+    for prep_dir in map(Path, prepared_dirs):
+        for parquet in sorted(prep_dir.glob("*.parquet")):
+            groep = tbgi if parquet.stem in tbgi_recordtypen else overig
+            groep[f"{prep_dir.name} / {parquet.stem}"] = parquet
+    return tbgi, overig
