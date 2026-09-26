@@ -2,7 +2,6 @@
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 import polars as pl
 
@@ -64,82 +63,3 @@ def stack_prepared(
         tabel: pl.concat(frames, how="diagonal_relaxed")
         for tabel, frames in tables.items()
     }
-
-
-def deduplicate_overlaps(
-    stacked: dict[str, pl.DataFrame],
-    grain_cols: list[str] | None = None,
-    delivery_col: str = "levering",
-) -> tuple[dict[str, pl.DataFrame], dict[str, Any]]:
-    """Deduplicate overlapping rows per grain; keep most recent delivery.
-
-    If grain_cols is None, uses table-specific grains:
-    - inschrijvingen: [_persoon_id, Inschrijvingvolgnummer, Studiejaar]
-
-    Returns:
-        (deduplicated_tables, stats) where stats = {table: {removed_count, by_delivery}}
-    """
-    if grain_cols is None:
-        # Table-specific grains
-        grain_cols_map = {
-            "inschrijvingen": ["_persoon_id", "Inschrijvingvolgnummer", "Studiejaar"],
-        }
-    else:
-        grain_cols_map = {name: grain_cols for name in stacked}
-
-    deduped = {}
-    stats = {}
-
-    for table_name, df in stacked.items():
-        if df.is_empty() or delivery_col not in df.columns:
-            deduped[table_name] = df
-            stats[table_name] = {"removed_count": 0, "by_delivery": {}}
-            continue
-
-        grain = grain_cols_map.get(table_name, grain_cols)
-        if not grain:
-            deduped[table_name] = df
-            stats[table_name] = {"removed_count": 0, "by_delivery": {}}
-            continue
-
-        # Check all grain columns exist
-        available_grain = [c for c in grain if c in df.columns]
-        if not available_grain:
-            deduped[table_name] = df
-            stats[table_name] = {"removed_count": 0, "by_delivery": {}}
-            continue
-
-        # Rank by delivery (alphabetically last wins = most recent)
-        # Add row_number; take only first per grain (most recent delivery)
-        ranked = df.with_columns(
-            pl.col(delivery_col)
-            .rank(method="ordinal", descending=True)
-            .over(available_grain)
-            .alias("_rank")
-        )
-
-        # Count removals per delivery before filtering
-        if "_rank" in ranked.columns:
-            removed_per_delivery = (
-                ranked.filter(pl.col("_rank") > 1)
-                .group_by(delivery_col)
-                .len()
-                .sort(delivery_col)
-            )
-            removal_dict = {
-                row[0]: int(row[1]) for row in removed_per_delivery.iter_rows()
-            }
-        else:
-            removal_dict = {}
-
-        # Keep only rank 1 (most recent per grain)
-        deduped_df = ranked.filter(pl.col("_rank") == 1).drop("_rank")
-        removed_total = df.height - deduped_df.height
-
-        stats[table_name] = {
-            "removed_count": removed_total,
-            "by_delivery": removal_dict,
-        }
-        deduped[table_name] = deduped_df
-
-    return deduped, stats
