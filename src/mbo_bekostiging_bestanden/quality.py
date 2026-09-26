@@ -132,6 +132,33 @@ def tel_parseverlies(
     return verlies
 
 
+def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
+    """Lees het per-levering ``quality.json`` uit een prepared-map.
+
+    ``levering`` is het label uit de ster (zie
+    :func:`~mbo_bekostiging_bestanden.stack.leveringslabels`) en vervangt het
+    label in het bestand, zodat ``quality.json`` en de feiten dezelfde
+    leveringsnamen gebruiken (#188). Ontbreekt het bestand, dan volgt een
+    rapport met een waarschuwing i.p.v. een stil ontbrekende levering.
+    """
+    if not pad.exists():
+        return QualityReport(
+            levering=levering,
+            schema_type="unknown",
+            warnings=[f"Geen kwaliteitsrapport gevonden: {pad.name} ontbreekt"],
+        )
+    data = json.loads(pad.read_text(encoding="utf-8"))
+    return QualityReport(
+        levering=levering,
+        schema_type=data.get("schema_type", "unknown"),
+        slr_status=data.get("slr_status", "unknown"),
+        slr_checks=data.get("slr_details", {}),
+        parseverlies=data.get("parseverlies", {}),
+        warnings=data.get("warnings", []),
+        errors=data.get("errors", []),
+    )
+
+
 def check_slr_reconciliation(
     frames: dict[str, pl.DataFrame],
     levering: str,

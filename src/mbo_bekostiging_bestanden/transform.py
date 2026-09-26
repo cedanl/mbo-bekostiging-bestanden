@@ -1468,17 +1468,22 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """VLP + SLR per bronbestand; één rij per levering."""
-    vlp = _drop(stacked.get("VLP", pl.DataFrame()), "Recordsoort")
-    slr = _drop(stacked.get("SLR", pl.DataFrame()), "Recordsoort")
+    """Eén rij per gestapelde levering, met VLP + SLR waar die bestaan.
 
-    if vlp.is_empty() and slr.is_empty():
+    Elke levering die in een tabel voorkomt staat erin, ook zonder VLP/SLR
+    (TBGI-XML); die velden blijven dan leeg (#188).
+    """
+    leveringen = [
+        df.select("levering") for df in stacked.values() if "levering" in df.columns
+    ]
+    if not leveringen:
         return pl.DataFrame()
-    if vlp.is_empty():
-        return slr
-    if slr.is_empty():
-        return vlp
-    return vlp.join(slr, on="levering", how="left")
+    meta = pl.concat(leveringen).unique().sort("levering")
+    for recordtype in ("VLP", "SLR"):
+        records = _drop(stacked.get(recordtype, pl.DataFrame()), "Recordsoort")
+        if "levering" in records.columns:
+            meta = _join_left(meta, records, on=["levering"])
+    return meta
 
 
 # ---------------------------------------------------------------------------
@@ -1487,7 +1492,7 @@ def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Bouw zeven analysetabellen vanuit gestapelde genormaliseerde records.
+    """Bouw acht analysetabellen vanuit gestapelde genormaliseerde records.
 
     Args:
         stacked: Output van :func:`~mbo_bekostiging_bestanden.stack.stack_prepared`,

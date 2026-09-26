@@ -26,7 +26,7 @@
         "properties": {
           "levering": {
             "type": "string",
-            "description": "Delivery identifier (filename stem)"
+            "description": "Leveringslabel, gelijk aan de levering-kolom in de ster en meta_leveringen (pad t.o.v. relative_to, anders mapnaam)"
           },
           "schema_type": {
             "type": "string",

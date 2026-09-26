@@ -137,8 +137,9 @@ TABEL_DOCS: dict[str, dict[str, str]] = {
             "leveringen zijn opgenomen."
         ),
         "bron": (
-            "De VLP- en SLR-records (voorloop- en sluitrecord) uit elk "
-            "verwerkt bestand."
+            "Elk verwerkt bestand staat erin. Peildatum en controle-aantallen "
+            "komen uit de VLP- en SLR-records (voorloop- en sluitrecord); een "
+            "TBGI-bestand (XML) heeft die niet, dus daar zijn ze leeg."
         ),
     },
     "meta_canonicalisatie": {
