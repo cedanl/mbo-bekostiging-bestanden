@@ -13,7 +13,7 @@
     },
     "scenario": {
       "type": "string",
-      "description": "Data scenario (e.g. 'demo', 'prod')",
+      "description": "Scenario label passed explicitly by the caller (run_star(scenario=...), CLI --scenario, app config); 'unknown' when not given. Never derived from the output path.",
       "examples": [
         "demo"
       ]

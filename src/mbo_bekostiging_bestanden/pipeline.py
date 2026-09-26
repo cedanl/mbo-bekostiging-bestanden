@@ -10,6 +10,8 @@ from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
 from mbo_bekostiging_bestanden.quality import (
+    SCENARIO_ONBEKEND,
+    QualityReport,
     check_slr_reconciliation,
     compile_quality_report,
     tel_parseverlies,
@@ -162,6 +164,7 @@ def run_star(
     sources: Sequence[Path | str],
     target: str | Path,
     relative_to: Path | str | None = None,
+    scenario: str = SCENARIO_ONBEKEND,
 ) -> dict[str, pl.DataFrame]:
     """Stapel prepared-mappen, bouw het star schema en exporteer het.
 
@@ -169,13 +172,12 @@ def run_star(
         sources:     Lijst van mappen met prepared Parquet-bestanden.
         target:      Doelmap; star schema komt in ``<target>/datamodel/``.
         relative_to: Basispad voor automatische leveringslabels (optioneel).
+        scenario:    Label voor ``quality.json`` (bijv. ``"demo"``, ``"prod"``).
 
     Returns:
         Dict met de elf star-schema-tabellen; tevens geschreven naar
         ``<target>/datamodel/``.
     """
-    from mbo_bekostiging_bestanden.quality import QualityReport
-
     target = Path(target)
     stacked = stack_prepared(sources, relative_to=relative_to)
     star_tables = build_star(stacked)
@@ -202,9 +204,6 @@ def run_star(
                 )
                 deliveries_dict[levering] = report
 
-    # Compile and write quality report
-    # Detect if this is demo data based on target path
-    scenario = "demo" if "demo" in str(target).lower() else "prod"
     quality_report = compile_quality_report(
         star_tables,
         deliveries=deliveries_dict if deliveries_dict else None,

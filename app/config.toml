@@ -3,6 +3,8 @@
 raw = "data/01-raw/demo"
 prepared = "data/02-prepared/demo"
 output = "data/03-output/demo"
+# Label in quality.json; zet op "prod" als de paden naar echte data wijzen.
+scenario = "demo"
 
 # Pseudonimisering: HMAC-sleutel voor hashing van persoons-identifiers.
 # WAARSCHUWING: de sleutel is SECRET en mag NOOIT in version control staan.
