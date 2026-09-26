@@ -5,6 +5,8 @@ from pathlib import Path
 import _utils
 import pytest
 
+from mbo_bekostiging_bestanden.metadata import load_schema
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -51,3 +53,43 @@ def test_vind_star_dir_valt_terug_op_schijf_zonder_sessie(tmp_path, monkeypatch)
 def test_vind_star_dir_zonder_datamodel_geeft_none(tmp_path, monkeypatch):
     monkeypatch.setattr(_utils, "star_dir", lambda: tmp_path / "bestaat_niet")
     assert _utils.vind_star_dir({"star_pad": None}) is None
+
+
+# ---------------------------------------------------------------------------
+# groepeer_prepared (#178)
+# ---------------------------------------------------------------------------
+
+
+def _prepared_map(pad: Path, *tabellen: str) -> Path:
+    pad.mkdir(parents=True)
+    for tabel in tabellen:
+        (pad / f"{tabel}.parquet").touch()
+    return pad
+
+
+@pytest.mark.parametrize("recordtype", sorted(load_schema("tbgi")))
+def test_elk_tbgi_recordtype_valt_in_tbgi_groep(recordtype, tmp_path):
+    levering = _prepared_map(tmp_path / "TBGI_25LX", recordtype)
+
+    tbgi, overig = _utils.groepeer_prepared([levering])
+
+    assert list(tbgi.values()) == [levering / f"{recordtype}.parquet"]
+    assert overig == {}
+
+
+def test_meerdere_tbgi_leveringen_overschrijven_elkaar_niet(tmp_path):
+    a = _prepared_map(tmp_path / "TBGI_25LX_2026", "Teldatum")
+    b = _prepared_map(tmp_path / "TBGI_25LX_2027", "Teldatum")
+
+    tbgi, _ = _utils.groepeer_prepared([a, b])
+
+    assert sorted(tbgi.values()) == [a / "Teldatum.parquet", b / "Teldatum.parquet"]
+
+
+def test_ro_recordtypes_vallen_in_overige_groep(tmp_path):
+    ro = _prepared_map(tmp_path / "RO_27DV", "ISP", "DIP")
+
+    tbgi, overig = _utils.groepeer_prepared([ro])
+
+    assert tbgi == {}
+    assert sorted(overig.values()) == [ro / "DIP.parquet", ro / "ISP.parquet"]
