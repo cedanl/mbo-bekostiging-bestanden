@@ -72,15 +72,21 @@ def prepared_dirs(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def demo_stacked(tmp_path_factory):
-    """Bouw de gestapelde demo-data (data/01-raw/demo) in een tmp-dir."""
+def demo_prepared(tmp_path_factory) -> tuple[Path, list[Path]]:
+    """Prepared-mappen van alle demo-leveringen: ``(basismap, leveringmappen)``."""
     prepared = tmp_path_factory.mktemp("prepared")
     for raw_file in sorted(RAW.rglob("*")):
         if raw_file.suffix.lower() not in {".csv", ".xml"}:
             continue
         subdir = raw_file.parent.relative_to(RAW)
         run_auto_pipeline(raw_file, prepared / subdir / raw_file.stem)
-    dirs = [d for d in sorted(prepared.glob("*/*")) if d.is_dir()]
+    return prepared, [d for d in sorted(prepared.glob("*/*")) if d.is_dir()]
+
+
+@pytest.fixture(scope="session")
+def demo_stacked(demo_prepared):
+    """Gestapelde demo-data (data/01-raw/demo)."""
+    prepared, dirs = demo_prepared
     return stack_prepared(dirs, relative_to=prepared)
 
 
