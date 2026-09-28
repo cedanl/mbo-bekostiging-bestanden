@@ -11,6 +11,13 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _chart_docs import chart_help
+from _indicatoren import (
+    bereken_oordeel,
+    entree_indicatoren,
+    entree_totaal,
+    norm_voor,
+    rendement,
+)
 from _utils import star_dir, vind_star_dir
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
@@ -19,13 +26,6 @@ from mbo_bekostiging_bestanden.filters import (
     filter_fact_bekostiging_op_jaar,
     filter_schooljaren_op_jaar,
     periode_jaar_kolom,
-)
-from mbo_bekostiging_bestanden.indicatoren import (
-    bereken_oordeel,
-    entree_indicatoren,
-    entree_totaal,
-    norm_voor,
-    rendement,
 )
 from mbo_bekostiging_bestanden.quality import (
     ERNST_ERROR,
@@ -297,7 +297,7 @@ def _heeft_kolommen(df: pl.DataFrame, kolommen: set[str]) -> bool:
 
 
 def _toon_rendement(tabel: pl.DataFrame | None, naam: str, leeg: str) -> None:
-    """Tabel en staafdiagram van :func:`indicatoren.rendement`."""
+    """Tabel en staafdiagram van :func:`_indicatoren.rendement`."""
     if tabel is None:
         st.info("fact_inschrijving_schooljaar niet beschikbaar.")
         return

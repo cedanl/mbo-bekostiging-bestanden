@@ -62,6 +62,7 @@ nav:
   - Aan de slag: aan-de-slag.md
   - Datamodel: datamodel.md
   - Ontwerpkeuzes: ontwerpkeuzes.md
+  - Architectuur: architectuur.md
   - Databestanden:
     - databestanden/index.md
     - RO – Registratieoverzicht: databestanden/ro.md

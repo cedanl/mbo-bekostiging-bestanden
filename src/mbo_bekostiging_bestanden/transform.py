@@ -43,6 +43,12 @@ from mbo_bekostiging_bestanden.enrich import (
     enrich_inschrijvingen,
 )
 from mbo_bekostiging_bestanden.koppelingen import Koppelingen
+from mbo_bekostiging_bestanden.niveau import BRON as _NIVEAU_BRON
+from mbo_bekostiging_bestanden.niveau import CREBO as _NIVEAU_CREBO
+from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
+from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
+from mbo_bekostiging_bestanden.niveau import SBB as _NIVEAU_SBB
+from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
 from mbo_bekostiging_bestanden.waardenlijsten import kzd_behaald
 
 _METADATA = Path(__file__).parent / "metadata"
@@ -182,14 +188,6 @@ _STUDIEJAAR_START_DAG = 1
 _STUDIEJAAR_EIND_MONTH = 7
 _STUDIEJAAR_EIND_DAG = 31
 _CREBO_PREFIX = "MBO-"
-# Herkomst van Niveau, in terugvalvolgorde bron → CREBO → S-BB (#130). Een rij
-# zonder niveau valt buiten JR/DR; de herkomst onderscheidt dat van niveau 1.
-_NIVEAU_HERKOMST = "_niveau_herkomst"
-_NIVEAU_BRON = "bron"
-_NIVEAU_CREBO = "crebo"
-_NIVEAU_SBB = "sbb"
-_NIVEAU_SBB_NVT = "sbb_nvt"  # S-BB kent de code, maar zonder niveau
-_NIVEAU_ONBEKEND = "onbekend"
 _SBB_GEEN_NIVEAU = "n.v.t."
 
 

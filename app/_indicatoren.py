@@ -12,18 +12,20 @@ bestanden onderwijsresultaten voor het bekostigd MBO" (31 mei 2024):
 - Entree-uitstroom/doorstroom in vier categorieën (hoofdstuk 5).
 
 Deze module is bewust onafhankelijk van Streamlit, zodat de logica
-unit-testbaar is.
+unit-testbaar is. Ze staat in ``app/`` (niet in de kernpackage): het is
+presentatielogica voor het dashboard, door niemand anders geïmporteerd (#253).
 """
 
 from __future__ import annotations
 
 import functools
 import tomllib
-from pathlib import Path
 
 import polars as pl
 
-_METADATA = Path(__file__).parent / "metadata"
+from mbo_bekostiging_bestanden.metadata import SCHEMA_DIR
+
+_METADATA = SCHEMA_DIR
 
 # Leerwegen die in de indicator-populatie vallen (bijlage 3). Alleen
 # 'ov' en 'od' blijven expliciet buiten beschouwing.
