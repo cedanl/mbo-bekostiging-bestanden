@@ -77,12 +77,6 @@ def norm_voor(indicator: str, niveau: int, soort: str) -> int | None:
     return _laad_normen().get(sleutel, {}).get(niveau, {}).get(soort)
 
 
-def normen_per_niveau(indicator: str) -> dict[int, dict[str, int | None]]:
-    """Alle normen voor een indicator, geïndexeerd op niveau."""
-    sleutel = _INDICATOR_SLEUTELS.get(indicator, indicator)
-    return _laad_normen().get(sleutel, {})
-
-
 # ---------------------------------------------------------------------------
 # Populatieregels
 # ---------------------------------------------------------------------------

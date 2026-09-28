@@ -1,5 +1,6 @@
 # Veldschema voor RO (Registratieoverzicht)
-# Gebaseerd op DUO PvE v4.8.2, Bijlage 7
+# Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §15 (Bijlage 7)
+# (bestandsbeschrijving_beknopt.pdf).
 # Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
 schema_version = "4.8.2"
 

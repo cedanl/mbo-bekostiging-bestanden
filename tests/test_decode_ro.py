@@ -162,10 +162,12 @@ def test_decode_normaliseer_indicatie_bekostigbaar_alle_varianten():
     from mbo_bekostiging_bestanden.decode import decode_frames
 
     frames = {
-        "ISP": pl.DataFrame({
-            "IndicatieBekostigbaar": ["J", "N", "1", "0", "true", "false"],
-            "DatumBegin": [""] * 6,
-        })
+        "ISP": pl.DataFrame(
+            {
+                "IndicatieBekostigbaar": ["J", "N", "1", "0", "true", "false"],
+                "DatumBegin": [""] * 6,
+            }
+        )
     }
     result = decode_frames(frames, "ro")
     waarden = result["ISP"]["IndicatieBekostigbaar"].to_list()

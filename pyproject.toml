@@ -19,9 +19,11 @@ dev = [
     "fastexcel>=0.20.2",
     "jsonschema>=4.26.0",
     "playwright>=1.62.0",
+    "pypdf>=6.19.0",
     "pytest>=8.0",
     "ruff>=0.6",
     "ty>=0.0.0a1",
+    "vulture>=2.16",
 ]
 docs = [
     "mkdocs>=1.6.0",
@@ -53,3 +55,12 @@ pythonpath = ["app"]  # app-helpers (_utils e.d.) zijn los importeerbaar voor te
 [tool.ty.environment]
 python-version = "3.13"
 extra-paths = ["app"]
+
+[tool.vulture]
+paths = ["src", "app"]
+min_confidence = 60
+# Bewuste uitzonderingen (#199):
+# - main:       console entry point (project.scripts: mbo = "...cli:main")
+# - max_mtime:  cache-sleutel van _lees_star_schema in app/pages/dashboard.py
+# - pseudoniem: publieke API; de tests gebruiken haar als orakel voor _persoon_id
+ignore_names = ["main", "max_mtime", "pseudoniem"]

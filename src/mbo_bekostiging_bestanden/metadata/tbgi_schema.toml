@@ -1,8 +1,9 @@
 # Veldschema voor TBGI (Terugmelding BekostigingsGrondslagen individueel)
-# Gebaseerd op DUO PvE 4.8.2, hoofdstuk 16 (Bijlage 8: Bestandsbeschrijving TBG-i).
+# Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §16 (Bijlage 8: Bestandsbeschrijving TBG-i)
+# (bestandsbeschrijving_beknopt.pdf).
 # XML-structuur wordt door read_tbgi platgeslagen naar vijf tabellen: Inschrijving,
 # Teldatum, BekostigingsrelevanteBPV, Diploma en Signaal (één rij per parameter).
-schema_version = "1.0"
+schema_version = "4.8.2"
 
 [Inschrijving]
 fields = [
