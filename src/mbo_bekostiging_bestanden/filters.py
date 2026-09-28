@@ -26,7 +26,8 @@ def periode_jaar_kolom(df: pl.DataFrame) -> str | None:
 
     ``Studiejaar_periode`` (afgeleid uit datum) heeft voorrang als die aanwezig is;
     anders valt het terug op ``Studiejaar`` (backward-compat).  ``None`` wanneer
-    geen van beide kolommen aanwezig is.
+    geen van beide kolommen aanwezig is. GRONDSLAG-records dragen zo hun eigen
+    periodejaar (uit Teldatum), niet alleen het leveringjaar.
     """
     for naam in _STUDIEJAAR_KOLOMMEN:
         if naam in df.columns:
