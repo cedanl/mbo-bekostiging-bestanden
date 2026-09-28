@@ -131,7 +131,8 @@ fields = [
     "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
 date_fields = ["DatumResultaat"]
-int_fields  = ["Eindcijfer", "CijferIE", "CijferCE"]
+# Komma-cijfers zijn geldig volgens het PvE (bv. "6,5"); float, geen int (#208, #259).
+float_fields = ["Eindcijfer", "CijferIE", "CijferCE"]
 
 [KZD]
 # Certificaat vóór DatumResultaat, anders dan RO (§15) (#127).

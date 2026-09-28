@@ -144,6 +144,33 @@ def test_decode_ro_bpv_omvang_waarden():
 
 
 # ---------------------------------------------------------------------------
+# GEO.Eindcijfer/CijferIE/CijferCE met komma-decimaal (#207, #259)
+# ---------------------------------------------------------------------------
+
+
+def test_decode_ro_geo_cijfers_met_komma_worden_niet_null():
+    """Een komma-cijfer (bv. '6,5') is geldig volgens het PvE en moet als
+    Float64-waarde bewaard blijven, niet als null verdwijnen door een
+    strict=False-cast op een int_fields-kolom."""
+    from mbo_bekostiging_bestanden.decode import decode_frames
+
+    frames = {
+        "GEO": pl.DataFrame(
+            {
+                "Eindcijfer": ["6,5"],
+                "CijferIE": ["7,0"],
+                "CijferCE": ["6,0"],
+            }
+        )
+    }
+    result = decode_frames(frames, "ro")
+    geo = result["GEO"]
+    assert geo["Eindcijfer"].to_list() == [6.5]
+    assert geo["CijferIE"].to_list() == [7.0]
+    assert geo["CijferCE"].to_list() == [6.0]
+
+
+# ---------------------------------------------------------------------------
 # IndicatieBekostigbaar normalisatie
 # ---------------------------------------------------------------------------
 
