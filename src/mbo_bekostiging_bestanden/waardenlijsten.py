@@ -15,6 +15,7 @@ from pathlib import Path
 
 import polars as pl
 
+from mbo_bekostiging_bestanden import ernst
 from mbo_bekostiging_bestanden.metadata import load_schema
 
 _WAARDENLIJSTEN = Path(__file__).parent / "metadata" / "waardenlijsten.toml"
@@ -69,7 +70,7 @@ def _binnen_domein(waarde: pl.Expr, domein: dict) -> pl.Expr:
 
 def controleer_waardedomeinen(
     frames: dict[str, pl.DataFrame], schema_name: str
-) -> dict[str, dict[str, int]]:
+) -> dict[str, dict[str, dict[str, int | str]]]:
     """Tel per recordtype en veld de gevulde waarden buiten het domein.
 
     Args:
@@ -77,20 +78,25 @@ def controleer_waardedomeinen(
         schema_name: Schema met per recordtype ``domeinen = {veld = "domein"}``.
 
     Returns:
-        Recordtype → veld → aantal afwijkende waarden; alleen niet-nul.
+        Recordtype → veld → ``{"aantal": .., "ernst": ..}``; alleen niet-nul.
+        ``ernst`` komt uit ``domein.<naam>.ernst`` in ``waardenlijsten.toml``
+        (``"error"`` voor structurele velden zoals BRIN en Studiejaar,
+        anders ``"warning"``, #238).
     """
     schema = load_schema(schema_name)
     domeinen = _laad()["domein"]
-    afwijkingen: dict[str, dict[str, int]] = {}
+    afwijkingen: dict[str, dict[str, dict[str, int | str]]] = {}
     for rt, df in frames.items():
         for veld, naam in schema.get(rt, {}).get("domeinen", {}).items():
             if veld not in df.columns:
                 continue
+            domein = domeinen[naam]
             waarde = pl.col(veld).cast(pl.Utf8)
             gevuld = waarde.is_not_null() & (waarde.str.strip_chars() != "")
-            n = df.select(
-                (gevuld & ~_binnen_domein(waarde, domeinen[naam])).sum()
-            ).item()
+            n = df.select((gevuld & ~_binnen_domein(waarde, domein)).sum()).item()
             if n:
-                afwijkingen.setdefault(rt, {})[veld] = n
+                afwijkingen.setdefault(rt, {})[veld] = {
+                    "aantal": n,
+                    "ernst": domein.get("ernst", ernst.WARNING),
+                }
     return afwijkingen
