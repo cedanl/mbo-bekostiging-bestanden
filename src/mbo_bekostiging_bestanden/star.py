@@ -94,8 +94,7 @@ _PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
 _BEKOSTIGING_DROP = _PII_DROP
 
-# Interne implementatie-details die niet in het exporteerbare star schema horen.
-# Deze kolommen zijn tussenstappen in transformatie en niet bedoeld voor analyse.
+# Interne tussenstap-kolommen, niet bedoeld voor het exporteerbare star schema.
 # List aggregaat uit _bepaal_actief_per_schooljaar (transform.py).
 _INTERNAL_COLS = {"_schooljaren_actief"}
 
