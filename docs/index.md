@@ -133,5 +133,5 @@ Lees meer over de inhoud van elk bestand in [Databestanden](databestanden/index.
 
 ## Bronnen
 
-- Bestandsbeschrijving DUO PvE MBO-instelling v4.8.3 (12-05-2026)
+- Bestandsbeschrijving DUO PvE MBO-instelling v4.8.2 (12-05-2026), `bestandsbeschrijving_beknopt.pdf` in deze repo
 - Demo-data: [cedanl/duo-mbo-datafiles](https://github.com/cedanl/duo-mbo-datafiles)

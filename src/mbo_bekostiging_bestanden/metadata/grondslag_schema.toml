@@ -1,9 +1,11 @@
-# Veldschema voor GRONDSLAG IP MBO
-# Gebaseerd op DUO PvE v4.8.3, Bijlage 8
+# Veldschema voor GRONDSLAG IP MBO (afslag register-levering IP)
+# Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §17.5
+# (bestandsbeschrijving_beknopt.pdf). Positioneel getoetst in tests/test_grondslag_pve.py.
 # Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
-schema_version = "4.8.3"
+schema_version = "4.8.2"
 
 [VLP]
+# Afwijking van §17.5: echte leveringen hebben BRIN op positie 2 (zie demo-levering).
 single_row  = true
 fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
 date_fields = ["DatumAanmaak"]
@@ -103,11 +105,11 @@ float_fields = ["BijdrageDiplomawaarde"]
 
 [AMO]
 # Niet aanwezig in demo-data (subset); aanwezig in volledig bestand.
+# Anders dan RO (§15) géén OpleidingcodeDiploma, en Certificaat vóór DatumResultaat (#127).
 fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
-    "ResultaatvolgnummerDiploma", "OpleidingcodeDiploma",
-    "Resultaatvolgnummer", "CodeAMvBOnderdeel", "DatumResultaat",
-    "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+    "ResultaatvolgnummerDiploma", "Resultaatvolgnummer", "CodeAMvBOnderdeel",
+    "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
@@ -125,11 +127,12 @@ date_fields = ["DatumResultaat"]
 int_fields  = ["Eindcijfer", "CijferIE", "CijferCE"]
 
 [KZD]
+# Certificaat vóór DatumResultaat, anders dan RO (§15) (#127).
 fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
     "ResultaatvolgnummerDiploma", "Resultaatvolgnummer",
-    "CodeKeuzedeel", "Resultaat", "DatumResultaat",
-    "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+    "CodeKeuzedeel", "Resultaat", "Certificaat",
+    "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
