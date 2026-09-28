@@ -1284,13 +1284,12 @@ def test_laad_pseudonimisering_salt_from_env(monkeypatch):
     from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
 
     monkeypatch.setenv("MBO_PSEUDONIMISERING_SALT", "test-env-salt-12345")
-    # Clear the cache to force reload
+    # De cache zou de net gewijzigde env-var maskeren zonder deze reset.
     _laad_pseudonimisering_salt.cache_clear()
 
     salt = _laad_pseudonimisering_salt()
     assert salt == "test-env-salt-12345"
 
-    # Cleanup
     _laad_pseudonimisering_salt.cache_clear()
 
 
@@ -1298,16 +1297,12 @@ def test_laad_pseudonimisering_salt_fails_without_env_or_config(monkeypatch, tmp
     """Zonder env-var en zonder ``config.toml``: fail-closed."""
     from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
 
-    # Remove env var if set
     monkeypatch.delenv("MBO_PSEUDONIMISERING_SALT", raising=False)
-    # Clear cache
     _laad_pseudonimisering_salt.cache_clear()
 
-    # When app/config.toml has no salt, should fail
     with pytest.raises(ValueError, match="Geen pseudonimisering_salt"):
         _laad_pseudonimisering_salt()
 
-    # Cleanup
     _laad_pseudonimisering_salt.cache_clear()
 
 
