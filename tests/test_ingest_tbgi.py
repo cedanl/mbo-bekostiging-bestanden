@@ -189,50 +189,13 @@ def test_signaal_draagt_persoon_van_eigen_bron(tbgi_gedeeld_volgnummer):
 # PvE 4.8.2 §16.1: "Alle BPV's [...] die voldoen aan de eisen voor bekostiging"
 # per inschrijving, en "alle parameters met hun waarde" per signaal.
 
-_TBGI_MEERVOUDIG = """<?xml version="1.0" encoding="utf-8"?>
-<Bekostigingsgrondslagen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Inschrijving>
-    <BRIN>25LX</BRIN>
-    <Burgerservicenummer>111111110</Burgerservicenummer>
-    <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
-    <Teldatum>
-      <Teldatum>2025-10-01</Teldatum>
-      <BekostigingsrelevanteBPV>
-        <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
-        <Volgnummer>1</Volgnummer>
-        <DatumBegin>2025-08-01</DatumBegin>
-      </BekostigingsrelevanteBPV>
-      <BekostigingsrelevanteBPV>
-        <Inschrijvingvolgnummer>C0</Inschrijvingvolgnummer>
-        <Volgnummer>2</Volgnummer>
-        <DatumBegin>2025-09-01</DatumBegin>
-      </BekostigingsrelevanteBPV>
-      <Signaal>
-        <Signaalvolgnummer>A1</Signaalvolgnummer>
-        <Signaalcode>S1</Signaalcode>
-        <Parameter>
-          <Parametervolgnummer>P1</Parametervolgnummer>
-          <Parameternaam>naam1</Parameternaam>
-        </Parameter>
-        <Parameter>
-          <Parametervolgnummer>P2</Parametervolgnummer>
-          <Parameternaam>naam2</Parameternaam>
-        </Parameter>
-      </Signaal>
-      <Signaal>
-        <Signaalvolgnummer>A2</Signaalvolgnummer>
-        <Signaalcode>S2</Signaalcode>
-      </Signaal>
-    </Teldatum>
-  </Inschrijving>
-</Bekostigingsgrondslagen>
-"""
+_TBGI_MEERVOUDIG = Path(__file__).parent / "fixtures" / "tbgi_meervoudig.xml"
 
 
 @pytest.fixture
 def tbgi_meervoudig(tmp_path: Path) -> dict[str, pl.DataFrame]:
     pad = tmp_path / "TBGI_25LX_2027_20251124.XML"
-    pad.write_text(_TBGI_MEERVOUDIG, encoding="utf-8")
+    pad.write_bytes(_TBGI_MEERVOUDIG.read_bytes())
     return read_tbgi(pad)
 
 
