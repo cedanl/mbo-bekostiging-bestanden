@@ -5,12 +5,17 @@ telt precies die meldingen. Zo kunnen UI en status niet uit elkaar lopen.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
 
 from mbo_bekostiging_bestanden.pipeline import run_star
 from mbo_bekostiging_bestanden.quality import kwaliteitsmeldingen
+
+# AppTest.from_file lost een relatief pad op t.o.v. de working directory,
+# niet t.o.v. dit testbestand (versiegevoelig sinds streamlit 1.64, #262).
+_APP_PAGES = Path(__file__).parents[1] / "app" / "pages"
 
 RAPPORT = {
     "deliveries": [
@@ -85,7 +90,7 @@ def demo_star_dir(demo_prepared, tmp_path_factory):
 
 
 def test_dashboard_toont_kwaliteitsstatus(demo_star_dir):
-    app = AppTest.from_file("app/pages/dashboard.py", default_timeout=60)
+    app = AppTest.from_file(str(_APP_PAGES / "dashboard.py"), default_timeout=60)
     app.session_state["resultaten_dir"] = demo_star_dir
     app.run()
     assert not app.exception
@@ -101,7 +106,7 @@ def test_resultaten_toont_beide_lagen_zonder_pii_in_preview(
     from mbo_bekostiging_bestanden.pii import detect_pii_columns
 
     _, dirs = demo_prepared
-    app = AppTest.from_file("app/pages/resultaten.py", default_timeout=60)
+    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
     app.session_state["resultaten_dir"] = demo_star_dir
     app.session_state["prepared_dirs"] = [str(d) for d in dirs]
     app.run()

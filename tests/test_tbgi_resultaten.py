@@ -13,6 +13,10 @@ from streamlit.testing.v1 import AppTest
 
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 
+# AppTest.from_file lost een relatief pad op t.o.v. de working directory,
+# niet t.o.v. dit testbestand (versiegevoelig sinds streamlit 1.64, #262).
+_APP_PAGES = Path(__file__).parents[1] / "app" / "pages"
+
 XML = Path(__file__).parent / "fixtures" / "tbgi_meervoudig.xml"
 SECTIE = "tabel_Brondata per levering — TBG-i"
 
@@ -36,7 +40,7 @@ def test_brondata_bevat_bpv_en_signalen(prepared):
     ("tabel", "rijen"), [("BekostigingsrelevanteBPV", 2), ("Signaal", 3)]
 )
 def test_resultaten_toont_tbgi_tabel_met_rijen(prepared, tabel, rijen):
-    app = AppTest.from_file("app/pages/resultaten.py", default_timeout=60)
+    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
     app.session_state["prepared_dirs"] = [str(prepared)]
     app.run()
     keuze = app.selectbox(key=SECTIE)
