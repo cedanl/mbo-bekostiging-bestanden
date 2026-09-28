@@ -97,9 +97,7 @@ def _leeg_naar_null(col: pl.Expr) -> pl.Expr:
 
 
 def _to_float_expr(col: pl.Expr) -> pl.Expr:
-    """Converteer een string-kolom naar ``pl.Float64`` (null bij lege waarde).
-
-    Een komma als decimaalteken (``6,5``) is geldig volgens het PvE en wordt
+    """Een komma als decimaalteken (``6,5``) is geldig volgens het PvE en wordt
     eerst genormaliseerd naar een punt (#207).
     """
     return (
