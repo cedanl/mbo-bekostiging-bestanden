@@ -1,5 +1,6 @@
 """Dashboard — visueel overzicht van de verwerkte bekostigingsdata."""
 
+import json
 import sys
 import tomllib
 from pathlib import Path
@@ -25,6 +26,13 @@ from mbo_bekostiging_bestanden.indicatoren import (
     entree_totaal,
     norm_voor,
     rendement,
+)
+from mbo_bekostiging_bestanden.quality import (
+    ERNST_ERROR,
+    ERNST_INFO,
+    ERNST_WARNING,
+    kwaliteitsmeldingen,
+    slr_status_icoon,
 )
 
 _GEO_META = (
@@ -67,10 +75,8 @@ def _parquet_max_mtime(data_dir: Path) -> float:
 def _lees_star_schema(
     data_dir: Path,
     max_mtime: float,
-) -> tuple[
-    pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame
-]:
-    """Laad het star schema: (df, fact_geo, fact_bpv, fact_kzd, fact_bek, jaren).
+) -> tuple[pl.DataFrame, ...]:
+    """Laad het star schema: (df, fact_geo, fact_bpv, fact_kzd, fact_bek, jaren, meta).
 
     ``df`` is fact_inschrijving gejoined met de drie dim-tabellen, wat een
     vergelijkbaar kolomset geeft als de voormalige platte analysetabel
@@ -133,7 +139,61 @@ def _lees_star_schema(
         _laad("fact_kzd"),
         fact_bek,
         _laad("fact_inschrijving_schooljaar"),
+        _laad("meta_leveringen"),
     )
+
+
+_KWALITEITSRAPPORT = "quality.json"
+_STATUS_WEERGAVE = {"fail": st.error, "warn": st.warning, "pass": st.success}
+_ERNST_ICOON = {ERNST_ERROR: "❌", ERNST_WARNING: "⚠️", ERNST_INFO: "ℹ️"}
+_LEVERING_KOLOMMEN = [
+    "levering",
+    "DatumAanmaak",
+    "Peilgrens",
+    "Peilgrens_bron",
+    "Laatste_peildatum",
+]
+
+
+def _lees_kwaliteitsrapport(data_dir: Path) -> dict | None:
+    pad = data_dir / _KWALITEITSRAPPORT
+    if not pad.exists():
+        return None
+    return json.loads(pad.read_text(encoding="utf-8"))
+
+
+def _toon_kwaliteit(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None:
+    """Status uit ``quality.json`` bovenaan, met meldingen en bronleveringen (#202)."""
+    if rapport is None:
+        st.warning(
+            f"Geen `{_KWALITEITSRAPPORT}` bij dit star schema: de kwaliteit van de "
+            "verwerking is onbekend. Bouw het schema opnieuw via Home."
+        )
+        return
+    samenvatting = rapport["summary"]
+    status = samenvatting["status"]
+    _STATUS_WEERGAVE.get(status, st.warning)(
+        f"Kwaliteitsstatus: {status} — {samenvatting['total_errors']} errors, "
+        f"{samenvatting['total_warnings']} warnings"
+    )
+    with st.expander("Kwaliteitsmeldingen en bronleveringen"):
+        chart_help("kwaliteit")
+        for m in kwaliteitsmeldingen(rapport):
+            st.markdown(f"{_ERNST_ICOON[m.ernst]} **{m.bron}** — {m.tekst}")
+        slr = pl.DataFrame(
+            {
+                "levering": [d["levering"] for d in rapport["deliveries"]],
+                "SLR": [
+                    slr_status_icoon(d["slr_status"]) for d in rapport["deliveries"]
+                ],
+            }
+        )
+        kolommen = [c for c in _LEVERING_KOLOMMEN if c in meta_leveringen.columns]
+        if "levering" in kolommen:
+            leveringen = meta_leveringen.select(kolommen).join(
+                slr, on="levering", how="left"
+            )
+            st.dataframe(leveringen, width="stretch", hide_index=True)
 
 
 _PILLS_KEY = "studiejaar_pills"
@@ -219,9 +279,16 @@ if data_dir is None:
         st.switch_page("pages/home.py")
     st.stop()
 
-df, fact_geo, fact_bpv, fact_kzd, fact_bekostiging, fact_jaren = _lees_star_schema(
-    data_dir, _parquet_max_mtime(data_dir)
-)
+(
+    df,
+    fact_geo,
+    fact_bpv,
+    fact_kzd,
+    fact_bekostiging,
+    fact_jaren,
+    meta_leveringen,
+) = _lees_star_schema(data_dir, _parquet_max_mtime(data_dir))
+_toon_kwaliteit(_lees_kwaliteitsrapport(data_dir), meta_leveringen)
 df = _sidebar_studiejaar_filter(df)
 # Schooljaar-grain: één rij per inschrijving × schooljaar waarin zij op
 # 1 oktober actief is. Bron voor alle tellingen en rendementen (#136).
