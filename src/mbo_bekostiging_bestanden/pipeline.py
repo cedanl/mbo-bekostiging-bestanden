@@ -99,7 +99,7 @@ def _run(
 
     # Genereer kwaliteitsrapport (SLR-reconciliatie, parseverlies)
     levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
-    quality_report = check_slr_reconciliation(frames, levering)
+    quality_report = check_slr_reconciliation(frames, levering, schema_naam=schema_naam)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
     quality_report.meld_domeinafwijkingen(controleer_waardedomeinen(ruw, schema_naam))
     if positioneel:
