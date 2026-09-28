@@ -40,6 +40,18 @@ def _normalize_row(row: list[str], n: int) -> list[str]:
     return row + [""] * (n - len(row))
 
 
+def _velden_voorbij_schema(
+    fields: list[str], kolommen: list[str], spiegelvelden: list[str]
+) -> list[str]:
+    """Gevulde velden voorbij schema + gedeclareerde spiegelvelden (#257).
+
+    Spiegelvelden (extra posities die een bestaand veld herhalen, zie
+    schema-TOML) tellen niet mee: hun aanwezigheid is verwacht, alleen hun
+    *waarde* wordt elders (``inventariseer_regels``) beoordeeld.
+    """
+    return fields[len(kolommen) + len(spiegelvelden) :]
+
+
 def _lees_regels(path: Path) -> list[list[str]]:
     """Niet-lege regels van een multi-record CSV, gesplitst op het scheidingsteken.
 
@@ -72,8 +84,13 @@ def read_multi_record_csv(
 
     Geschikt voor elk DUO-bestandstype dat de multi-record CSV-structuur
     gebruikt (RO, GRONDSLAG IP MBO, …). Kolomnamen komen uit het opgegeven
-    schema-TOML. Regels met een onbekend recordtype en velden voorbij de
-    schemabreedte worden niet ingelezen; :func:`inventariseer_regels` telt ze.
+    schema-TOML. Fail-closed (#257): een onbekend recordtype of een gevuld
+    veld voorbij de schemabreedte (incl. gedeclareerde spiegelvelden) is een
+    teken dat het bestand niet is wat het zegt te zijn, en breekt de ingest
+    in plaats van stil te worden genegeerd/afgeknipt. Een regel die *korter*
+    is dan het schema wordt (nog) gepad: optionele achtervelden zijn niet
+    per-recordtype gemarkeerd in het schema, dus dat is vooralsnog niet te
+    onderscheiden van een echte fout.
 
     Args:
         path:        Pad naar het bronbestand.
@@ -84,20 +101,34 @@ def read_multi_record_csv(
 
     Raises:
         FileNotFoundError: Als het bronbestand of schema niet bestaat.
-        ValueError:        Als het bestand leeg is.
+        ValueError: Als het bestand leeg is, een regel een onbekend
+            recordtype heeft, of een regel een gevuld veld heeft voorbij de
+            schemabreedte.
     """
-    schema = {rt: v["fields"] for rt, v in load_schema(schema_name).items()}
+    schema = load_schema(schema_name)
 
     rows_by_type: dict[str, list[list[str]]] = {rt: [] for rt in schema}
-    for fields in _lees_regels(Path(path)):
-        if fields[0] in rows_by_type:
-            rows_by_type[fields[0]].append(fields)
+    for regelnr, fields in enumerate(_lees_regels(Path(path)), start=1):
+        rt = fields[0]
+        if rt not in rows_by_type:
+            raise ValueError(
+                f"{path}: regel {regelnr} heeft een onbekend recordtype {rt!r}"
+            )
+        kolommen = schema[rt]["fields"]
+        spiegelvelden = schema[rt].get("spiegelvelden", [])
+        extra = _velden_voorbij_schema(fields, kolommen, spiegelvelden)
+        if any(extra):
+            raise ValueError(
+                f"{path}: regel {regelnr} ({rt}) heeft gevulde velden voorbij "
+                f"de schemabreedte: {extra}"
+            )
+        rows_by_type[rt].append(fields)
 
     result: dict[str, pl.DataFrame] = {}
     for rt, rows in rows_by_type.items():
         if not rows:
             continue
-        cols = schema[rt]
+        cols = schema[rt]["fields"]
         n = len(cols)
         normalized = [_normalize_row(row, n) for row in rows]
         result[rt] = pl.DataFrame(
@@ -108,7 +139,16 @@ def read_multi_record_csv(
 
 
 def inventariseer_regels(path: str | Path, schema_name: str) -> dict:
-    """Tel wat :func:`read_multi_record_csv` niet inleest (#120).
+    """Tel afwijkende regels in een bronbestand, los van :func:`read_multi_record_csv`.
+
+    Onbekend recordtype en velden voorbij de schemabreedte laten
+    :func:`read_multi_record_csv` sinds #257 fail-closed falen — voor een
+    bestand dat de pipeline doorloopt zijn die twee categorieën dus altijd
+    leeg. Deze functie leest het bestand onafhankelijk opnieuw en blijft
+    nuttig als losstaand diagnosemiddel (bijv. om te controleren wát er zou
+    zijn misgegaan) en voor ``spiegel_afwijkingen``, dat wél door de
+    pipeline heen komt (#120): een waardeverschil op een spiegelpositie is
+    geen schemaoverschrijding.
 
     Returns:
         ``onbekende_recordtypes``: recordtype → aantal regels buiten het schema.
