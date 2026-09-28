@@ -22,7 +22,7 @@ Berekende vlaggen op inschrijvingen:
   Tellingen     _telling (= actief_1_okt ∧ hoofdinschrijving)
   Rendement     _jr_noemer, _jr_teller (bouwstenen voor Jaarresultaat)
   Entree        _entree_uitstroom, _entree_doorstroom (MBO-1 specifiek)
-  Afgeleid      Niveau_gecombineerd, _tellingen_aanwezig
+  Afgeleid      Niveau_gecombineerd
 """
 
 import functools
@@ -1126,8 +1126,6 @@ def _voeg_afgeleide_velden_toe(df: pl.DataFrame) -> pl.DataFrame:
     """Voeg afgeleide gemaksvelden toe.
 
     ``Niveau_gecombineerd``: ``"MBO-4 BOL"`` — concat van Niveau en Leertraject.
-    ``_tellingen_aanwezig``: hoe vaak deze persoon × inschrijving voorkomt
-    over leveringen (datakwaliteit / deduplicatie).
     """
     if "Niveau" in df.columns and "Leertraject" in df.columns:
         df = df.with_columns(
@@ -1136,16 +1134,6 @@ def _voeg_afgeleide_velden_toe(df: pl.DataFrame) -> pl.DataFrame:
                 separator=" ",
                 ignore_nulls=False,
             ).alias("Niveau_gecombineerd")
-        )
-
-    if "_persoon_id" in df.columns and "Inschrijvingvolgnummer" in df.columns:
-        tellingen = df.group_by(["_persoon_id", "Inschrijvingvolgnummer"]).agg(
-            pl.len().alias("_tellingen_aanwezig")
-        )
-        df = df.join(
-            tellingen,
-            on=["_persoon_id", "Inschrijvingvolgnummer"],
-            how="left",
         )
 
     return df
