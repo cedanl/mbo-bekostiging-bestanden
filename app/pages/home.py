@@ -177,7 +177,8 @@ st.markdown(
 </style>
 <div class="hero">
   <h1>MBO-bekostigingsbestanden</h1>
-  <p>Zet ruwe DUO-bekostigingsbestanden automatisch om naar star schema-data.</p>
+  <p>Zet ruwe DUO-bekostigingsbestanden om naar brondata per levering
+  en een analysemodel (star schema).</p>
 </div>""",
     unsafe_allow_html=True,
 )

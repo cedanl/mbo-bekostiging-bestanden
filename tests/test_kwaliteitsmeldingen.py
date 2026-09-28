@@ -91,3 +91,23 @@ def test_dashboard_toont_kwaliteitsstatus(demo_star_dir):
     assert not app.exception
     teksten = [w.value for w in app.warning]
     assert any("Kwaliteitsstatus: warn" in t for t in teksten)
+
+
+def test_resultaten_toont_beide_lagen_zonder_pii_in_preview(
+    demo_prepared, demo_star_dir
+):
+    """Brondata en analysemodel zijn gelijkwaardige secties; de preview toont
+    standaard geen persoonsgegevens (#213)."""
+    from mbo_bekostiging_bestanden.pii import detect_pii_columns
+
+    _, dirs = demo_prepared
+    app = AppTest.from_file("app/pages/resultaten.py", default_timeout=60)
+    app.session_state["resultaten_dir"] = demo_star_dir
+    app.session_state["prepared_dirs"] = [str(d) for d in dirs]
+    app.run()
+    assert not app.exception
+    koppen = [h.value for h in app.subheader]
+    assert any(k.startswith("Analysemodel") for k in koppen)
+    assert any(k.startswith("Brondata per levering") for k in koppen)
+    for tabel in app.dataframe:
+        assert detect_pii_columns(list(tabel.value.columns)) == []

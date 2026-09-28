@@ -51,7 +51,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_verwerk = sub.add_parser("verwerk", help="Verwerk één ruw bestand")
+    p_verwerk = sub.add_parser(
+        "verwerk", help="Verwerk één ruw bestand tot brondata (Parquet per recordtype)"
+    )
     p_verwerk.add_argument("source", type=Path, help="Pad naar het ruwe bronbestand")
     p_verwerk.add_argument("target", type=Path, help="Doelmap voor de uitvoer")
     p_verwerk.add_argument(
@@ -62,7 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_verwerk.set_defaults(func=_verwerk)
 
-    p_stapel = sub.add_parser("stapel", help="Stapel meerdere prepared-mappen")
+    p_stapel = sub.add_parser(
+        "stapel", help="Stapel de brondata van meerdere leveringen"
+    )
     p_stapel.add_argument(
         "sources",
         nargs="+",
@@ -96,7 +100,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_stapel.set_defaults(func=_stapel)
 
-    p_star = sub.add_parser("star", help="Bouw star schema vanuit prepared-mappen")
+    p_star = sub.add_parser(
+        "star", help="Bouw het analysemodel (star schema) uit de brondata"
+    )
     p_star.add_argument(
         "sources",
         nargs="+",

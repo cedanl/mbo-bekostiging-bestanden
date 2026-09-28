@@ -8,8 +8,15 @@ Leest DUO MBO-bekostigingsbestanden in en zet ze om naar schone, onderzoeksklare
 
 MBO-instellingen worden bekostigd op basis van bestanden die DUO publiceert. Die
 bestanden zijn ruw en lastig direct te gebruiken. Deze repo leest ze in,
-decodeert de velden, controleert de kwaliteit en exporteert een star schema
-(dimensies + feittabellen) waarop andere CEDA-projecten kunnen voortbouwen.
+decodeert de velden en controleert de kwaliteit. Dat levert twee producten op:
+
+- **Brondata per levering** (`data/02-prepared/`): elk DUO-bestand per
+  recordtype, getrouw aan de levering en alleen getypeerd.
+- **Analysemodel** (`data/03-output/…/star/`): een star schema (dimensies +
+  feiten) waarin de leveringen zijn samengevoegd, met vastgelegde
+  ontwerpkeuzes (canonicalisatie, hoofdinschrijving, peildatum, …).
+
+Andere CEDA-projecten kunnen op beide voortbouwen.
 
 Doelgroep: analisten en onderzoekers bij mbo-instellingen die met
 bekostigingsdata werken.
@@ -56,9 +63,10 @@ studenten (geslacht, herkomst, gemeente) en GEO-examencijfers.
 
 ### Stap 3 — Resultaten bekijken en downloaden
 
-Op de Resultaten-pagina selecteer je een van de star-schema-tabellen,
-bekijk je een preview van de eerste 1 000 rijen en download je de volledige
-tabel als CSV.
+Op de Resultaten-pagina kies je een tabel uit het analysemodel of uit de
+brondata per levering, bekijk je een preview van de eerste 1 000 rijen en
+download je de volledige tabel als CSV. Persoonsgegevens zijn in preview en
+download standaard verborgen.
 
 ![Resultaten — tabel preview en download](docs/assets/resultaten.gif)
 
