@@ -44,6 +44,17 @@ def _hoofd(df: pl.DataFrame) -> list[bool]:
     return _voeg_sr_vlaggen_toe(df)["_hoofdinschrijving"].to_list()
 
 
+def test_geen_polars_deprecationwarning_bij_exploderen(recwarn):
+    """explode("_schooljaren_actief") zet empty_as_null expliciet (#241);
+    zonder dat geeft Polars een DeprecationWarning over het toekomstige
+    default-gedrag."""
+    df = _isp_met_periodes(
+        ("L", "A", "MBO-4", "40000", date(2024, 8, 1), date(2025, 10, 15)),
+    )
+    _hoofd(df)
+    assert not [w for w in recwarn.list if issubclass(w.category, DeprecationWarning)]
+
+
 def test_oudere_kandidaat_wordt_toch_hoofdinschrijving():
     """Oudere kandidaat met hoger niveau wint als beide periodes
     actief op 1-okt-2025."""
@@ -116,9 +127,9 @@ def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(
     fact = demo_star["fact_inschrijving"]
 
     # Explodeer _schooljaren_actief om per schooljaar te groeperen
-    inschrijvingen_exploded = inschrijvingen.explode("_schooljaren_actief").rename(
-        {"_schooljaren_actief": "_schooljaar_peildatum"}
-    )
+    inschrijvingen_exploded = inschrijvingen.explode(
+        "_schooljaren_actief", empty_as_null=True
+    ).rename({"_schooljaren_actief": "_schooljaar_peildatum"})
 
     # Map naar star met behoud van hoofdinschrijving-indicator
     fact_exploded = inschrijvingen_exploded.join(
