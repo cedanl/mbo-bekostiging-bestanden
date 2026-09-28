@@ -323,7 +323,11 @@ def test_dim_instelling_verrijkt_brin_uit_bekostiging(star_ro_27dv_met_tbgi_25lx
     ],
 )
 def test_dimensie_heeft_geen_lege_sleutel(demo_star, tbgi_star, dim, sleutel):
-    """Een TBGI-inschrijving zonder ISP-periode heeft geen opleiding (#196)."""
+    """Geen enkele dimensietabel heeft een lege sleutel.
+
+    Voor dim_opleiding geldt dit ook bij een TBGI-inschrijving zonder
+    ISP-periode, die anders geen opleiding zou hebben (#196).
+    """
     for star in (demo_star, tbgi_star):
         tabel = star[dim]
         assert tabel.is_empty() or tabel[sleutel].null_count() == 0
