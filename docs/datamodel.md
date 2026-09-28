@@ -128,6 +128,11 @@ peildatum. De ster ontdubbelt dat niet stil; de geschonden contracten maken het 
 
 ## Grain en Deduplicatie
 
+**Interne kolommen.** Kolommen die met `_` beginnen zijn afgeleid door de pipeline (vlaggen, sleutels, herkomst),
+geen DUO-velden. `_persoon_id` en `_inschrijving_periode_id` zijn sleutels; `_niveau_herkomst` en `Bron` leggen de
+herkomst vast. Hulpkolommen die alleen tijdens de bouw bestaan (`_schooljaren_actief`, `_bron`, `_rij`) en de
+persoons-identifiers (BSN, onderwijsnummer, PGN) komen niet in de ster.
+
 **Tellingseenheid (grain).** Elke feitstabel hoort uniek te zijn per zijn eigen grain-kolommen (zie tabel "Grain" hierboven).
 `fact_inschrijving` heeft de grain van een **ISP-periode**; een periode kan meerdere schooljaren dekken. Jaargebonden tellingen staan in `fact_inschrijving_schooljaar` (één rij per
 `persoon × instelling × inschrijving × schooljaar`).
@@ -198,12 +203,13 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
 
 | Vlag | Definitie |
 |---|---|
-| `_actief_1_oktober` | Inschrijving actief op 1 oktober (teldatum) |
+| `_actief_1_oktober` | De **ISP-periode** dekt 1 oktober van het studiejaar: `DatumBegin ≤ 1-10 ≤ _periode_einde`, met `_periode_einde` = vroegste van volgende `DatumBegin` − 1, `DatumEind` en `DatumUitschrijvingWerkelijk` (#163) |
 | `_hoofdinschrijving` | Eén inschrijving per deelnemer × studiejaar bij deze instelling: hoogste niveau, dan laagste CREBO, dan meest recente periode |
 | `_gediplomeerd_in_jaar` | Diploma behaald in het studiejaar |
 | `_jr_noemer` / `_jr_teller` | Populatie en teller voor Jaarresultaat (JR) |
 | `_dr_noemer` / `_dr_teller` | Populatie en teller voor Diplomaresultaat (DR) |
 | `_entree_doorstroom` / `_entree_uitstroom` | Niveau-1 doorstroom- en uitstroomcategorieën |
+| `_hoogste_niveau` / `_laagste_CREBO` | Hoogste niveau (en daarbinnen laagste CREBO) per levering × BRIN × persoon **over de hele historiek**, niet per schooljaar |
 | `_niveau_herkomst` | Waar `Niveau` vandaan komt: `bron`, `crebo` (`crebo.csv`), `sbb` (S-BB-koppeltabel), `sbb_nvt` (S-BB kent de code zonder niveau) of `onbekend`. Rijen zonder niveau vallen buiten JR/DR; Home meldt ze (`quality.controleer_niveau`). |
 
 ### Relatie met QlikView-referentiemodel
