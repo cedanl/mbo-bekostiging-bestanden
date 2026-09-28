@@ -42,6 +42,7 @@ from mbo_bekostiging_bestanden.enrich import (
     _laad_sbb_koppeltabel,
     enrich_inschrijvingen,
 )
+from mbo_bekostiging_bestanden.waardenlijsten import kzd_behaald
 
 _METADATA = Path(__file__).parent / "metadata"
 
@@ -184,7 +185,6 @@ _NIVEAU_SBB = "sbb"
 _NIVEAU_SBB_NVT = "sbb_nvt"  # S-BB kent de code, maar zonder niveau
 _NIVEAU_ONBEKEND = "onbekend"
 _SBB_GEEN_NIVEAU = "n.v.t."
-_RESULTAAT_BEHAALD = "BEHAALD"
 
 
 # ---------------------------------------------------------------------------
@@ -1206,13 +1206,12 @@ def _kzd_aggregaat(
     dip: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Aggregeer KZD per ISP-periode: totaal en behaald."""
-    behaald = pl.col("Resultaat").str.to_uppercase().str.contains(_RESULTAAT_BEHAALD)
     return _per_periode(
         _resolve_inschrijving(_add_persoon_id(kzd), dip),
         perioden,
         _PERIODE_REFERENTIEDATUM["detail_kzd_amo"],
         pl.len().alias("KZD_Aantal"),
-        behaald.sum().cast(pl.Int64).alias("KZD_AantalBehaald"),
+        kzd_behaald(pl.col("Resultaat")).sum().cast(pl.Int64).alias("KZD_AantalBehaald"),
     )
 
 
@@ -1378,7 +1377,10 @@ def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _bouw_detail_kzd_amo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """KZD en AMO volledig; kolom ``_bron`` geeft herkomst aan."""
+    """KZD en AMO volledig; kolom ``_bron`` geeft herkomst aan.
+
+    KZD-rijen krijgen ``Behaald`` (bool, null bij onbekend resultaat).
+    """
     frames: list[pl.DataFrame] = []
     dip_raw = stacked.get("DIP")
     for bron in ("KZD", "AMO"):
@@ -1387,6 +1389,8 @@ def _bouw_detail_kzd_amo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
             df = _resolve_inschrijving(df, dip_raw)
             df = _drop(df, "Recordsoort")
             df = df.with_columns(pl.lit(bron).alias("_bron"))
+            if bron == "KZD":
+                df = df.with_columns(kzd_behaald(pl.col("Resultaat")).alias("Behaald"))
             frames.append(df)
     if not frames:
         return pl.DataFrame()

@@ -43,7 +43,6 @@ REDEN_LABELS = {
 
 _BPV_DUUR_GRENZEN = (30, 90, 180)  # dagen — grenzen voor de duurklasse-buckets
 _KZD_TOP_N = 15  # maximaal aantal keuzedelen in de detailtabel
-_KZD_BEHAALD_RE = "(?i)behaald"  # patroon om behaald-status te herkennen
 _KZD_LAGE_GRENS = 50  # drempel waaronder slagingskans als laag wordt beschouwd (%)
 _SBB_BEROEP_TOP_N = 20  # maximaal aantal beroepen in de S-BB-grafiek
 _GEO_SLAAGGRENS = 5.5  # minimaal eindcijfer om als geslaagd te tellen
@@ -864,22 +863,15 @@ with tab_opleidingen:
 
     st.subheader("Keuzedelen — resultaten per code")
     chart_help("kzd_detail")
-    if not fact_kzd_f.is_empty() and "CodeKeuzedeel" in fact_kzd_f.columns:
+    if not fact_kzd_f.is_empty() and {"CodeKeuzedeel", "Behaald"} <= set(
+        fact_kzd_f.columns
+    ):
         kzd_detail = (
             fact_kzd_f.filter(pl.col("CodeKeuzedeel").is_not_null())
-            .with_columns(
-                pl.when(
-                    pl.col("Resultaat").is_not_null()
-                    & pl.col("Resultaat").str.contains(_KZD_BEHAALD_RE)
-                )
-                .then(pl.lit(1))
-                .otherwise(pl.lit(0))
-                .alias("_behaald")
-            )
             .group_by("CodeKeuzedeel")
             .agg(
                 pl.len().alias("Totaal"),
-                pl.col("_behaald").sum().alias("Behaald"),
+                pl.col("Behaald").sum().alias("Behaald"),
             )
             .with_columns(
                 (pl.col("Behaald") / pl.col("Totaal") * 100)

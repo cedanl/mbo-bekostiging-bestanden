@@ -1,0 +1,7 @@
+# Gecodeerde veldwaarden uit de DUO PvE MBO-instelling v4.8.2.
+# Waarden staan in genormaliseerde vorm: hoofdletters, enkele spaties.
+# RO (§15.5.10) schrijft "Behaald"/"Niet behaald", GRONDSLAG (§17.5) "BEHAALD"/"NIET BEHAALD".
+
+[kzd_resultaat]
+behaald = ["BEHAALD"]
+niet_behaald = ["NIET BEHAALD"]
