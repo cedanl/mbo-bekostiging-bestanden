@@ -2,7 +2,7 @@
 
 DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan controleren of haar studenten bekostigd worden en op welke grondslag. Deze bestanden zijn technisch van opzet: meerdere recordtypes per bestand, gecodeerde velden, geen kolomkoppen.
 
-**Deze tool leest die ruwe bestanden in, normaliseert ze en bouwt er een star schema van** — direct bruikbaar in Excel, Python, R of Power BI; zie [Datamodel](datamodel.md).
+**Deze tool leest die ruwe bestanden in en levert twee producten**: de **brondata per levering** (getrouw aan het DUO-bestand) en een **analysemodel** (star schema) dat de leveringen samenvoegt — beide direct bruikbaar in Excel, Python, R of Power BI. Zie [Datamodel](datamodel.md) en [Ontwerpkeuzes](ontwerpkeuzes.md).
 
 ---
 
@@ -18,9 +18,20 @@ DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan co
 
 ## Wat levert de tool op?
 
-De verwerking bestaat uit twee stappen.
+| | Brondata per levering | Analysemodel |
+|---|---|---|
+| Map | `data/02-prepared/<map>/<levering>/` | `data/03-output/<scenario>/star/datamodel/` |
+| Wat | Elk DUO-bestand per recordtype | Dimensies en feiten over alle leveringen |
+| Keuzes | Alleen technisch (typering, notaties) | Inhoudelijk: canonicalisatie, hoofdinschrijving, peildatum, niveau-aanvulling, … ([Ontwerpkeuzes](ontwerpkeuzes.md)) |
+| Gegarandeerd | Kolommen en volgorde volgens het PvE; wat niet ingelezen werd, staat geteld in `quality.json` | Grain en relaties per tabel ([Datamodel](datamodel.md)); status in `quality.json` |
+| Beperkingen | Bevat nog BSN/ONr in platte tekst (#173); onbekende recordtypes en extra posities worden niet ingelezen (#120) | JR/DR zijn benaderingen (#118, #119); legacy-vlaggen in `fact_inschrijving` (#201) |
+| Voor wie | Wie eigen keuzes wil maken of een levering wil controleren | Wie direct wil analyseren met de keuzes van deze tool |
 
-### Stap 1 — Prepared (per leveringsbestand)
+De fasering: `ingest > decode > validate > export` levert de brondata;
+`stack > canonicaliseer > transform (pseudonimiseer, koppel) > enrich > schooljaar > star`
+levert het analysemodel. Beide stappen schrijven een `quality.json`.
+
+### Stap 1 — Brondata (per leveringsbestand)
 
 Elk ruw bestand wordt genormaliseerd naar één Parquet-bestand per recordtype:
 
@@ -39,7 +50,7 @@ data/02-prepared/demo/h15/RO_27DV_20240731_20260324/
 
 Datumvelden zijn `Date`, telvelden zijn `Int64`, lege velden zijn `null` (geen lege strings).
 
-### Stap 2 — Star schema (gecombineerd over alle leveringen)
+### Stap 2 — Analysemodel: star schema (gecombineerd over alle leveringen)
 
 Alle prepared-mappen worden gecombineerd tot Parquet-bestanden in `data/03-output/star/datamodel/`:
 

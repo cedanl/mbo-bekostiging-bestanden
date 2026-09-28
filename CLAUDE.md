@@ -3,7 +3,11 @@
 ## Overview
 Ingestion-repo (Type 1). Leest ruwe DUO MBO-bekostigingsbestanden in en zet ze
 om naar schone, onderzoeksklare data. Andere repos bouwen voort op de output.
-Pipeline-fase: `ingest > decode > validate > export > stack > transform > enrich > star schema`.
+Twee producten (zie `docs/ontwerpkeuzes.md`):
+- **Brondata** (`02-prepared`): `ingest > decode > validate > export` — getrouw aan de levering.
+- **Analysemodel** (star): `stack > canonicaliseer > transform (pseudonimiseer, koppel) > enrich > schooljaar > star` — met inhoudelijke ontwerpkeuzes.
+
+Een wijziging die een keuze in het analysemodel toevoegt of verandert, werkt `docs/ontwerpkeuzes.md` bij.
 
 ## Standards
 Volg de CEDA technische standaarden: https://github.com/cedanl/.github/tree/main/standards/README.md
