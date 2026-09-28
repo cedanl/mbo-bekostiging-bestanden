@@ -18,6 +18,7 @@ Volg de CEDA technische standaarden: https://github.com/cedanl/.github/tree/main
 - **Dynamisch** — lees kolomnamen, opties en lijsten uit de data; neem ze niet over als vaste lijst tenzij ze écht stabiel zijn.
 - **Boy Scout Principle** — laat elke file die je aanraakt schoner achter dan je hem aantrof: verwijder dode code, los triviale stijlproblemen op, vereenvoudig onduidelijke logica.
 - **Geen Tactical Tornado** — geen snelle quick-fixes die technische schuld opbouwen of toekomstig onderhoud bemoeilijken. Kies de duurzame oplossing, ook als die iets meer werk is.
+- **Comments voegen iets toe** — een comment of (test)docstring legt vast wat naam en code niet zeggen: waarom, de bron (PvE-§, issue), een invariant of een grensgeval. Geen stap-voor-stap-vertelling van de regel eronder, geen Engelse sjabloonteksten. Geldt voor nieuwe en aangeraakte code.
 - **Geen commit tenzij gevraagd** — implementeer lokaal en meld wat er gedaan is; wacht op een expliciete commit-opdracht van de gebruiker.
 - **Grafiektoelichtingen bijhouden** — bij elke aanpassing aan het dashboard of een grafiek (`app/pages/dashboard.py` e.d.): check de bijbehorende toelichting in `app/_chart_docs.py`, werk deze bij als de grafiek verandert, en maak er een aan als een (nieuwe) grafiek nog geen toelichting heeft. Een grafiek zonder toelichting is niet af.
 

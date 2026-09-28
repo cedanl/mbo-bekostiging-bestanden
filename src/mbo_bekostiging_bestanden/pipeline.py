@@ -107,7 +107,6 @@ def _run(
             inventariseer_regels(source_path, schema_naam)
         )
 
-    # Sla rapport op als JSON
     report_path = target_path / "quality.json"
     target_path.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w", encoding="utf-8") as f:

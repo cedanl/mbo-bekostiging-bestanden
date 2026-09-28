@@ -1282,7 +1282,7 @@ def test_studiejaar_afgeleid_in_demo(demo_tabellen):
 
 
 def test_laad_pseudonimisering_salt_from_env(monkeypatch):
-    """Env var MBO_PSEUDONIMISERING_SALT takes precedence."""
+    """De env-var gaat vóór ``config.toml``."""
     from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
 
     monkeypatch.setenv("MBO_PSEUDONIMISERING_SALT", "test-env-salt-12345")
@@ -1297,7 +1297,7 @@ def test_laad_pseudonimisering_salt_from_env(monkeypatch):
 
 
 def test_laad_pseudonimisering_salt_fails_without_env_or_config(monkeypatch, tmp_path):
-    """If env var missing and no config.toml, should raise ValueError."""
+    """Zonder env-var en zonder ``config.toml``: fail-closed."""
     from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
 
     # Remove env var if set

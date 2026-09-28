@@ -291,7 +291,6 @@ if not done:
         st.session_state["star_summary"] = star_summary
         if fouten:
             st.session_state["fouten"] = fouten
-        # Laad en sla quality reports op
         quality_reports = _load_quality_reports(prep_dirs_met_data)
         if quality_reports:
             st.session_state["quality_reports"] = quality_reports
@@ -325,7 +324,6 @@ if done:
                 else:
                     st.write(f"• `{lev}`")
 
-        # Toon kwaliteitrapporten indien beschikbaar
         quality_reports = st.session_state.get("quality_reports", {})
         if quality_reports:
             with st.expander("📊 Datakwaliteit (SLR-reconciliatie)"):
