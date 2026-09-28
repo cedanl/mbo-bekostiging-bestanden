@@ -55,7 +55,7 @@ def _minimal_stacked() -> dict[str, pl.DataFrame]:
 
 
 def test_star_bevat_alle_tabellen():
-    """build_star retourneert dertien tabellen (drie dims + acht facts + twee meta)."""
+    """build_star retourneert drie dimensies, negen feiten en drie meta-tabellen."""
     result = build_star(_minimal_stacked())
     assert set(result.keys()) == {
         "dim_deelnemer",
@@ -71,6 +71,7 @@ def test_star_bevat_alle_tabellen():
         "fact_bekostiging_diploma",
         "meta_leveringen",
         "meta_canonicalisatie",
+        "meta_koppelkeuzes",
     }
 
 

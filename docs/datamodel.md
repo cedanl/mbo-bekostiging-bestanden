@@ -61,6 +61,7 @@ geschreven.
 | `fact_bekostiging` | TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2) |
 | `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
 | `meta_leveringen` | Leveringsbestand | `levering` | Elke verwerkte levering, met VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) waar het bestand die heeft; bij TBGI (XML) zijn die velden leeg. Zelfde `levering`-labels als in de feiten en `quality.json` |
+| `meta_koppelkeuzes` | Koppeling | `koppeling` | Per links-join (PER, ISG, VLP, ISE, DIP, GEO, meta_leveringen): hoeveel sleutels meer dan één kandidaat hadden en hoeveel rijen daardoor wegvielen. De keuze hangt nooit af van de rijvolgorde; bij DIP wint de meest recente `DatumResultaat` (#209) |
 | `meta_canonicalisatie` | Leveringspaar | `levering`, `vervangen_door`, `reden` | Vervangen leveringen: aantal inschrijvingen en ISP-perioden dat door een recentere levering is vervangen; leeg zonder overlap |
 
 **S-BB-attributen in `dim_opleiding`.** `Opleiding_geldig_van`/`Opleiding_geldig_tot` zijn de

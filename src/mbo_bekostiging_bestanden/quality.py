@@ -232,6 +232,7 @@ def check_slr_reconciliation(
 _FEIT_PREFIX = "fact_"
 _CENTRAAL_FEIT = "fact_inschrijving"
 _META_CANONICALISATIE = "meta_canonicalisatie"
+_META_KOPPELKEUZES = "meta_koppelkeuzes"
 # Scenario als de aanroeper er geen opgeeft; nooit afgeleid uit een pad (#176).
 SCENARIO_ONBEKEND = "unknown"
 
@@ -437,7 +438,7 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     Errors: onverklaarde wees-feiten (optionele parent: geen fout), per
             geschonden uniciteitscontract,
             overlapping_deliveries > 0 (na canonicalisatie telt dat dubbel)
-    Warnings: niveau_issues > 0
+    Warnings: niveau_issues > 0, meervoudige matches in join_keuzes
     """
     errors = 0
     warnings = 0
@@ -456,6 +457,11 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     # Overlap die na canonicalisatie (#174) in de ster blijft, telt dubbel
     if len(star_checks.get("overlapping_deliveries", [])) > 0:
         errors += 1
+
+    # Een gekozen rij bij meervoudige match is deterministisch, maar verdient
+    # een blik: welke kandidaat inhoudelijk juist was, weet de bron (#209).
+    if any(k["meervoudige_sleutels"] for k in star_checks.get("join_keuzes", [])):
+        warnings += 1
 
     return errors, warnings
 
@@ -487,6 +493,7 @@ def compile_quality_report(
         **_check_niveau_structured(star),
         **check_overlapping_deliveries(star),
         **_check_canonicalisatie_structured(star),
+        **_check_join_keuzes_structured(star),
     }
 
     # Count totals from deliveries
@@ -589,3 +596,11 @@ def _check_canonicalisatie_structured(
             "per_levering": per_levering,
         }
     }
+
+
+def _check_join_keuzes_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Koppelingen met meer dan één kandidaat per sleutel (``meta_koppelkeuzes``)."""
+    keuzes = star.get(_META_KOPPELKEUZES, pl.DataFrame())
+    if keuzes.is_empty():
+        return {"join_keuzes": []}
+    return {"join_keuzes": keuzes.filter(pl.col("meervoudige_sleutels") > 0).to_dicts()}

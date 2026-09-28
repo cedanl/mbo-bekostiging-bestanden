@@ -257,6 +257,34 @@
           ],
           "additionalProperties": false
         },
+        "join_keuzes": {
+          "type": "array",
+          "description": "Koppelingen waar een sleutel meer dan één kandidaat had; de gekozen rij is deterministisch (#209)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "koppeling": {
+                "type": "string"
+              },
+              "sleutel": {
+                "type": "string"
+              },
+              "meervoudige_sleutels": {
+                "type": "integer"
+              },
+              "weggelaten_rijen": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "koppeling",
+              "sleutel",
+              "meervoudige_sleutels",
+              "weggelaten_rijen"
+            ],
+            "additionalProperties": false
+          }
+        },
         "canonicalisatie": {
           "type": "object",
           "description": "Canonicalisatie van overlappende leveringen (#174/#175): welke leveringen zijn vervangen, door welke en waarom. Bron: star-tabel meta_canonicalisatie.",
@@ -327,7 +355,8 @@
         "key_duplicates",
         "overlapping_deliveries",
         "niveau_issues",
-        "canonicalisatie"
+        "canonicalisatie",
+        "join_keuzes"
       ],
       "additionalProperties": false
     },

@@ -85,7 +85,7 @@ def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():
 # ---------------------------------------------------------------------------
 
 
-def test_bouw_analysetabellen_returns_acht_tables(demo_tabellen):
+def test_bouw_analysetabellen_levert_alle_tabellen(demo_tabellen):
     assert set(demo_tabellen.keys()) == {
         "inschrijvingen",
         "detail_bpv",
@@ -95,6 +95,7 @@ def test_bouw_analysetabellen_returns_acht_tables(demo_tabellen):
         "detail_geo",
         "meta_leveringen",
         "meta_canonicalisatie",
+        "meta_koppelkeuzes",
     }
 
 

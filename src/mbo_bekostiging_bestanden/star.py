@@ -111,7 +111,7 @@ def build_star(
                  dict van tabelnaam → DataFrame.
 
     Returns:
-        Dict met dertien sleutels:
+        Dict met de star-schema-tabellen:
 
         Dimensies:
           ``dim_deelnemer``              — uniek per ``_persoon_id``
@@ -132,6 +132,7 @@ def build_star(
         Metadata:
           ``meta_leveringen``            — VLP + SLR per bronbestand (per levering)
           ``meta_canonicalisatie``       — vervangen leveringen per leveringspaar
+          ``meta_koppelkeuzes``          — meervoudige matches per koppeling (#209)
     """
     tables = _bouw_analysetabellen(stacked)
     inschrijvingen = tables["inschrijvingen"]
@@ -180,6 +181,7 @@ def build_star(
         "fact_bekostiging_diploma": _build_fact_bekostiging_diploma(tables),
         "meta_leveringen": tables.get("meta_leveringen", pl.DataFrame()),
         "meta_canonicalisatie": tables["meta_canonicalisatie"],
+        "meta_koppelkeuzes": tables["meta_koppelkeuzes"],
     }
 
 
