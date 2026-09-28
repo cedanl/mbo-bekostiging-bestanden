@@ -25,6 +25,7 @@ from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabe
 _DIM_DEELNEMER_COLS = [
     "_persoon_id",
     "Geboortedatum",
+    "Geboortedatum_precisie",
     "Geslacht",
     "Postcodecijfers",
     "Gemeente",

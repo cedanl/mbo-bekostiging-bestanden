@@ -12,6 +12,8 @@ int_fields  = []
 [PER]
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht"]
 date_fields = ["Geboortedatum"]
+# PvE §15.5.2: dag of dag+maand mag 00 zijn (onbekend) (#206).
+partial_date_fields = ["Geboortedatum"]
 int_fields  = []
 
 [ISG]

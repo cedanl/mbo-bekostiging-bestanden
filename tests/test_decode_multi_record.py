@@ -8,7 +8,6 @@ import pytest
 
 from mbo_bekostiging_bestanden.decode import (
     _detect_date_format,
-    _to_compact_expr,
     decode_frames,
 )
 from mbo_bekostiging_bestanden.ingest import read_ro
@@ -39,22 +38,19 @@ def test_detect_date_format_compact():
 # ---------------------------------------------------------------------------
 
 
-def test_to_compact_expr_parses_date():
-    df = pl.DataFrame({"d": ["20251119"]})
-    result = df.with_columns(_to_compact_expr(pl.col("d")).alias("d"))
-    assert result["d"][0] == date(2025, 11, 19)
+def _compact(waarden: list[str]) -> pl.Series:
+    frames = {"VLP": pl.DataFrame({"DatumAanmaak": waarden})}
+    return decode_frames(frames, "ro")["VLP"]["DatumAanmaak"]
 
 
-def test_to_compact_expr_returns_date_type():
-    df = pl.DataFrame({"d": ["20230130"]})
-    result = df.with_columns(_to_compact_expr(pl.col("d")).alias("d"))
-    assert result["d"].dtype == pl.Date
+def test_compact_datum_wordt_date():
+    kolom = _compact(["20251119"])
+    assert kolom.dtype == pl.Date
+    assert kolom[0] == date(2025, 11, 19)
 
 
-def test_to_compact_expr_empty_becomes_null():
-    df = pl.DataFrame({"d": [""]})
-    result = df.with_columns(_to_compact_expr(pl.col("d")).alias("d"))
-    assert result["d"][0] is None
+def test_compact_lege_datum_wordt_null():
+    assert _compact(["20251119", ""])[1] is None
 
 
 # ---------------------------------------------------------------------------

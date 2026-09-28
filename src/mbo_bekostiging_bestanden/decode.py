@@ -24,36 +24,58 @@ def _detect_date_format(sample: str) -> str:
     return "dutch"
 
 
-def _to_iso_expr(col: pl.Expr) -> pl.Expr:
-    return col.str.to_date("%Y-%m-%d", strict=False)
+def _iso_uit_iso(col: pl.Expr) -> pl.Expr:
+    return col
 
 
-def _to_compact_expr(col: pl.Expr) -> pl.Expr:
-    """Converteer ``YYYYMMDD`` (geen scheidingstekens) naar ``pl.Date``."""
-    non_empty = pl.when(col == "").then(pl.lit(None, dtype=pl.Utf8)).otherwise(col)
-    return non_empty.str.to_date("%Y%m%d", strict=False)
+def _iso_uit_compact(col: pl.Expr) -> pl.Expr:
+    """``ccyymmdd`` → ``ccyy-mm-dd``."""
+    return col.str.replace(r"^(\d{4})(\d{2})(\d{2})$", "${1}-${2}-${3}")
 
 
-def _to_dutch_expr(col: pl.Expr) -> pl.Expr:
-    """Converteer ``d-m-yyyy`` (zonder leading zeros) naar ``pl.Date``.
-
-    Strategie: vervang lege strings door null, split op ``-``, zero-pad dag en
-    maand, recombineer als ISO ``yyyy-mm-dd``, parse naar ``pl.Date``.
-    """
-    non_empty = pl.when(col == "").then(pl.lit(None, dtype=pl.Utf8)).otherwise(col)
-    parts = non_empty.str.split("-")
+def _iso_uit_dutch(col: pl.Expr) -> pl.Expr:
+    """``d-m-yyyy`` (zonder voorloopnullen) → ``ccyy-mm-dd``."""
+    parts = col.str.split("-")
     day = parts.list.get(0, null_on_oob=True).str.zfill(2)
     month = parts.list.get(1, null_on_oob=True).str.zfill(2)
     year = parts.list.get(2, null_on_oob=True)
-    iso = pl.concat_str([year, month, day], separator="-", ignore_nulls=False)
+    return pl.concat_str([year, month, day], separator="-", ignore_nulls=False)
+
+
+# Per bronformaat: expressie die een datumstring naar ISO-tekst omzet.
+_NAAR_ISO = {
+    "iso": _iso_uit_iso,
+    "compact": _iso_uit_compact,
+    "dutch": _iso_uit_dutch,
+}
+
+# Onbekende dag/maand ("00", PvE §15.5.2) → eerste van de maand/het jaar.
+_ONBEKENDE_MAAND = r"-00-00$"
+_ONBEKENDE_DAG = r"-00$"
+_PRECISIE_SUFFIX = "_precisie"
+_PRECISIE_DAG, _PRECISIE_MAAND, _PRECISIE_JAAR = "dag", "maand", "jaar"
+
+
+def _naar_datum(iso: pl.Expr) -> pl.Expr:
     return iso.str.to_date("%Y-%m-%d", strict=False)
 
 
-_DATE_EXPR = {
-    "iso": _to_iso_expr,
-    "compact": _to_compact_expr,
-    "dutch": _to_dutch_expr,
-}
+def _deels_bekende_datum(iso: pl.Expr) -> tuple[pl.Expr, pl.Expr]:
+    """``(datum, precisie)`` voor een ISO-string waarin dag of maand ``00`` mag zijn."""
+    aangevuld = iso.str.replace(_ONBEKENDE_MAAND, "-01-01").str.replace(
+        _ONBEKENDE_DAG, "-01"
+    )
+    datum = _naar_datum(aangevuld)
+    precisie = (
+        pl.when(datum.is_null())
+        .then(None)
+        .when(iso.str.contains(_ONBEKENDE_MAAND))
+        .then(pl.lit(_PRECISIE_JAAR))
+        .when(iso.str.contains(_ONBEKENDE_DAG))
+        .then(pl.lit(_PRECISIE_MAAND))
+        .otherwise(pl.lit(_PRECISIE_DAG))
+    )
+    return datum, precisie
 
 
 def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) -> str:
@@ -113,7 +135,10 @@ def decode_frames(
 ) -> dict[str, pl.DataFrame]:
     """Cast velden naar het juiste type op basis van het opgegeven schema-TOML.
 
-    - Datumvelden worden ``pl.Date`` (null bij lege waarde).
+    - Datumvelden worden ``pl.Date`` (null bij lege waarde). Velden in
+      ``partial_date_fields`` mogen een onbekende dag/maand (``00``) hebben:
+      die wordt de eerste van de maand/het jaar, met ``<veld>_precisie``
+      (``dag``/``maand``/``jaar``).
     - Integer-velden worden ``pl.Int64``.
     - Float-velden worden ``pl.Float64``; een decimaalkomma wordt geaccepteerd.
     - Alle casts zijn niet-strikt: een ongeldige waarde wordt null en telt als
@@ -132,7 +157,7 @@ def decode_frames(
 
     sample = _find_date_sample(frames, schema)
     date_fmt = _detect_date_format(sample) if sample else "iso"
-    to_date = _DATE_EXPR[date_fmt]
+    naar_iso = _NAAR_ISO[date_fmt]
 
     result: dict[str, pl.DataFrame] = {}
     for rt, df in frames.items():
@@ -142,13 +167,22 @@ def decode_frames(
 
         rt_schema = schema[rt]
         date_fields = set(rt_schema.get("date_fields", []))
+        partial_date_fields = set(rt_schema.get("partial_date_fields", []))
         int_fields = set(rt_schema.get("int_fields", []))
         float_fields = set(rt_schema.get("float_fields", []))
 
         exprs = []
         for col in df.columns:
-            if col in date_fields:
-                exprs.append(to_date(pl.col(col)).alias(col))
+            if col in partial_date_fields:
+                datum, precisie = _deels_bekende_datum(
+                    naar_iso(_leeg_naar_null(pl.col(col)))
+                )
+                exprs.append(datum.alias(col))
+                exprs.append(precisie.alias(col + _PRECISIE_SUFFIX))
+            elif col in date_fields:
+                exprs.append(
+                    _naar_datum(naar_iso(_leeg_naar_null(pl.col(col)))).alias(col)
+                )
             elif col in int_fields:
                 exprs.append(
                     _leeg_naar_null(pl.col(col)).cast(pl.Int64, strict=False).alias(col)
