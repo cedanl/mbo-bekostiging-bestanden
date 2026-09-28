@@ -16,6 +16,10 @@ Regels:
 - Hoofdinschrijving: één per persoon × BRIN × schooljaar, over leveringen heen
   (na canonicalisatie, #174): hoogste niveau, dan laagste CREBO, dan meest
   recente ``DatumBegin``, dan inschrijvingvolgnummer.
+- TBGI levert inschrijvingen, geen ISP-perioden: een TBGI-inschrijving telt
+  alleen in de schooljaren waarvoor zij een 1-oktober-``Teldatum`` heeft (#197).
+  ``DatumInschrijving`` zegt niets over welke peildata de levering waarneemt,
+  en een inschrijving zonder teldatum komt volgens PvE §16 niet in aanmerking.
 - JR: gediplomeerd als ``DIP_DatumResultaat`` in het schooljaar zelf valt (#194).
 - DR: uitstromer als de hoofdinschrijving in ``t`` bij dezelfde BRIN geen
   inschrijving in ``t+1`` heeft, **en** ``t+1`` waarneembaar is (de peildatum
@@ -42,6 +46,8 @@ PEILDATUM = "Peildatum"
 GRAIN = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer", SCHOOLJAAR]
 _GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
 _PEILGRENS = "_peilgrens"
+_TELDATUM = "Teldatum"
+_TBGI_SLEUTEL = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
 # Peildatum van een levering, in voorkeursvolgorde (VLP-velden).
 _PEILGRENS_KOLOMMEN = ("DatumEindePeriode", "DatumAanmaak")
 _JR_DR_MIN_NIVEAU = 2
@@ -193,8 +199,36 @@ def _voeg_dr_toe(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _tbgi_waarnemingen(
+    inschrijvingen: pl.DataFrame, teldata: pl.DataFrame
+) -> pl.DataFrame:
+    """TBGI-inschrijving × 1-oktober-teldatum, als periode van één dag."""
+    if _TELDATUM not in teldata.columns:
+        return inschrijvingen.clear().with_columns(
+            pl.lit(None, dtype=pl.Date).alias("DatumBegin"),
+            pl.lit(None, dtype=pl.Date).alias(_PERIODE_EINDE),
+        )
+    sleutel = [c for c in _TBGI_SLEUTEL if c in inschrijvingen.columns]
+    teldatum = pl.col(_TELDATUM)
+    peilmomenten = (
+        teldata.filter(
+            (teldatum.dt.month() == _TELDATUM_MONTH)
+            & (teldatum.dt.day() == _TELDATUM_DAG)
+        )
+        .select(*sleutel, _TELDATUM)
+        .unique()
+    )
+    return (
+        inschrijvingen.join(peilmomenten, on=sleutel, how="inner")
+        .with_columns(teldatum.alias("DatumBegin"), teldatum.alias(_PERIODE_EINDE))
+        .drop(_TELDATUM)
+    )
+
+
 def bouw_inschrijving_schooljaar(
-    inschrijvingen: pl.DataFrame, leveringen: pl.DataFrame
+    inschrijvingen: pl.DataFrame,
+    leveringen: pl.DataFrame,
+    teldata: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """Bouw ``fact_inschrijving_schooljaar`` uit canonieke ISP-perioden.
 
@@ -202,7 +236,12 @@ def bouw_inschrijving_schooljaar(
         inschrijvingen: Analysetabel op periode-grain (na canonicalisatie), met
                         ``DatumBegin``, ``Niveau``, ``Opleidingcode``,
                         ``IndicatieBekostigbaar`` en ``DIP_DatumResultaat``.
+                        Zonder ISP (TBGI-only) zijn het inschrijvingen met
+                        ``DatumInschrijving``.
         leveringen:     ``meta_leveringen`` (peildatum per levering).
+        teldata:        Rijen met ``Teldatum`` per inschrijving
+                        (``detail_bekostiging``); bepalen de schooljaren van
+                        TBGI-inschrijvingen.
 
     Returns:
         Eén rij per ``GRAIN``; leeg (met vast schema) zonder peildatum-dekking.
@@ -210,10 +249,12 @@ def bouw_inschrijving_schooljaar(
     begin = _periode_begin_kolom(inschrijvingen)
     if begin is None:
         return pl.DataFrame(schema=_KOLOMMEN)
-    # TBGI-only: de inschrijving zelf is de periode (begin = DatumInschrijving).
-    perioden = _voeg_periode_einde_toe(
-        inschrijvingen.with_columns(pl.col(begin).alias("DatumBegin"))
-    )
+    if begin == "DatumBegin":
+        perioden = _voeg_periode_einde_toe(inschrijvingen)
+    else:
+        perioden = _tbgi_waarnemingen(
+            inschrijvingen, teldata if teldata is not None else pl.DataFrame()
+        )
     if _PERIODE_EINDE not in perioden.columns:
         perioden = perioden.with_columns(
             pl.lit(None, dtype=pl.Date).alias(_PERIODE_EINDE)

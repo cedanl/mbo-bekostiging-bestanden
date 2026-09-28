@@ -166,7 +166,9 @@ def build_star(
         "dim_instelling": dim_instelling,
         "fact_inschrijving": fact_inschrijving,
         "fact_inschrijving_schooljaar": bouw_inschrijving_schooljaar(
-            inschrijvingen, tables["meta_leveringen"]
+            inschrijvingen,
+            tables["meta_leveringen"],
+            teldata=tables.get("detail_bekostiging"),
         ),
         "fact_bpv": _build_fact_bpv(tables),
         "fact_kzd": _build_fact_kzd(tables),
