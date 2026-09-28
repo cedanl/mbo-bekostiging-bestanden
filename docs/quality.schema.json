@@ -92,6 +92,34 @@
               }
             ]
           },
+          "regelinventaris": {
+            "type": "object",
+            "description": "Wat de ingest niet inlas (#120); leeg voor TBGI (XML)",
+            "properties": {
+              "onbekende_recordtypes": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "velden_voorbij_schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "spiegel_afwijkingen": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "warnings": {
             "type": "array",
             "description": "Non-fatal issues",
@@ -113,6 +141,7 @@
           "slr_status",
           "slr_details",
           "parseverlies",
+          "regelinventaris",
           "warnings",
           "errors"
         ],
