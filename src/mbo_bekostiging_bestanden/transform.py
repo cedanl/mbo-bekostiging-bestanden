@@ -1435,9 +1435,13 @@ def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """Inschrijving-grain voor TBGI-only input (geen ISP beschikbaar).
 
-    Gebruikt TBGI Inschrijving als vervanging voor ISP; elke inschrijving is
-    één periode vanaf ``DatumInschrijving`` en krijgt zo dezelfde
-    ``_inschrijving_periode_id`` als in de ISP-route.
+    Gebruikt TBGI Inschrijving als vervanging voor ISP; elke inschrijving
+    krijgt hier een pseudo-periode vanaf ``DatumInschrijving`` (alleen om
+    dezelfde ``_inschrijving_periode_id`` te krijgen als in de ISP-route).
+    Dat is géén schooljaar-lidmaatschap: welk schooljaar een TBGI-inschrijving
+    telt, bepaalt ``schooljaar.py`` via ``Teldatum`` (#197), niet via deze
+    ``DatumInschrijving``-periode. Verander deze pseudo-periode niet in de
+    veronderstelling dat hij het schooljaar bepaalt.
     """
     df = _voeg_periode_id_toe(
         _drop(_add_persoon_id(stacked["Inschrijving"]), "Recordsoort")
