@@ -12,6 +12,7 @@ from mbo_bekostiging_bestanden.indicatoren import (
     indicator_voldoet,
     norm_voor,
     populatie_regele_filter,
+    rendement,
 )
 
 # ---------------------------------------------------------------------------
@@ -399,3 +400,56 @@ def test_normen_en_populatie_in_demo_tabellen(demo_tabellen):
             "Uitstroom met diploma",
             "Uitstroom zonder diploma",
         }
+
+
+# ---------------------------------------------------------------------------
+# Rendement op schooljaar-grain (#136)
+# ---------------------------------------------------------------------------
+
+
+def _jaren(*rijen: tuple[int, str, str, bool, bool, bool, bool]) -> pl.DataFrame:
+    """(Schooljaar, Niveau, Leertraject, jr_noemer, jr_teller, dr_noemer, dr_teller)."""
+    kolommen = ["Schooljaar", "Niveau", "Leertraject"]
+    vlaggen = ["_jr_noemer", "_jr_teller", "_dr_noemer", "_dr_teller"]
+    return pl.DataFrame([dict(zip(kolommen + vlaggen, r, strict=True)) for r in rijen])
+
+
+def test_rendement_jr_per_schooljaar_en_niveau():
+    jaren = _jaren(
+        (2024, "MBO-2", "BOL", True, True, False, False),
+        (2024, "MBO-2", "BBL", True, False, False, False),
+        (2024, "MBO-2", "OV", True, True, False, False),  # buiten populatie
+        (2024, "MBO-1", "BOL", True, True, False, False),  # niveau 1
+        (2024, "MBO-3", "BOL", False, False, True, True),  # geen JR-noemer
+    )
+    uit = rendement(jaren, "jr")
+    assert uit.select("Schooljaar", "Niveau", "Noemer", "Teller").rows() == [
+        (2024, "MBO-2", 2, 1)
+    ]
+    rij = uit.row(0, named=True)
+    assert rij["Percentage"] == 50.0
+    assert rij["Norm voldoende"] == norm_voor("jr", 2, "voldoende")
+    assert rij["Norm hoog"] == norm_voor("jr", 2, "hoog")
+    assert rij["Voldoet"] is False
+
+
+def test_rendement_dr_gebruikt_dr_vlaggen():
+    jaren = _jaren(
+        (2023, "MBO-3", "BOL", False, False, True, True),
+        (2023, "MBO-3", "BOL", False, False, True, False),
+    )
+    assert rendement(jaren, "dr").select("Noemer", "Teller", "Percentage").rows() == [
+        (2, 1, 50.0)
+    ]
+
+
+def test_rendement_zonder_noemer_is_leeg():
+    jaren = _jaren((2024, "MBO-2", "BOL", False, False, False, False))
+    assert rendement(jaren, "jr").is_empty()
+
+
+def test_demo_schooljaar_fact_draagt_niveau(demo_star):
+    """Het niveau waarmee de vlaggen zijn berekend, staat op de fact zelf."""
+    jaren = demo_star["fact_inschrijving_schooljaar"]
+    assert "Niveau" in jaren.columns
+    assert jaren.filter(pl.col("_hoofdinschrijving"))["Niveau"].null_count() == 0

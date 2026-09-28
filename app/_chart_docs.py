@@ -19,22 +19,23 @@ _DETAIL_SELECTIE = (
 CHART_DOCS: dict[str, dict] = {
     # ── Tab Rendementen ──────────────────────────────────────────────────────
     "jr_indicatief": {
-        "titel": "Jaarresultaat (JR) — indicatief, per niveau",
+        "titel": "Jaarresultaat (JR) — indicatief, per schooljaar en niveau",
         "variabelen": [
-            "levering",
-            "Niveau",
-            "_actief_1_oktober",
-            "_gediplomeerd_in_jaar",
+            "fact_inschrijving_schooljaar.Schooljaar",
+            "fact_inschrijving_schooljaar.Niveau",
+            "fact_inschrijving_schooljaar._jr_noemer",
+            "fact_inschrijving_schooljaar._jr_teller",
         ],
         "manipulatie": (
-            "De **populatieregels** (bijlage 3) worden eerst toegepast: alleen "
-            "leerwegen bol/bbl/ex (ov en od buiten beschouwing) en niveaus ≥ 2.  "
-            "Van de overgebleven inschrijvingen die op 1 oktober van het "
-            "studiejaar actief waren, wordt per levering × niveau het aandeel "
-            "berekend dat in dat cursusjaar (augustus t/m juli) een diploma "
-            "behaalde: **JR = gediplomeerden / actief op 1-okt × 100**.  De "
-            "DUO-normen (voldoende: 67/68/68; hoog: 82/85/85 voor niveau "
-            "2/3/4) worden er per niveau naast gezet."
+            "Gelezen uit `fact_inschrijving_schooljaar` (één rij per inschrijving "
+            "× schooljaar waarin zij op 1 oktober actief is).  De noemer is "
+            "`_jr_noemer` (de hoofdinschrijving: één per deelnemer × instelling × "
+            "schooljaar), de teller `_jr_teller` (daarvan gediplomeerd in dat "
+            "schooljaar); beide berekent de pipeline, het dashboard telt alleen op "
+            "(`indicatoren.rendement`).  Daarna gelden de **populatieregels** "
+            "(bijlage 3): leerwegen bol/bbl/ex (ov en od buiten beschouwing) en "
+            "niveaus ≥ 2.  **JR = teller / noemer × 100** per schooljaar × niveau, "
+            "met de DUO-normen uit `metadata/normen.toml` ernaast."
         ),
         "kanttekening": (
             "Dit is een **indicatieve schatting**, geen officiële inspectie-"
@@ -47,25 +48,21 @@ CHART_DOCS: dict[str, dict] = {
         ),
     },
     "dr_indicatief": {
-        "titel": "Diplomaresultaat (DR) — indicatief, per niveau",
+        "titel": "Diplomaresultaat (DR) — indicatief, per schooljaar en niveau",
         "variabelen": [
-            "levering",
-            "Niveau",
-            "_dr_noemer",
-            "_dr_teller",
-            "BRIN",
-            "Studiejaar",
+            "fact_inschrijving_schooljaar.Schooljaar",
+            "fact_inschrijving_schooljaar.Niveau",
+            "fact_inschrijving_schooljaar._dr_noemer",
+            "fact_inschrijving_schooljaar._dr_teller",
         ],
         "manipulatie": (
-            "De **populatieregels** worden eerst toegepast (bijlage 3): alleen "
-            "leerwegen bol/bbl/ex, niveaus ≥ 2.  Een student telt als "
-            "**uitstromer** (noemer) als zij actief zijn op 1-10-t én geen "
-            "actieve inschrijving hebben bij hetzelfde BRIN in studiejaar t+1 "
-            "(bepaald via de gestapelde leveringen).  De **teller** zijn "
-            "uitstromers met een diploma (`DIP_DatumResultaat` gevuld).  "
-            "**DR = gediplomeerde uitstromers / alle uitstromers × 100**.  "
-            "De DUO-normen (voldoende: 61/70/70; hoog: 79/89/89 voor niveau "
-            "2/3/4) worden er per niveau naast gezet."
+            "Gelezen uit `fact_inschrijving_schooljaar`.  Noemer `_dr_noemer`: de "
+            "hoofdinschrijving (niveau ≥ 2) in schooljaar t zonder inschrijving "
+            "bij hetzelfde BRIN in t+1, alleen als t+1 waarneembaar is (een "
+            "levering van dat BRIN dekt 1-10-(t+1)).  Teller `_dr_teller`: "
+            "daarvan met een diploma.  Beide berekent de pipeline; na de "
+            "**populatieregels** (bijlage 3) geldt **DR = teller / noemer × 100** "
+            "per schooljaar × niveau, met de DUO-normen ernaast."
         ),
         "kanttekening": (
             "Dit is een **indicatieve schatting**, geen officiële inspectie-"
@@ -80,15 +77,17 @@ CHART_DOCS: dict[str, dict] = {
     "berekend_oordeel": {
         "titel": "Berekend oordeel Studiesucces (indicatief)",
         "variabelen": [
-            "Niveau",
-            "_jr_noemer",
-            "_jr_teller",
-            "_dr_noemer",
-            "_dr_teller",
+            "fact_inschrijving_schooljaar.Niveau",
+            "fact_inschrijving_schooljaar._jr_noemer",
+            "fact_inschrijving_schooljaar._jr_teller",
+            "fact_inschrijving_schooljaar._dr_noemer",
+            "fact_inschrijving_schooljaar._dr_teller",
             "metadata/normen.toml",
         ],
         "manipulatie": (
-            "Op basis van JR én DR per niveau wordt de beoordelingsregel van "
+            "JR en DR worden per niveau opgeteld over de geselecteerde "
+            "schooljaren (tellers en noemers, niet de percentages).  Daarop wordt "
+            "de beoordelingsregel van "
             "tabel 3 toegepast (via `indicatoren.bereken_oordeel`): hoog als "
             "alle drie de indicatoren voldoen en JR of DR de hoge norm haalt; "
             "voldoende als ≥ 2 van de 3 voldoen; anders onvoldoende.  De "
@@ -133,16 +132,16 @@ CHART_DOCS: dict[str, dict] = {
     "bekostigingstrechter": {
         "titel": "Bekostigingstrechter",
         "variabelen": [
-            "levering",
-            "_actief_1_oktober",
-            "_bekostigd_eerste_1okt",
-            "_deelnemer_niet_bekostigd_eerste_1okt",
+            "fact_inschrijving",
+            "fact_inschrijving_schooljaar._bekostigd",
         ],
         "manipulatie": (
-            "Vier telstappen die elkaar opvolgen: (1) alle inschrijvingen; "
-            "(2) actief op 1 oktober (`DatumInschrijving ≤ 1-10` en uitgeschreven "
-            "na 1-10 of nog ingeschreven); (3) daarvan met `IndicatieBekostigbaar` "
-            "= 'J'; (4) actief maar niet bekostigd (= verschil tussen stap 2 en 3)."
+            "Vier tellingen: (1) inschrijvingsperioden in `fact_inschrijving`; "
+            "(2) actief op 1 oktober = rijen in `fact_inschrijving_schooljaar` "
+            "(inschrijving × schooljaar waarin een periode 1 oktober dekt); "
+            "(3) daarvan bekostigbaar (`_bekostigd`: `IndicatieBekostigbaar` = J "
+            "in de periode op 1 oktober); (4) actief maar niet bekostigbaar "
+            "(verschil tussen 2 en 3)."
         ),
     },
     "bekostiging_levering": {

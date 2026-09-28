@@ -9,6 +9,7 @@ import polars as pl
 from mbo_bekostiging_bestanden.filters import (
     filter_detail_op_inschrijvingen,
     filter_fact_bekostiging_op_jaar,
+    filter_schooljaren_op_jaar,
     periode_jaar_kolom,
 )
 
@@ -146,3 +147,23 @@ def test_detailfilter_zonder_gedeelde_sleutel_of_selectie_geeft_leeg():
     leeg = _twee_perioden().clear()
     met_sleutel = _twee_perioden().select("_inschrijving_periode_id")
     assert filter_detail_op_inschrijvingen(met_sleutel, leeg).is_empty()
+
+
+# ---------------------------------------------------------------------------
+# filter_schooljaren_op_jaar (#136)
+# ---------------------------------------------------------------------------
+
+
+def test_schooljaren_volgen_de_studiejaarselectie():
+    jaren = pl.DataFrame({"Schooljaar": [2023, 2024, 2025], "x": [1, 2, 3]})
+    selectie = pl.DataFrame({"Studiejaar_periode": [2024, 2025, 2025]})
+    assert filter_schooljaren_op_jaar(jaren, selectie)["Schooljaar"].to_list() == [
+        2024,
+        2025,
+    ]
+
+
+def test_schooljaren_leeg_bij_lege_selectie():
+    jaren = pl.DataFrame({"Schooljaar": [2024]})
+    selectie = pl.DataFrame({"Studiejaar_periode": pl.Series([], dtype=pl.Int64)})
+    assert filter_schooljaren_op_jaar(jaren, selectie).is_empty()

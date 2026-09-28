@@ -76,6 +76,7 @@ _KOLOMMEN = [
     "_inschrijving_periode_id",
     "DatumBegin",
     "Opleidingcode",
+    "Niveau",
     "Leertraject",
     HOOFDINSCHRIJVING,
     "_telling",
