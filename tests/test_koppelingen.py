@@ -49,10 +49,14 @@ def test_volledig_wees_feit_wordt_expliciet_benoemd():
 
 
 def test_demo_star_signaleert_alleen_de_wees_bekostiging(demo_star):
-    """Demo: TBGI-bekostiging (25LX) hoort bij geen enkele ISP-levering."""
+    """Demo: de TBGI-inschrijving is parent van haar bekostiging (#196).
+
+    Het TBGI-diploma is van een andere student, zonder inschrijving in de
+    levering (PvE §16.1); gemeld, maar verklaard.
+    """
     meldingen = controleer_koppelingen(demo_star)
     gemeld = {m.split(":")[0] for m in meldingen}
-    assert gemeld == {"fact_bekostiging", "fact_bekostiging_diploma"}
+    assert gemeld == {"fact_bekostiging_diploma"}
 
 
 # --- Uniciteit van de periodesleutel (issue #122) ---------------------------
@@ -175,3 +179,43 @@ def test_quality_report_telt_elk_geschonden_contract_als_error():
     assert dubbel["fact_inschrijving_schooljaar"]["duplicate_keys"] == 1
     assert dubbel["fact_inschrijving_schooljaar"]["sleutel"] == _SCHOOLJAAR_GRAIN
     assert rapport["summary"]["total_errors"] == 3
+
+
+# --- Relatiecontract: optionele parent (issue #196) -------------------------
+
+
+def _star_met_wees(feit: str) -> dict[str, pl.DataFrame]:
+    """Eén rij in ``feit`` die bij geen enkele inschrijving hoort."""
+    return {
+        "fact_inschrijving": pl.DataFrame({"levering": ["T"], SLEUTEL: ["a"]}),
+        feit: pl.DataFrame(
+            {"levering": ["T"], SLEUTEL: [None]}, schema_overrides={SLEUTEL: pl.Utf8}
+        ),
+    }
+
+
+def test_tbgi_diploma_zonder_inschrijving_is_verklaard_en_geen_fout():
+    """PvE §16.1: TBG-i bevat de diploma's van kalenderjaar T-2, los van de
+    inschrijvingen van studiejaar T-2; een diploma zonder inschrijving is normaal."""
+    rapport = compile_quality_report(_star_met_wees("fact_bekostiging_diploma"))
+    wees = rapport["star"]["orphaned_facts"]["fact_bekostiging_diploma"]
+    assert (wees["orphaned_rows"], wees["explained_rows"]) == (1, 1)
+    assert wees["explanation"]
+    assert rapport["summary"]["total_errors"] == 0
+    assert rapport["summary"]["total_warnings"] == 0
+
+
+def test_wees_bekostiging_blijft_error():
+    rapport = compile_quality_report(_star_met_wees("fact_bekostiging"))
+    assert rapport["star"]["orphaned_facts"]["fact_bekostiging"]["explained_rows"] == 0
+    assert rapport["summary"]["total_errors"] == 1
+
+
+def test_melding_noemt_de_verklaring():
+    [melding] = controleer_koppelingen(_star_met_wees("fact_bekostiging_diploma"))
+    assert "verklaard" in melding
+
+
+def test_demo_quality_heeft_geen_wees_errors(demo_star):
+    wees = compile_quality_report(demo_star)["star"]["orphaned_facts"]
+    assert all(m["orphaned_rows"] == m["explained_rows"] for m in wees.values())

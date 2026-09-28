@@ -140,6 +140,11 @@ _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 _PERIODE_ID = "_inschrijving_periode_id"
+# Herkomst van een rij in de centrale inschrijvingstabel (#196): een ISP-periode
+# (RO/GRONDSLAG) of een TBGI-inschrijving zonder ISP-perioden.
+BRON = "Bron"
+BRON_ISP = "ISP"
+BRON_TBGI = "TBGI"
 # Eén inschrijving binnen een levering: haar ISP-perioden sluiten op elkaar aan.
 # Een periode loopt t/m DatumEind (GRONDSLAG), anders tot de volgende (#144).
 _PERIODE_INSCHRIJVING = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
@@ -1459,6 +1464,28 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     return _voeg_afgeleide_velden_toe(df)
 
 
+def _tbgi_zonder_isp(
+    stacked: dict[str, pl.DataFrame], isp_inschrijvingen: pl.DataFrame
+) -> pl.DataFrame:
+    """TBGI-inschrijvingen die niet al als ISP-periode bestaan (#196).
+
+    Een inschrijving met ISP-perioden (RO/GRONDSLAG) is rijker dan haar
+    TBGI-weergave en blijft de parent; TBGI vult alleen aan wat ontbreekt,
+    bijv. een student die niet in de meegeleverde RO-bestanden staat.
+    """
+    tbgi = _bouw_tbgi_inschrijvingen(stacked).with_columns(
+        pl.lit(BRON_TBGI).alias(BRON)
+    )
+    if isp_inschrijvingen.is_empty():
+        return tbgi
+    return tbgi.join(
+        isp_inschrijvingen.select(_JOIN_INSTELLING_INSCHRIJVING).unique(),
+        on=_JOIN_INSTELLING_INSCHRIJVING,
+        how="anti",
+        nulls_equal=True,
+    )
+
+
 def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """Eén rij per gestapelde levering, met VLP + SLR waar die bestaan.
 
@@ -1514,12 +1541,17 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
         vervangen = vervangen_inschrijvingen(isp, stacked.get("VLP", pl.DataFrame()))
         inschrijvingen = _bouw_inschrijvingen(
             stacked, verwijder_vervangen(isp, vervangen)
-        )
+        ).with_columns(pl.lit(BRON_ISP).alias(BRON))
         overzicht = canonicalisatie_overzicht(isp, vervangen)
     else:
+        inschrijvingen = pl.DataFrame()
         vervangen = pl.DataFrame()
         overzicht = canonicalisatie_overzicht(pl.DataFrame(), vervangen)
-        inschrijvingen = _bouw_tbgi_inschrijvingen(stacked)
+    if heeft_inschrijving:
+        inschrijvingen = pl.concat(
+            [inschrijvingen, _tbgi_zonder_isp(stacked, inschrijvingen)],
+            how="diagonal_relaxed",
+        )
     inschrijvingen = enrich_inschrijvingen(inschrijvingen)
     details = {
         naam: verwijder_vervangen(detail, vervangen)

@@ -354,6 +354,7 @@ def _tbgi_inschrijving(nr: str = "1", inschrijving: date = date(2024, 2, 1)) -> 
     rij = _periode(inschrijving, levering="T", nr=nr)
     rij["DatumInschrijving"] = rij.pop("DatumBegin")
     rij["DatumUitschrijvingGepland"] = date(2027, 1, 31)
+    rij["Bron"] = "TBGI"
     return rij
 
 
@@ -365,6 +366,10 @@ def _teldata(*rijen: tuple[str, date]) -> pl.DataFrame:
             "_persoon_id": ["P"] * len(rijen),
             "Inschrijvingvolgnummer": [nr for nr, _ in rijen],
             "Teldatum": [d for _, d in rijen],
+            "Opleidingcode": ["25748"] * len(rijen),
+            "Niveau": ["MBO-1"] * len(rijen),
+            "Leertraject": ["BBL"] * len(rijen),
+            "IndicatieBekostigbaar": ["J"] * len(rijen),
         }
     )
 
@@ -382,6 +387,16 @@ def test_tbgi_schooljaar_volgt_teldatum_niet_datum_inschrijving():
     )
     assert df["Schooljaar"].to_list() == [2025]
     assert df["Peildatum"].to_list() == [date(2025, 10, 1)]
+
+
+def test_tbgi_attributen_komen_van_de_teldatum():
+    """Opleiding, niveau en bekostigbaarheid zijn per teldatum waargenomen."""
+    inschrijving = _tbgi_inschrijving()
+    inschrijving.update(Niveau=None, Opleidingcode=None, Leertraject=None)
+    df = _bouw_tbgi(_inschrijvingen(inschrijving), _teldata(("1", date(2025, 10, 1))))
+    rij = df.row(0, named=True)
+    assert (rij["Opleidingcode"], rij["Leertraject"]) == ("25748", "BBL")
+    assert rij["_hoofdinschrijving"] and rij["_bekostigd"]
 
 
 def test_tbgi_teldatum_1_februari_is_geen_peildatum():

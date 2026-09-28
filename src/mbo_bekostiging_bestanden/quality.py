@@ -17,7 +17,7 @@ import polars as pl
 from mbo_bekostiging_bestanden.canonicalisatie import INSCHRIJVING, REGEL
 from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
-    filter_detail_op_inschrijvingen,
+    detail_zonder_inschrijving,
 )
 from mbo_bekostiging_bestanden.schooljaar import (
     FEIT as SCHOOLJAAR_FEIT,
@@ -236,8 +236,20 @@ _META_CANONICALISATIE = "meta_canonicalisatie"
 SCENARIO_ONBEKEND = "unknown"
 
 
+# Detail-feiten waarvan de parent in fact_inschrijving optioneel is (#196), met
+# de reden. Hun wees-rijen zijn verklaard: geen error, wel zichtbaar.
+_OPTIONELE_PARENT = {
+    # PvE §16.1: TBG-i voor bekostigingsjaar T bevat de diploma's behaald in
+    # kalenderjaar T-2, los van de inschrijvingen in studiejaar T-2.
+    "fact_bekostiging_diploma": (
+        "TBG-i levert diploma's van het kalenderjaar los van de inschrijvingen "
+        "in het bestand (PvE §16.1)"
+    ),
+}
+
+
 def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
-    """Core check: detail-feiten for orphaned rows. Returns structured dict."""
+    """Per detail-feit: rijen zonder inschrijving, en hoeveel daarvan verklaard zijn."""
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     orphaned_facts: dict[str, Any] = {}
 
@@ -247,41 +259,42 @@ def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str,
         if feit.is_empty():
             continue
 
-        gekoppeld = filter_detail_op_inschrijvingen(feit, inschrijvingen).height
-        wees = feit.height - gekoppeld
-        if wees == 0:
+        wees = detail_zonder_inschrijving(feit, inschrijvingen)
+        if wees.is_empty():
             continue
 
-        wees_pct = wees / feit.height if feit.height > 0 else 0.0
+        reden = _OPTIONELE_PARENT.get(naam)
         orphaned_facts[naam] = {
             "total_rows": feit.height,
-            "orphaned_rows": wees,
-            "orphaned_pct": round(wees_pct, 4),
+            "orphaned_rows": wees.height,
+            "orphaned_pct": round(wees.height / feit.height, 4),
+            "explained_rows": wees.height if reden else 0,
+            "explanation": reden,
         }
 
     return {"orphaned_facts": orphaned_facts}
 
 
 def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
-    """Wrapper: gestructureerde check naar strings voor app-display."""
-    result = _check_orphaned_facts_structured(star)
+    """Eén melding per detail-feit met wees-rijen, voor weergave in de app."""
     meldingen: list[str] = []
-
-    for naam, metrics in result.get("orphaned_facts", {}).items():
-        pct_val = metrics.get("orphaned_pct", 0) * 100
-        wees = metrics.get("orphaned_rows", 0)
-        totaal = metrics.get("total_rows", 0)
-
+    wees_per_feit = _check_orphaned_facts_structured(star)["orphaned_facts"]
+    for naam, metrics in wees_per_feit.items():
+        wees = metrics["orphaned_rows"]
+        totaal = metrics["total_rows"]
         if wees == totaal:
-            meldingen.append(
-                f"{naam}: geen enkele rij ({totaal}) koppelt aan {_CENTRAAL_FEIT}"
-            )
+            melding = f"{naam}: geen enkele rij ({totaal}) koppelt aan {_CENTRAAL_FEIT}"
         else:
-            meldingen.append(
-                f"{naam}: {wees} van {totaal} rijen ({pct_val:.0f}%) "
+            melding = (
+                f"{naam}: {wees} van {totaal} rijen "
+                f"({metrics['orphaned_pct'] * 100:.0f}%) "
                 f"koppelen niet aan {_CENTRAAL_FEIT}"
             )
-
+        if metrics["explained_rows"]:
+            melding += (
+                f"; {metrics['explained_rows']} verklaard: {metrics['explanation']}"
+            )
+        meldingen.append(melding)
     return meldingen
 
 
@@ -421,23 +434,22 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
 def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]:
     """Evaluate star-checks; return (errors, warnings).
 
-    Errors: orphaned_facts with pct > 0, per geschonden uniciteitscontract,
+    Errors: onverklaarde wees-feiten (optionele parent: geen fout), per
+            geschonden uniciteitscontract,
             overlapping_deliveries > 0 (na canonicalisatie telt dat dubbel)
     Warnings: niveau_issues > 0
     """
     errors = 0
     warnings = 0
 
-    # Check orphaned facts
-    for _tabla, metrics in star_checks.get("orphaned_facts", {}).items():
-        if metrics.get("orphaned_pct", 0) > 0:
+    for metrics in star_checks.get("orphaned_facts", {}).values():
+        if metrics["orphaned_rows"] > metrics["explained_rows"]:
             errors += 1
 
     for dubbel in star_checks.get("key_duplicates", {}).values():
         if dubbel.get("duplicate_keys", 0) > 0:
             errors += 1
 
-    # Check niveau issues
     if star_checks.get("niveau_issues", {}).get("total", 0) > 0:
         warnings += 1
 
