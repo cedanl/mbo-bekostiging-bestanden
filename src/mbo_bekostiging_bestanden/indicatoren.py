@@ -32,6 +32,15 @@ _POPULATIE_UITSLUIT_LEERWEGEN = {"ov", "od"}
 # Minimale omvang van de noemer voordat een indicator beoordeeld kan worden.
 _MIN_NOEMER = 12
 
+# Noemer- en tellervlag per indicator in fact_inschrijving_schooljaar (#136).
+_RENDEMENT_VLAGGEN = {
+    "jr": ("_jr_noemer", "_jr_teller"),
+    "dr": ("_dr_noemer", "_dr_teller"),
+}
+_RENDEMENT_GROEP = ["Schooljaar", "Niveau"]
+# JR en DR worden vanaf niveau 2 beoordeeld; niveau 1 heeft entree-indicatoren.
+_RENDEMENT_MIN_NIVEAU = 2
+
 # Korte indicatornamen → sleutels in normen.toml.
 _INDICATOR_SLEUTELS = {
     "jr": "jaarresultaat",
@@ -107,6 +116,53 @@ def populatie_regele_filter(
         df = df.filter(niveau.is_not_null() & (niveau >= min_niveau))
 
     return df
+
+
+def _normen(indicator: str) -> pl.DataFrame:
+    """Normen voor voldoende en hoog per numeriek niveau."""
+    per_niveau = _laad_normen().get(_INDICATOR_SLEUTELS.get(indicator, indicator), {})
+    return pl.DataFrame(
+        {
+            "_niveau": list(per_niveau),
+            "Norm voldoende": [n.get("voldoende") for n in per_niveau.values()],
+            "Norm hoog": [n.get("hoog") for n in per_niveau.values()],
+        },
+        schema={"_niveau": pl.Int32, "Norm voldoende": pl.Int64, "Norm hoog": pl.Int64},
+    )
+
+
+def rendement(jaren: pl.DataFrame, indicator: str) -> pl.DataFrame:
+    """JR of DR per schooljaar en niveau uit ``fact_inschrijving_schooljaar``.
+
+    Noemer en teller zijn de vlaggen die de ETL per schooljaar berekent
+    (``_jr_noemer``/``_jr_teller``, ``_dr_noemer``/``_dr_teller``); hier wordt
+    niets herberekend. Alleen de indicator-populatie (bijlage 3) telt mee.
+
+    Returns:
+        ``Schooljaar``, ``Niveau``, ``Noemer``, ``Teller``, ``Percentage``,
+        ``Norm voldoende``, ``Norm hoog`` en ``Voldoet`` (aan de voldoende-norm).
+    """
+    noemer, teller = _RENDEMENT_VLAGGEN[indicator]
+    in_noemer = pl.col(noemer).fill_null(False)
+    return (
+        populatie_regele_filter(jaren, min_niveau=_RENDEMENT_MIN_NIVEAU)
+        .filter(in_noemer)
+        .group_by(_RENDEMENT_GROEP)
+        .agg(
+            in_noemer.sum().alias("Noemer"),
+            (in_noemer & pl.col(teller).fill_null(False)).sum().alias("Teller"),
+        )
+        .with_columns(
+            (pl.col("Teller") / pl.col("Noemer") * 100).round(1).alias("Percentage"),
+            _niveau_num(pl.col("Niveau")).alias("_niveau"),
+        )
+        .join(_normen(indicator), on="_niveau", how="left")
+        .with_columns(
+            (pl.col("Percentage") >= pl.col("Norm voldoende")).alias("Voldoet")
+        )
+        .drop("_niveau")
+        .sort(_RENDEMENT_GROEP)
+    )
 
 
 # ---------------------------------------------------------------------------
