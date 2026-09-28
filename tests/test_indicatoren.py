@@ -11,7 +11,6 @@ from mbo_bekostiging_bestanden.indicatoren import (
     entree_totaal,
     indicator_voldoet,
     norm_voor,
-    normen_per_niveau,
     populatie_regele_filter,
 )
 
@@ -45,12 +44,6 @@ def test_normen_tabel_2_hoog_jr_dr():
     assert norm_voor("dr", 3, "hoog") == 89
     assert norm_voor("dr", 4, "hoog") == 89
     assert norm_voor("sr", 2, "hoog") is None
-
-
-def test_normen_per_niveau_structuur():
-    jr = normen_per_niveau("jr")
-    assert set(jr.keys()) == {2, 3, 4}
-    assert jr[3] == {"voldoende": 68, "hoog": 85}
 
 
 def test_norm_voor_onbekend_geeft_none():

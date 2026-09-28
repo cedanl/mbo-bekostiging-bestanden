@@ -597,15 +597,6 @@ def _voeg_periode_einde_toe(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(einde.alias(_PERIODE_EINDE)).drop("_volgende_begin")
 
 
-def _periode_dekt(df: pl.DataFrame, datum: pl.Expr) -> pl.Expr:
-    """Waar als de ISP-periode ``datum`` dekt; onbekende grenzen sluiten niet uit."""
-    if _PERIODE_EINDE not in df.columns:
-        return pl.lit(True)
-    begint_op_tijd = (pl.col("DatumBegin") <= datum).fill_null(True)
-    loopt_door = pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= datum)
-    return begint_op_tijd & loopt_door
-
-
 def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
     """Bepaal per (levering, BRIN, _persoon_id, schooljaar) welke ISP-periode
     actief is op 1-okt.
