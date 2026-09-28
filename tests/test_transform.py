@@ -104,7 +104,8 @@ def test_inschrijvingen_grain_isp(demo_tabellen, demo_stacked):
     De demo bevat geen overlappende leveringen, dus niets wordt vervangen.
     """
     assert demo_tabellen["meta_canonicalisatie"].is_empty()
-    assert demo_tabellen["inschrijvingen"].height == demo_stacked["ISP"].height
+    isp = demo_tabellen["inschrijvingen"].filter(pl.col("Bron") == "ISP")
+    assert isp.height == demo_stacked["ISP"].height
 
 
 def test_inschrijvingen_heeft_persoon_id(demo_tabellen):

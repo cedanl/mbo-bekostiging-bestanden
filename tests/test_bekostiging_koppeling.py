@@ -76,11 +76,12 @@ def test_tbgi_koppelt_aan_ro_periode_waarin_teldatum_valt():
     star = build_star(_stacked([("25LX", "S1", "002", date(2025, 10, 1))]))
     ids = _periode_ids(star)
     assert star["fact_bekostiging"][SLEUTEL].to_list() == [ids[date(2025, 8, 1)]]
+    assert star["fact_inschrijving"]["Bron"].unique().to_list() == ["ISP"]
     assert controleer_koppelingen(star) == []
 
 
-def test_zonder_passende_ro_inschrijving_blijft_sleutel_leeg():
-    """Andere instelling of onbekende student: niet koppelen, wel melden."""
+def test_tbgi_inschrijving_zonder_ro_wordt_centrale_rij():
+    """Andere instelling of onbekende student: de TBGI-inschrijving is parent (#196)."""
     star = build_star(
         _stacked(
             [
@@ -89,9 +90,19 @@ def test_zonder_passende_ro_inschrijving_blijft_sleutel_leeg():
             ]
         )
     )
-    assert star["fact_bekostiging"][SLEUTEL].to_list() == [None, None]
-    [melding] = controleer_koppelingen(star)
-    assert melding.startswith("fact_bekostiging:")
+    fi = star["fact_inschrijving"]
+    tbgi = fi.filter(pl.col("Bron") == "TBGI")
+    assert tbgi.height == 2
+    assert set(star["fact_bekostiging"][SLEUTEL].to_list()) == set(tbgi[SLEUTEL])
+    assert controleer_koppelingen(star) == []
+
+
+def test_tbgi_inschrijving_met_ro_perioden_wordt_niet_verdubbeld():
+    """Zelfde BRIN × persoon × volgnummer als RO: de ISP-perioden blijven de parent."""
+    star = build_star(_stacked([("25LX", "S1", "002", date(2025, 10, 1))]))
+    fi = star["fact_inschrijving"]
+    assert fi["Bron"].to_list() == ["ISP", "ISP"]
+    assert fi.filter(pl.col("levering") == TBGI).is_empty()
 
 
 def test_koppeling_over_leveringen_is_rijvolgorde_onafhankelijk():
@@ -128,3 +139,11 @@ def test_inschrijving_in_meerdere_ro_leveringen_koppelt_deterministisch():
     bek = star["fact_bekostiging"]
     assert bek[SLEUTEL].to_list() == [verwacht]
     assert bek.join(fi.select(SLEUTEL), on=SLEUTEL).height == bek.height
+
+
+def test_demo_gemengde_run_heeft_geen_wees_bekostiging(demo_star):
+    """Demo: TBGI 25LX-inschrijving 002 staat niet in RO_25LX, maar is wel parent."""
+    fi = demo_star["fact_inschrijving"]
+    bek = demo_star["fact_bekostiging"]
+    assert bek.join(fi.select(SLEUTEL), on=SLEUTEL, how="anti").is_empty()
+    assert fi.filter(pl.col("Bron") == "TBGI").height == 1

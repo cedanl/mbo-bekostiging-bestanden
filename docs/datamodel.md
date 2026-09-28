@@ -52,7 +52,7 @@ geschreven.
 | `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …). `Geboortedatum_precisie` (`dag`/`maand`/`jaar`) geeft aan of dag of maand onbekend was (`00` in de bron); de datum is dan de 1e van de maand/het jaar |
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
-| `fact_inschrijving` | ISP-inschrijvingsperiode | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |
+| `fact_inschrijving` | ISP-inschrijvingsperiode, of TBGI-inschrijving zonder ISP | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. `Bron` = `ISP` (RO/GRONDSLAG-periode) of `TBGI` (inschrijving die alleen in TBG-i staat, #196). De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |
 | `fact_inschrijving_schooljaar` | Persoon × instelling × inschrijving × schooljaar | `BRIN` + `_persoon_id` + `Inschrijvingvolgnummer` + `Schooljaar` | Eén rij per schooljaar waarin een inschrijving op de peildatum (1 oktober) actief is, met hoofdinschrijving, telling, bekostigd, JR en DR. FK `_inschrijving_periode_id` wijst de periode aan die de peildatum dekt |
 | `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
 | `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving; `Behaald` (bool) is exact bepaald uit de waardenlijst (`Behaald`/`Niet behaald`), null bij een onbekende waarde |
@@ -95,9 +95,22 @@ nooit zonder persoon joinen. Bij TBGI neemt het inlezen de BSN/ONr van de ouder-
 RO en TBGI (beiden BSN/ONr) koppelen wel. Of het PGN over studiejaren gelijk blijft, is nog
 niet door DUO bevestigd (#128); tot die tijd zijn persoonskoppelingen tussen
 GRONDSLAG-leveringen van verschillende jaren niet gegarandeerd.
-Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
-instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagina gemeld
-(`quality.controleer_koppelingen`).
+**Centrale laag over bronnen heen (#196).** `fact_inschrijving` bevat de ISP-perioden (RO, GRONDSLAG) én
+de TBGI-inschrijvingen die daar níet al in staan (zelfde `BRIN × _persoon_id × Inschrijvingvolgnummer`).
+Een inschrijving met ISP-perioden is rijker en blijft de parent; TBGI vult alleen aan, bijv. een student die
+niet in de meegeleverde RO-bestanden staat. In `fact_inschrijving_schooljaar` telt een TBGI-rij in de
+schooljaren van haar 1-oktober-teldata (#197).
+
+**Relatiecontract per detail-feit.** Rijen zonder bijbehorende inschrijving worden gemeld
+(`quality.controleer_koppelingen`, `quality.json` → `star.orphaned_facts`):
+
+| Feit | Parent | Wees-rij is |
+|---|---|---|
+| `fact_bpv`, `fact_kzd`, `fact_amo`, `fact_geo` | ISP-periode via `_inschrijving_periode_id` | error |
+| `fact_bekostiging` | inschrijving (ISP of TBGI) waarin de `Teldatum` valt | error |
+| `fact_bekostiging_diploma` | inschrijving van het diploma, **optioneel** | **verklaard** (geen error): TBG-i voor bekostigingsjaar T levert de diploma's van kalenderjaar T-2 los van de inschrijvingen van studiejaar T-2 (PvE §16.1); een diploma zonder inschrijving in de levering is normaal |
+| `fact_inschrijving_schooljaar` | periode via `_inschrijving_periode_id` | error |
+
 Uniciteitscontracten (elke schending is een error in `quality.json` → `star.key_duplicates`, en een melding
 op de Home-pagina via `quality.controleer_sleuteluniciteit`):
 

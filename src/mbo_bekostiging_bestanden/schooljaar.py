@@ -36,8 +36,9 @@ from mbo_bekostiging_bestanden.transform import (
     _STUDIEJAAR_START_MONTH,
     _TELDATUM_DAG,
     _TELDATUM_MONTH,
+    BRON,
+    BRON_TBGI,
     _niveau_numeriek,
-    _periode_begin_kolom,
     _voeg_periode_einde_toe,
 )
 
@@ -51,6 +52,13 @@ HOOFDINSCHRIJVING = "_hoofdinschrijving"
 _PEILGRENS = "_peilgrens"
 _TELDATUM = "Teldatum"
 _TBGI_SLEUTEL = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
+# TBG-i legt deze per teldatum vast; ze gelden voor dat schooljaar (PvE §16.5.2).
+_TELDATUM_ATTRIBUTEN = (
+    "Opleidingcode",
+    "Niveau",
+    "Leertraject",
+    "IndicatieBekostigbaar",
+)
 # Peildatum van een levering, in voorkeursvolgorde (VLP-velden).
 _PEILGRENS_KOLOMMEN = ("DatumEindePeriode", "DatumAanmaak")
 _JR_DR_MIN_NIVEAU = 2
@@ -203,24 +211,30 @@ def _voeg_dr_toe(df: pl.DataFrame) -> pl.DataFrame:
 def _tbgi_waarnemingen(
     inschrijvingen: pl.DataFrame, teldata: pl.DataFrame
 ) -> pl.DataFrame:
-    """TBGI-inschrijving × 1-oktober-teldatum, als periode van één dag."""
+    """TBGI-inschrijving × 1-oktober-teldatum, als periode van één dag.
+
+    Opleiding, niveau, leertraject en bekostigbaarheid komen van de teldatum:
+    TBG-i legt ze per teldatum vast, niet per inschrijving.
+    """
     if _TELDATUM not in teldata.columns:
         return inschrijvingen.clear().with_columns(
             pl.lit(None, dtype=pl.Date).alias("DatumBegin"),
             pl.lit(None, dtype=pl.Date).alias(_PERIODE_EINDE),
         )
     sleutel = [c for c in _TBGI_SLEUTEL if c in inschrijvingen.columns]
+    attributen = [c for c in _TELDATUM_ATTRIBUTEN if c in teldata.columns]
     teldatum = pl.col(_TELDATUM)
     peilmomenten = (
         teldata.filter(
             (teldatum.dt.month() == _TELDATUM_MONTH)
             & (teldatum.dt.day() == _TELDATUM_DAG)
         )
-        .select(*sleutel, _TELDATUM)
+        .select(*sleutel, _TELDATUM, *attributen)
         .unique()
     )
     return (
-        inschrijvingen.join(peilmomenten, on=sleutel, how="inner")
+        inschrijvingen.drop(attributen, strict=False)
+        .join(peilmomenten, on=sleutel, how="inner")
         .with_columns(teldatum.alias("DatumBegin"), teldatum.alias(_PERIODE_EINDE))
         .drop(_TELDATUM)
     )
@@ -237,8 +251,8 @@ def bouw_inschrijving_schooljaar(
         inschrijvingen: Analysetabel op periode-grain (na canonicalisatie), met
                         ``DatumBegin``, ``Niveau``, ``Opleidingcode``,
                         ``IndicatieBekostigbaar`` en ``DIP_DatumResultaat``.
-                        Zonder ISP (TBGI-only) zijn het inschrijvingen met
-                        ``DatumInschrijving``.
+                        Rijen met ``Bron == "TBGI"`` zijn inschrijvingen
+                        zonder ISP-periode.
         leveringen:     ``meta_leveringen`` (peildatum per levering).
         teldata:        Rijen met ``Teldatum`` per inschrijving
                         (``detail_bekostiging``); bepalen de schooljaren van
@@ -247,15 +261,21 @@ def bouw_inschrijving_schooljaar(
     Returns:
         Eén rij per ``GRAIN``; leeg (met vast schema) zonder peildatum-dekking.
     """
-    begin = _periode_begin_kolom(inschrijvingen)
-    if begin is None:
-        return pl.DataFrame(schema=_KOLOMMEN)
-    if begin == "DatumBegin":
-        perioden = _voeg_periode_einde_toe(inschrijvingen)
-    else:
-        perioden = _tbgi_waarnemingen(
-            inschrijvingen, teldata if teldata is not None else pl.DataFrame()
+    tbgi_rij = (
+        pl.col(BRON) == BRON_TBGI if BRON in inschrijvingen.columns else pl.lit(False)
+    )
+    delen = []
+    isp = inschrijvingen.filter(~tbgi_rij)
+    if "DatumBegin" in isp.columns and not isp.is_empty():
+        delen.append(_voeg_periode_einde_toe(isp))
+    tbgi = inschrijvingen.filter(tbgi_rij)
+    if not tbgi.is_empty():
+        delen.append(
+            _tbgi_waarnemingen(tbgi, teldata if teldata is not None else pl.DataFrame())
         )
+    if not delen:
+        return pl.DataFrame(schema=_KOLOMMEN)
+    perioden = pl.concat(delen, how="diagonal_relaxed")
     if _PERIODE_EINDE not in perioden.columns:
         perioden = perioden.with_columns(
             pl.lit(None, dtype=pl.Date).alias(_PERIODE_EINDE)

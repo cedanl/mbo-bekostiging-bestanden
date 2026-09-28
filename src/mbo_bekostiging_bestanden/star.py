@@ -309,12 +309,14 @@ def _build_dim(
     alleen in de ene levering staat (bijv. ``Geboortedatum`` uit RO) niet verloren
     gaat wanneer een andere levering (bijv. GRONDSLAG) meer velden vult. De rijen
     worden op vulling gesorteerd zodat de meest complete levering vooropstaat en
-    ontbrekende velden uit de overige leveringen worden aangevuld.
+    ontbrekende velden uit de overige leveringen worden aangevuld. Rijen zonder
+    key vallen weg: een dimensie heeft geen lege sleutel (bijv. een
+    TBGI-inschrijving zonder ISP-periode heeft geen opleiding).
     """
     beschikbaar = [c for c in cols if c in df.columns]
     if key not in beschikbaar:
         return pl.DataFrame()
-    subset = df.select(beschikbaar)
+    subset = df.select(beschikbaar).drop_nulls(key)
     non_key = [c for c in beschikbaar if c != key]
     if not non_key:
         return subset.unique(subset=[key], keep="first", maintain_order=True)

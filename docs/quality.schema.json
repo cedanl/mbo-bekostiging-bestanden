@@ -137,12 +137,24 @@
               },
               "orphaned_pct": {
                 "type": "number"
+              },
+              "explained_rows": {
+                "type": "integer",
+                "description": "Wees-rijen die volgens het relatiecontract geen FK-fout zijn (optionele parent); tellen niet als error"
+              },
+              "explanation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "total_rows",
               "orphaned_rows",
-              "orphaned_pct"
+              "orphaned_pct",
+              "explained_rows",
+              "explanation"
             ],
             "additionalProperties": false
           },
@@ -151,7 +163,9 @@
               "fact_bekostiging": {
                 "total_rows": 1000,
                 "orphaned_rows": 50,
-                "orphaned_pct": 0.05
+                "orphaned_pct": 0.05,
+                "explained_rows": 0,
+                "explanation": null
               }
             }
           ]

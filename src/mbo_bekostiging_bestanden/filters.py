@@ -58,6 +58,17 @@ def filter_fact_bekostiging_op_jaar(
     return fact_bekostiging.filter(pl.col(_FEIT_STUDIEJAAR_KOLOM).is_in(jaren))
 
 
+def _koppelsleutel(
+    detail: pl.DataFrame, inschrijvingen: pl.DataFrame
+) -> list[str] | None:
+    """Eerste koppelsleutel die in beide tabellen staat, of ``None``."""
+    gedeeld = set(detail.columns) & set(inschrijvingen.columns)
+    return next(
+        (s for s in (_PERIODE_SLEUTEL, _INSCHRIJVING_SLEUTEL) if set(s) <= gedeeld),
+        None,
+    )
+
+
 def filter_detail_op_inschrijvingen(
     detail: pl.DataFrame,
     geselecteerde_inschrijvingen: pl.DataFrame,
@@ -69,9 +80,17 @@ def filter_detail_op_inschrijvingen(
     (levering, _persoon_id, Inschrijvingvolgnummer).  Een semi-join, dus nooit
     fan-out.  Zonder gedeelde sleutel of zonder selectie is het resultaat leeg.
     """
-    for sleutel in (_PERIODE_SLEUTEL, _INSCHRIJVING_SLEUTEL):
-        if set(sleutel) <= set(detail.columns) & set(
-            geselecteerde_inschrijvingen.columns
-        ):
-            return detail.join(geselecteerde_inschrijvingen, on=sleutel, how="semi")
-    return detail.clear()
+    sleutel = _koppelsleutel(detail, geselecteerde_inschrijvingen)
+    if sleutel is None:
+        return detail.clear()
+    return detail.join(geselecteerde_inschrijvingen, on=sleutel, how="semi")
+
+
+def detail_zonder_inschrijving(
+    detail: pl.DataFrame, inschrijvingen: pl.DataFrame
+) -> pl.DataFrame:
+    """Tegenhanger van :func:`filter_detail_op_inschrijvingen`: de wees-rijen."""
+    sleutel = _koppelsleutel(detail, inschrijvingen)
+    if sleutel is None:
+        return detail
+    return detail.join(inschrijvingen, on=sleutel, how="anti")
