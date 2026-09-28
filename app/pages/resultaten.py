@@ -1,9 +1,9 @@
 """Resultaten — blader door de verwerkte tabellen en download.
 
-Toont bij voorkeur het star-schema-datamodel. Aanvullend: TBGI prepared data
-(detail_bekostiging, detail_bekostiging_diploma) voor BPV/signaalinformatie.
-Kon het star schema niet gebouwd worden, dan valt de pagina terug op de losse
-prepared tabellen per bestand.
+Twee gelijkwaardige producten (#213): het **analysemodel** (star schema, met
+ontwerpkeuzes zoals canonicalisatie en hoofdinschrijving) en de **brondata per
+levering** (getrouw aan het DUO-bestand, per recordtype). Persoonsgegevens zijn
+in preview én download standaard verborgen.
 """
 
 import sys
@@ -16,9 +16,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
 from _utils import groepeer_prepared, vind_star_dir
 
-from mbo_bekostiging_bestanden.pii import detect_pii_columns
+from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
 
 _MAX_WEERGAVE_RIJEN = 1_000  # rijen in de tabelweergave; de download is volledig
+_SECTIE_ANALYSEMODEL = "Analysemodel (star schema)"
+_SECTIE_BRONDATA = "Brondata per levering"
 
 
 @st.cache_resource(show_spinner=False)
@@ -31,11 +33,7 @@ def _lees_tabel(pad: str, mtime: float) -> pl.DataFrame:
 def _tabel_csv(pad: str, mtime: float, drop_pii: bool = False) -> str:
     """Genereert de CSV-tekst; optioneel met PII-kolommen verwijderd."""
     df = _lees_tabel(pad, mtime)
-    if drop_pii:
-        pii_kolommen = detect_pii_columns(df.columns)
-        if pii_kolommen:
-            df = df.drop(pii_kolommen)
-    return df.write_csv()
+    return df.select(zichtbare_kolommen(df.columns, verberg_pii=drop_pii)).write_csv()
 
 
 def _heeft_pii(df: pl.DataFrame) -> bool:
@@ -66,9 +64,28 @@ def _toon_tabel_sectie(titel: str, tabellen: dict[str, Path], help_fn=None):
         col_info1.metric("Rijen", f"{df.height:,}")
         col_info2.metric("Kolommen", f"{df.width:,}")
 
+        # Persoonsgegevens: standaard verborgen in preview én download.
+        if _heeft_pii(df):
+            st.warning(
+                "⚠️ **Persoonsgegevens aanwezig**  \n"
+                "Deze tabel bevat privacygevoelige kolommen (bijv. BSN, "
+                "geboortedatum, postcode). Ze zijn standaard verborgen; behandel "
+                "de data verantwoord als je ze toont.",
+                icon="⚠️",
+            )
+            drop_pii = st.checkbox(
+                "Verberg persoonsgegevens (preview en download)",
+                value=True,
+                help="Aanbevolen. Uitvinken toont en downloadt de volledige tabel.",
+                key=f"pii_{gekozen}",
+            )
+        else:
+            drop_pii = False
+        zichtbaar = zichtbare_kolommen(df.columns, verberg_pii=drop_pii)
+
         kolommen = st.multiselect(
             "Toon kolommen",
-            df.columns,
+            zichtbaar,
             placeholder="Alle kolommen",
             key=f"kolommen_{gekozen}",
         )
@@ -78,28 +95,10 @@ def _toon_tabel_sectie(titel: str, tabellen: dict[str, Path], help_fn=None):
                 "de download bevat alle rijen."
             )
         st.dataframe(
-            df.select(kolommen or df.columns).head(_MAX_WEERGAVE_RIJEN),
+            df.select(kolommen or zichtbaar).head(_MAX_WEERGAVE_RIJEN),
             width="stretch",
             hide_index=True,
         )
-
-        # Waarschuwing en opties voor PII-gevoelige tabellen
-        if _heeft_pii(df):
-            st.warning(
-                "⚠️ **Persoonsgegevens aanwezig**  \n"
-                "Deze tabel bevat privacygevoelige kolommen (bijv. geboortedatum, "
-                "postcode). Zorg ervoor dat je deze data verantwoord behandelt.",
-                icon="⚠️",
-            )
-            drop_pii = st.checkbox(
-                "Verwijder persoonsgegevens voor download",
-                value=True,
-                help="Privacygegevens worden standaard verwijderd (aanbevolen). "
-                "Uncheck om volledige tabel te downloaden (met PII).",
-                key=f"pii_{gekozen}",
-            )
-        else:
-            drop_pii = False
 
         st.download_button(
             label=f"Download `{parquet_pad.stem}.csv`",
@@ -142,22 +141,18 @@ if not star_tabellen and not tbgi_prepared and not other_prepared:
     st.stop()
 
 if not star_tabellen:
-    st.warning(
-        "Nog geen star schema gebouwd. Hieronder de losse verwerkte tabellen per "
-        "bestand (recordtypes), zodat je de data alsnog kunt bekijken en downloaden."
-    )
+    st.warning("Nog geen analysemodel (star schema) gebouwd; de brondata is er wel.")
 
-# Toon secties
 if star_tabellen:
-    _toon_tabel_sectie("📊 Star Schema", star_tabellen, help_fn=tabel_help)
-
-if tbgi_prepared:
-    st.divider()
-    _toon_tabel_sectie("🔁 TBGI Prepared Data (BPV, Signalen)", tbgi_prepared)
+    _toon_tabel_sectie(_SECTIE_ANALYSEMODEL, star_tabellen, help_fn=tabel_help)
 
 if other_prepared:
     st.divider()
-    _toon_tabel_sectie("📑 Overige Prepared Data", other_prepared)
+    _toon_tabel_sectie(f"{_SECTIE_BRONDATA} — RO en GRONDSLAG", other_prepared)
+
+if tbgi_prepared:
+    st.divider()
+    _toon_tabel_sectie(f"{_SECTIE_BRONDATA} — TBG-i", tbgi_prepared)
 
 st.write("")
 col_terug, _ = st.columns([1, 3])

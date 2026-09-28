@@ -1,6 +1,6 @@
 """Tests voor PII-kolomdetectie."""
 
-from mbo_bekostiging_bestanden.pii import detect_pii_columns
+from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
 
 
 def test_exacte_pii_kolommen_worden_herkend():
@@ -68,3 +68,10 @@ def test_alle_fact_tabellen_detecteren_pii_kolommen(demo_star, tbgi_star):
                     assert kolom in pii_gevonden, (
                         f"{naam}: {kolom} niet gedetecteerd als PII"
                     )
+
+
+def test_zichtbare_kolommen_verbergt_pii_standaard():
+    """Preview en download delen dezelfde kolomkeuze (#213)."""
+    kolommen = ["levering", "Burgerservicenummer", "Onderwijsnummer", "Opleidingcode"]
+    assert zichtbare_kolommen(kolommen) == ["levering", "Opleidingcode"]
+    assert zichtbare_kolommen(kolommen, verberg_pii=False) == kolommen

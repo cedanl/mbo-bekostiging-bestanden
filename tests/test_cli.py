@@ -100,3 +100,16 @@ def test_stapel_relative_to_labels(tmp_path, prepared_dirs):
     isg = pl.read_parquet(tmp_path / "ISG.parquet")
     leveringen = set(isg["levering"].unique().to_list())
     assert leveringen == {"h15/21CY", "h15/25LX"}
+
+
+def test_help_noemt_de_laag_per_commando():
+    """Elk subcommando zegt of het brondata of het analysemodel oplevert (#213)."""
+    regels = build_parser().format_help().splitlines()
+    hulp = {
+        r.split()[0]: r.lower()
+        for r in regels
+        if r.strip()[:4] in ("verw", "stap", "star")
+    }
+    assert "brondata" in hulp["verwerk"]
+    assert "brondata" in hulp["stapel"]
+    assert "analysemodel" in hulp["star"]
