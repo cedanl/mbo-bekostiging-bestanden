@@ -42,6 +42,7 @@ from mbo_bekostiging_bestanden.enrich import (
     _laad_sbb_koppeltabel,
     enrich_inschrijvingen,
 )
+from mbo_bekostiging_bestanden.koppelingen import Koppelingen
 from mbo_bekostiging_bestanden.waardenlijsten import kzd_behaald
 
 _METADATA = Path(__file__).parent / "metadata"
@@ -235,17 +236,6 @@ def _add_persoon_id(df: pl.DataFrame) -> pl.DataFrame:
 def _drop(df: pl.DataFrame, *kolommen: str) -> pl.DataFrame:
     """Verwijder kolommen als ze bestaan, negeer ontbrekende."""
     return df.drop([c for c in kolommen if c in df.columns])
-
-
-def _join_left(
-    left: pl.DataFrame,
-    right: pl.DataFrame,
-    on: list[str],
-    suffix: str = "_r",
-) -> pl.DataFrame:
-    """LEFT JOIN; duplicaten in ``right`` worden op ``on`` gededupliceeerd."""
-    right_uniq = right.unique(subset=on, keep="first", maintain_order=True)
-    return left.join(right_uniq, on=on, how="left", suffix=suffix)
 
 
 def _resolve_inschrijving(
@@ -1243,14 +1233,15 @@ def _isp_met_instelling(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _bouw_inschrijvingen(
-    stacked: dict[str, pl.DataFrame], isp: pl.DataFrame
+    stacked: dict[str, pl.DataFrame], isp: pl.DataFrame, koppelingen: Koppelingen
 ) -> pl.DataFrame:
     """ISP-grain: alle record-types samengevoegd tot één platte analysetabel.
 
     Args:
-        stacked: Gestapelde genormaliseerde records.
-        isp:     Canonieke ISP-rijen uit :func:`_isp_met_instelling`; ISG, DIP,
-                 BPV e.d. worden alleen aan deze inschrijvingen gekoppeld.
+        stacked:     Gestapelde genormaliseerde records.
+        isp:         Canonieke ISP-rijen uit :func:`_isp_met_instelling`; ISG,
+                     DIP, BPV e.d. worden alleen aan deze inschrijvingen gekoppeld.
+        koppelingen: Voert de links-joins uit en houdt meervoudige matches bij.
     """
 
     # ── Basis: ISP ───────────────────────────────────────────────────────────
@@ -1262,7 +1253,7 @@ def _bouw_inschrijvingen(
     # ── PER: persoonskenmerken ────────────────────────────────────────────────
     per = _add_persoon_id(stacked["PER"])
     per = _drop(per, "Recordsoort", *_PERSOON_COLS)
-    df = _join_left(df, per, on=_JOIN_PERSOON)
+    df = koppelingen.links(df, per, on=_JOIN_PERSOON, naam="PER")
 
     # ── ISG: inschrijvingsdatums en reden uitschrijving ───────────────────────
     isg = _add_persoon_id(stacked["ISG"])
@@ -1276,15 +1267,16 @@ def _bouw_inschrijvingen(
         ]
         if c in isg.columns
     ]
-    df = _join_left(
+    df = koppelingen.links(
         df,
         isg.select([*_JOIN_INSCHRIJVING, *isg_kolommen]),
         on=_JOIN_INSCHRIJVING,
+        naam="ISG",
     )
 
     # ── VLP: bestandsmetadata (BRIN al aangevuld in _isp_met_instelling) ─────
     vlp = _drop(stacked["VLP"], "Recordsoort", "BRIN")
-    df = _join_left(df, vlp, on=["levering"], suffix="_vlp")
+    df = koppelingen.links(df, vlp, on=["levering"], naam="VLP", suffix="_vlp")
 
     # ── ISE: extra ondersteuning (0-1 per inschrijving) ──────────────────────
     if "ISE" in stacked and not stacked["ISE"].is_empty():
@@ -1297,7 +1289,7 @@ def _bouw_inschrijvingen(
         ise_sel = ise.select([*_JOIN_INSCHRIJVING, *ise_extra]).rename(
             {c: f"ISE_{c}" for c in ise_extra}
         )
-        df = _join_left(df, ise_sel, on=_JOIN_INSCHRIJVING)
+        df = koppelingen.links(df, ise_sel, on=_JOIN_INSCHRIJVING, naam="ISE")
 
     # ── DIP: diploma (0-1 per inschrijving in MBO) ───────────────────────────
     if "DIP" in stacked and not stacked["DIP"].is_empty():
@@ -1317,7 +1309,14 @@ def _bouw_inschrijvingen(
         dip_sel = dip.select([*_JOIN_INSCHRIJVING, *dip_extra]).rename(
             {c: f"DIP_{c}" for c in dip_extra}
         )
-        df = _join_left(df, dip_sel, on=_JOIN_INSCHRIJVING)
+        # Meerdere diploma's op één inschrijving: het meest recente telt.
+        df = koppelingen.links(
+            df,
+            dip_sel,
+            on=_JOIN_INSCHRIJVING,
+            naam="DIP",
+            voorkeur=["DIP_DatumResultaat"],
+        )
 
     # ── DIP wordt ook gebruikt als fallback voor GEO/KZD/AMO Inschrijvingvolgnummer
     dip_raw = stacked.get("DIP")
@@ -1326,7 +1325,7 @@ def _bouw_inschrijvingen(
     if "GEO" in stacked and not stacked["GEO"].is_empty():
         geo_pivot = _geo_pivot(stacked["GEO"], dip=dip_raw)
         if geo_pivot is not None:
-            df = _join_left(df, geo_pivot, on=_JOIN_INSCHRIJVING)
+            df = koppelingen.links(df, geo_pivot, on=_JOIN_INSCHRIJVING, naam="GEO")
 
     # ── BPV/KZD/AMO-aggregaten per ISP-periode ───────────────────────────────
     if "BPV" in stacked and not stacked["BPV"].is_empty():
@@ -1486,7 +1485,9 @@ def _tbgi_zonder_isp(
     )
 
 
-def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
+def _bouw_meta_leveringen(
+    stacked: dict[str, pl.DataFrame], koppelingen: Koppelingen
+) -> pl.DataFrame:
     """Eén rij per gestapelde levering, met VLP + SLR waar die bestaan.
 
     Elke levering die in een tabel voorkomt staat erin, ook zonder VLP/SLR
@@ -1501,7 +1502,9 @@ def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     for recordtype in ("VLP", "SLR"):
         records = _drop(stacked.get(recordtype, pl.DataFrame()), "Recordsoort")
         if "levering" in records.columns:
-            meta = _join_left(meta, records, on=["levering"])
+            meta = koppelingen.links(
+                meta, records, on=["levering"], naam=f"meta_leveringen.{recordtype}"
+            )
     return meta
 
 
@@ -1511,17 +1514,16 @@ def _bouw_meta_leveringen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Bouw acht analysetabellen vanuit gestapelde genormaliseerde records.
+    """Bouw de analysetabellen vanuit gestapelde genormaliseerde records.
 
     Args:
         stacked: Output van :func:`~mbo_bekostiging_bestanden.stack.stack_prepared`,
                  dict van tabelnaam → DataFrame.
 
     Returns:
-        Dict met acht sleutels:
-        ``inschrijvingen``, ``detail_bpv``, ``detail_kzd_amo``,
-        ``detail_bekostiging``, ``detail_bekostiging_diploma``,
-        ``detail_geo``, ``meta_leveringen``, ``meta_canonicalisatie``.
+        Dict met ``inschrijvingen``, ``detail_bpv``, ``detail_kzd_amo``,
+        ``detail_bekostiging``, ``detail_bekostiging_diploma``, ``detail_geo``,
+        ``meta_leveringen``, ``meta_canonicalisatie`` en ``meta_koppelkeuzes``.
     """
     heeft_isp = "ISP" in stacked and not stacked["ISP"].is_empty()
     heeft_inschrijving = (
@@ -1534,13 +1536,14 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
             "analysetabellen kunnen niet worden gebouwd."
         )
 
+    koppelingen = Koppelingen()
     # Canonicalisatie vóór alle indicatoren: per inschrijving telt alleen de
     # meest recente levering, ook in de detailfeiten (#134, #174).
     if heeft_isp:
         isp = _isp_met_instelling(stacked)
         vervangen = vervangen_inschrijvingen(isp, stacked.get("VLP", pl.DataFrame()))
         inschrijvingen = _bouw_inschrijvingen(
-            stacked, verwijder_vervangen(isp, vervangen)
+            stacked, verwijder_vervangen(isp, vervangen), koppelingen
         ).with_columns(pl.lit(BRON_ISP).alias(BRON))
         overzicht = canonicalisatie_overzicht(isp, vervangen)
     else:
@@ -1574,6 +1577,7 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
             )
             for naam, detail in details.items()
         },
-        "meta_leveringen": _bouw_meta_leveringen(stacked),
+        "meta_leveringen": _bouw_meta_leveringen(stacked, koppelingen),
         "meta_canonicalisatie": overzicht,
+        "meta_koppelkeuzes": koppelingen.overzicht(),
     }
