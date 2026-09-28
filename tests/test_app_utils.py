@@ -56,6 +56,34 @@ def test_vind_star_dir_zonder_datamodel_geeft_none(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# vind_prepared_dirs (#263): disk-fallback, analoog aan vind_star_dir
+# ---------------------------------------------------------------------------
+
+
+def test_vind_prepared_dirs_gebruikt_sessie_als_die_er_is(tmp_path, monkeypatch):
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: tmp_path / "schijf")
+    sessie = {"prepared_dirs": [str(tmp_path / "sessie" / "RO_27DV")]}
+    assert _utils.vind_prepared_dirs(sessie) == [tmp_path / "sessie" / "RO_27DV"]
+
+
+def test_vind_prepared_dirs_valt_terug_op_schijf_zonder_sessie(tmp_path, monkeypatch):
+    """Verse sessie na herstart: brondata op schijf is toch zichtbaar in Resultaten."""
+    schijf = tmp_path / "schijf"
+    ro = _prepared_map(schijf / "h15" / "RO_27DV", "ISP")
+    tbgi = _prepared_map(schijf / "h16" / "TBGI_25LX", "Teldatum")
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: schijf)
+
+    assert sorted(_utils.vind_prepared_dirs({})) == sorted([ro, tbgi])
+
+
+def test_vind_prepared_dirs_zonder_schijf_of_sessie_geeft_lege_lijst(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: tmp_path / "bestaat_niet")
+    assert _utils.vind_prepared_dirs({}) == []
+
+
+# ---------------------------------------------------------------------------
 # groepeer_prepared (#178)
 # ---------------------------------------------------------------------------
 

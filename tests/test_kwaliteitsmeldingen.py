@@ -98,6 +98,25 @@ def test_dashboard_toont_kwaliteitsstatus(demo_star_dir):
     assert any("Kwaliteitsstatus: warn" in t for t in teksten)
 
 
+def test_resultaten_toont_brondata_uit_schijf_fallback_zonder_sessie(
+    demo_prepared, monkeypatch
+):
+    """Verse sessie zonder ``prepared_dirs``: Brondata-sectie valt terug op
+    een scan van ``prepared_dir()`` op schijf, net als het analysemodel via
+    ``vind_star_dir`` (#263)."""
+    import _utils
+
+    basis, _ = demo_prepared
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: basis)
+
+    app = AppTest.from_file("app/pages/resultaten.py", default_timeout=60)
+    app.run()
+
+    assert not app.exception
+    koppen = [h.value for h in app.subheader]
+    assert any(k.startswith("Brondata per levering") for k in koppen)
+
+
 def test_resultaten_toont_beide_lagen_zonder_pii_in_preview(
     demo_prepared, demo_star_dir
 ):

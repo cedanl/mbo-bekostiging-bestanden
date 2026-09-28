@@ -14,7 +14,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
-from _utils import groepeer_prepared, vind_star_dir
+from _utils import groepeer_prepared, vind_prepared_dirs, vind_star_dir
 
 from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
 
@@ -128,9 +128,9 @@ star_tabellen = (
     else {}
 )
 
-tbgi_prepared, other_prepared = groepeer_prepared(
-    st.session_state.get("prepared_dirs", [])
-)
+prepared_dirs = vind_prepared_dirs(st.session_state)
+st.session_state["prepared_dirs"] = [str(d) for d in prepared_dirs]
+tbgi_prepared, other_prepared = groepeer_prepared(prepared_dirs)
 
 if not star_tabellen and not tbgi_prepared and not other_prepared:
     st.warning(

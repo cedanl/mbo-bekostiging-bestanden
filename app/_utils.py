@@ -66,6 +66,23 @@ def vind_star_dir(sessie: Mapping) -> Path | None:
     return None
 
 
+def vind_prepared_dirs(sessie: Mapping) -> list[Path]:
+    """Prepared-directories met brondata, voor de Brondata-sectie in Resultaten.
+
+    Analoog aan :func:`vind_star_dir`: de paden die Home in de sessie zette
+    hebben voorrang; zonder sessie (verse sessie of directe link) valt dit
+    terug op een scan van ``prepared_dir()`` op schijf, zodat brondata en
+    star schema na een herstart gelijkwaardig zichtbaar blijven (#263).
+    """
+    sessie_dirs = sessie.get("prepared_dirs")
+    if sessie_dirs:
+        return [Path(p) for p in sessie_dirs]
+    basis = prepared_dir()
+    if not basis.exists():
+        return []
+    return sorted({parquet.parent for parquet in basis.rglob("*.parquet")})
+
+
 def groepeer_prepared(
     prepared_dirs: Iterable[Path | str],
 ) -> tuple[dict[str, Path], dict[str, Path]]:
