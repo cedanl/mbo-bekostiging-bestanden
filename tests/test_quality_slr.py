@@ -27,6 +27,17 @@ def test_missing_slr_returns_unknown_status():
     assert report.slr_status == "unknown"
 
 
+def test_tbgi_levering_krijgt_not_applicable_geen_warning():
+    """TBGI-i kent geen sluitrecord (PvE §16); de SLR-check hoort dus niet als
+    warn te melden dat er geen SLR gevonden is (#261)."""
+    frames = {"Inschrijving": pl.DataFrame({"dummy": [1]})}
+
+    report = check_slr_reconciliation(frames, "tbgi_test", schema_naam="tbgi")
+
+    assert report.slr_status == "not_applicable"
+    assert report.warnings == []
+
+
 def test_slr_mapping_includes_ise_bii_bid():
     """SLR mapping moet ISE, BII, BID bevatten."""
     frames = {
@@ -118,6 +129,7 @@ def test_slr_status_icoon_dekt_tri_state():
     assert slr_status_icoon("match") == "✅"
     assert slr_status_icoon("mismatch") == "❌"
     assert slr_status_icoon("unknown") == "⚠️"
+    assert slr_status_icoon("not_applicable") == "ℹ️"
 
 
 def test_slr_status_icoon_valt_veilig_terug():

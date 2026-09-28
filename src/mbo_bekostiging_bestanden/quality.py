@@ -35,14 +35,19 @@ from mbo_bekostiging_bestanden.transform import (
     _NIVEAU_SBB_NVT,
 )
 
-# Icoon per tri-state SLR-status voor de app-weergave.
-_SLR_STATUS_ICONS = {"match": "✅", "mismatch": "❌", "unknown": "⚠️"}
+# Icoon per SLR-status voor de app-weergave.
+_SLR_STATUS_ICONS = {
+    "match": "✅",
+    "mismatch": "❌",
+    "unknown": "⚠️",
+    "not_applicable": "ℹ️",
+}
 
 
 def slr_status_icoon(status: str | None) -> str:
     """Vertaal een SLR-status naar een weergave-icoon.
 
-    Alles wat geen gedefinieerde tri-state waarde is (incl. ``None`` en oude
+    Alles wat geen gedefinieerde status is (incl. ``None`` en oude
     ``quality.json``-bestanden zonder ``slr_status``) valt veilig terug op ⚠️.
     """
     return _SLR_STATUS_ICONS.get(status, "⚠️")
@@ -90,7 +95,7 @@ class QualityReport:
     levering: str
     schema_type: str
     slr_checks: dict[str, dict[str, int]] = field(default_factory=dict)
-    slr_status: str = "unknown"  # match | mismatch | unknown
+    slr_status: str = "unknown"  # match | mismatch | unknown | not_applicable
     parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
     regelinventaris: dict[str, dict] = field(default_factory=dict)
     domeinafwijkingen: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -201,16 +206,23 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
 def check_slr_reconciliation(
     frames: dict[str, pl.DataFrame],
     levering: str,
+    schema_naam: str | None = None,
 ) -> QualityReport:
     """Reconcilieer geparste recordaantallen met SLR-controletotalen.
 
     SLR (sluitrecord) bevat DUO's eigen controletotalen per recordtype.
-    Returns QualityReport met SLR-match status.
+    Returns QualityReport met SLR-match status. TBGI-i kent geen sluitrecord
+    (PvE §16): daarvoor is de check ``not_applicable`` in plaats van een
+    ``unknown``-waarschuwing (#261).
     """
     report = QualityReport(
         levering=levering,
         schema_type=_bepaal_schema_type(frames),
     )
+
+    if schema_naam == "tbgi":
+        report.slr_status = "not_applicable"
+        return report
 
     # Haal SLR op
     slr = frames.get("SLR")
