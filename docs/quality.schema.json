@@ -297,6 +297,26 @@
           ],
           "additionalProperties": false
         },
+        "leveringen_zonder_schooljaar": {
+          "type": "array",
+          "description": "Leveringen met inschrijvingen maar zonder waarneembare peildatum (geen rij in fact_inschrijving_schooljaar), zie meta_leveringen.Peilgrens (#211)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "levering": {
+                "type": "string"
+              },
+              "inschrijvingen": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "levering",
+              "inschrijvingen"
+            ],
+            "additionalProperties": false
+          }
+        },
         "join_keuzes": {
           "type": "array",
           "description": "Koppelingen waar een sleutel meer dan één kandidaat had; de gekozen rij is deterministisch (#209)",
@@ -396,7 +416,8 @@
         "overlapping_deliveries",
         "niveau_issues",
         "canonicalisatie",
-        "join_keuzes"
+        "join_keuzes",
+        "leveringen_zonder_schooljaar"
       ],
       "additionalProperties": false
     },

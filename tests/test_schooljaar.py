@@ -437,3 +437,66 @@ def test_twee_perioden_met_gelijke_begindatum_worden_gemeld():
     df = _bouw(a, b)
     meldingen = controleer_sleuteluniciteit({"fact_inschrijving_schooljaar": df})
     assert any("fact_inschrijving_schooljaar" in m for m in meldingen)
+
+
+# ---------------------------------------------------------------------------
+# Observatievenster per levering (#211)
+# ---------------------------------------------------------------------------
+
+
+def test_observatievenster_noemt_grens_en_laatste_peildatum():
+    from mbo_bekostiging_bestanden.schooljaar import observatievenster
+
+    leveringen = pl.DataFrame(
+        {
+            "levering": ["RO", "GR", "TB"],
+            "DatumEindePeriode": [date(2026, 3, 24), None, None],
+            "DatumAanmaak": [date(2026, 3, 25), date(2025, 9, 15), None],
+        }
+    )
+    teldata = pl.DataFrame({"levering": ["TB"], "Teldatum": [date(2025, 10, 1)]})
+    venster = {
+        r["levering"]: r
+        for r in observatievenster(leveringen, teldata).iter_rows(named=True)
+    }
+    assert venster["RO"]["Peilgrens_bron"] == "DatumEindePeriode"
+    assert venster["RO"]["Laatste_peildatum"] == date(2025, 10, 1)
+    assert venster["GR"]["Peilgrens_bron"] == "DatumAanmaak"
+    assert venster["GR"]["Laatste_peildatum"] == date(2024, 10, 1)
+    assert venster["TB"]["Peilgrens_bron"] == "Teldatum"
+    assert venster["TB"]["Laatste_peildatum"] == date(2025, 10, 1)
+
+
+def test_vroege_grondslag_levering_heeft_geen_schooljaarrijen_en_wordt_gemeld():
+    """Aangemaakt op 15-9-2025: 1-10-2025 is niet waarneembaar, 1-10-2024 valt
+    vóór de periode. Inhoudelijk juist, maar niet stil."""
+    from mbo_bekostiging_bestanden.quality import compile_quality_report
+
+    periode = _periode(date(2025, 8, 1), levering="GR")
+    leveringen = _leveringen(GR=None).with_columns(
+        pl.lit(date(2025, 9, 15)).alias("DatumAanmaak")
+    )
+    jaren = _bouw(periode, leveringen=leveringen)
+    assert jaren.is_empty()
+    star = {
+        "fact_inschrijving": _inschrijvingen(periode),
+        "fact_inschrijving_schooljaar": jaren,
+    }
+    rapport = compile_quality_report(star)
+    assert rapport["star"]["leveringen_zonder_schooljaar"] == [
+        {"levering": "GR", "inschrijvingen": 1}
+    ]
+    assert rapport["summary"]["total_warnings"] == 1
+
+
+def test_demo_meta_leveringen_heeft_observatievenster(demo_star):
+    meta = demo_star["meta_leveringen"]
+    assert {"Peilgrens", "Peilgrens_bron", "Laatste_peildatum"} <= set(meta.columns)
+    assert meta["Peilgrens"].null_count() == 0
+
+
+def test_demo_heeft_geen_levering_zonder_schooljaar(demo_star):
+    from mbo_bekostiging_bestanden.quality import compile_quality_report
+
+    rapport = compile_quality_report(demo_star)
+    assert rapport["star"]["leveringen_zonder_schooljaar"] == []

@@ -16,7 +16,10 @@ import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
 from mbo_bekostiging_bestanden.schooljaar import FEIT as SCHOOLJAAR_FEIT
-from mbo_bekostiging_bestanden.schooljaar import bouw_inschrijving_schooljaar
+from mbo_bekostiging_bestanden.schooljaar import (
+    bouw_inschrijving_schooljaar,
+    observatievenster,
+)
 from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabellen
 
 # ---------------------------------------------------------------------------
@@ -179,7 +182,7 @@ def build_star(
         "fact_geo": _build_fact_geo(tables),
         "fact_bekostiging": _build_fact_bekostiging(tables),
         "fact_bekostiging_diploma": _build_fact_bekostiging_diploma(tables),
-        "meta_leveringen": tables.get("meta_leveringen", pl.DataFrame()),
+        "meta_leveringen": _build_meta_leveringen(tables),
         "meta_canonicalisatie": tables["meta_canonicalisatie"],
         "meta_koppelkeuzes": tables["meta_koppelkeuzes"],
     }
@@ -279,6 +282,15 @@ def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 # Interne helpers
 # ---------------------------------------------------------------------------
+
+
+def _build_meta_leveringen(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
+    """VLP + SLR per levering, met het observatievenster (#211)."""
+    meta = tables.get("meta_leveringen", pl.DataFrame())
+    if meta.is_empty():
+        return meta
+    venster = observatievenster(meta, tables.get("detail_bekostiging"))
+    return meta.join(venster, on="levering", how="left")
 
 
 def _build_dim_instelling(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:

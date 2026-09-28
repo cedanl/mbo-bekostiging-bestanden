@@ -51,6 +51,9 @@ HOOFDINSCHRIJVING_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
 HOOFDINSCHRIJVING = "_hoofdinschrijving"
 _PEILGRENS = "_peilgrens"
 _TELDATUM = "Teldatum"
+PEILGRENS = "Peilgrens"
+PEILGRENS_BRON = "Peilgrens_bron"
+LAATSTE_PEILDATUM = "Laatste_peildatum"
 _TBGI_SLEUTEL = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
 # TBG-i legt deze per teldatum vast; ze gelden voor dat schooljaar (PvE §16.5.2).
 _TELDATUM_ATTRIBUTEN = (
@@ -101,11 +104,48 @@ def _laatste_peiljaar(datum: pl.Expr) -> pl.Expr:
     return pl.when(datum >= _peildatum(jaar)).then(jaar).otherwise(jaar - 1)
 
 
+def observatievenster(
+    leveringen: pl.DataFrame, teldata: pl.DataFrame | None = None
+) -> pl.DataFrame:
+    """Welke peildata een levering kan waarnemen (#211).
+
+    De grens is de peildatum van de levering (VLP ``DatumEindePeriode``, anders
+    ``DatumAanmaak``); zonder VLP (TBG-i) de laatste ``Teldatum``. Een levering
+    zegt niets over 1-oktobers daarna.
+
+    Returns:
+        ``levering``, ``Peilgrens``, ``Peilgrens_bron`` (kolom waaruit de grens
+        komt) en ``Laatste_peildatum`` (laatste 1 oktober op of vóór de grens).
+    """
+    kandidaten = [c for c in _PEILGRENS_KOLOMMEN if c in leveringen.columns]
+    venster = leveringen.select("levering", *kandidaten).unique("levering")
+    if teldata is not None and _TELDATUM in teldata.columns:
+        laatste_teldatum = teldata.group_by("levering").agg(pl.col(_TELDATUM).max())
+        venster = venster.join(laatste_teldatum, on="levering", how="left")
+        kandidaten.append(_TELDATUM)
+    if not kandidaten:
+        return venster.with_columns(
+            pl.lit(None, dtype=pl.Date).alias(PEILGRENS),
+            pl.lit(None, dtype=pl.Utf8).alias(PEILGRENS_BRON),
+            pl.lit(None, dtype=pl.Date).alias(LAATSTE_PEILDATUM),
+        )
+    bron = pl.lit(None, dtype=pl.Utf8)
+    for kolom in reversed(kandidaten):
+        bron = pl.when(pl.col(kolom).is_not_null()).then(pl.lit(kolom)).otherwise(bron)
+    grens = pl.coalesce([pl.col(c) for c in kandidaten])
+    return venster.select(
+        "levering",
+        grens.alias(PEILGRENS),
+        bron.alias(PEILGRENS_BRON),
+        _peildatum(_laatste_peiljaar(grens)).alias(LAATSTE_PEILDATUM),
+    )
+
+
 def _peilgrens_per_levering(leveringen: pl.DataFrame) -> pl.DataFrame:
     """``levering`` → peildatum van de levering (null als onbekend)."""
-    kolommen = [pl.col(c) for c in _PEILGRENS_KOLOMMEN if c in leveringen.columns]
-    grens = pl.coalesce(kolommen) if kolommen else pl.lit(None, dtype=pl.Date)
-    return leveringen.select("levering", grens.alias(_PEILGRENS)).unique("levering")
+    return observatievenster(leveringen).select(
+        "levering", pl.col(PEILGRENS).alias(_PEILGRENS)
+    )
 
 
 def _per_schooljaar(perioden: pl.DataFrame) -> pl.DataFrame:
