@@ -75,6 +75,14 @@ def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
     return "unknown"
 
 
+# Waarschuwing per onderdeel van ``ingest.inventariseer_regels`` (#120).
+_REGELINVENTARIS_MELDINGEN = {
+    "onbekende_recordtypes": "Regels met onbekend recordtype niet ingelezen",
+    "velden_voorbij_schema": "Regels met gevulde velden voorbij het schema",
+    "spiegel_afwijkingen": "Extra posities wijken af van het veld dat ze herhalen",
+}
+
+
 @dataclass
 class QualityReport:
     """Gestructureerd kwaliteitsrapport per leveringsbestand."""
@@ -84,6 +92,7 @@ class QualityReport:
     slr_checks: dict[str, dict[str, int]] = field(default_factory=dict)
     slr_status: str = "unknown"  # match | mismatch | unknown
     parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
+    regelinventaris: dict[str, dict] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -100,6 +109,13 @@ class QualityReport:
                 f"Parseverlies (gevulde waarden die na typering leeg zijn): {details}"
             )
 
+    def meld_regelinventaris(self, inventaris: dict[str, dict]) -> None:
+        """Neem op wat de ingest niet inlas (zie ``ingest.inventariseer_regels``)."""
+        self.regelinventaris = inventaris
+        for sleutel, tekst in _REGELINVENTARIS_MELDINGEN.items():
+            if inventaris.get(sleutel):
+                self.warnings.append(f"{tekst}: {inventaris[sleutel]}")
+
     def as_dict(self) -> dict:
         """Zet rapport om naar dict voor JSON-export."""
         return {
@@ -108,6 +124,7 @@ class QualityReport:
             "slr_status": self.slr_status,
             "slr_details": self.slr_checks,
             "parseverlies": self.parseverlies,
+            "regelinventaris": self.regelinventaris,
             "warnings": self.warnings,
             "errors": self.errors,
         }
@@ -164,6 +181,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         slr_status=data.get("slr_status", "unknown"),
         slr_checks=data.get("slr_details", {}),
         parseverlies=data.get("parseverlies", {}),
+        regelinventaris=data.get("regelinventaris", {}),
         warnings=data.get("warnings", []),
         errors=data.get("errors", []),
     )

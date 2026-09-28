@@ -12,8 +12,10 @@ date_fields = ["DatumAanmaak"]
 int_fields  = ["Studiejaar"]
 
 [PER]
-# Posities 19-21 zijn niet in de PvE-spec en spiegelen Postcodecijfers/Verblijfstitel/Nationaliteit1.
-# Ze worden genegeerd (geclippt) bij het inlezen.
+# Posities 19-21 staan niet in de PvE-spec maar wel in echte leveringen: ze herhalen
+# Postcodecijfers/Verblijfstitel/Nationaliteit1. Ze worden niet ingelezen; de
+# ingest controleert wel dat ze gelijk zijn (quality.json → regelinventaris, #120).
+spiegelvelden = ["Postcodecijfers", "Verblijfstitel", "Nationaliteit1"]
 fields = [
     "Recordsoort", "PseudoNummer",
     "Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4",

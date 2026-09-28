@@ -54,12 +54,14 @@ In de GRONDSLAG is de BSN vervangen door een **PGN** (pseudonummer) en de geboor
 | 16 | Verblijfstitel | Nee | AN2 | GBA-verblijfstitelcode | — |
 | 17 | Nationaliteit 1 | Nee | AN4 | GBA-nationaliteitscode (tabel 32) | `0001` |
 | 18 | Nationaliteit 2 | Nee | AN4 | GBA-nationaliteitscode (tabel 32) | — |
-| 19 | *(niet in spec)* | — | AN4 | In demo-data zelfde waarde als Postcodecijfers (pos 8) | `7425` |
+| 19 | *(niet in spec)* | — | AN4 | Meestal gelijk aan Postcodecijfers (pos 8); in de demo wijkt 1 van 10 rijen af | `7425` |
 | 20 | *(niet in spec)* | — | AN2 | In demo-data zelfde waarde als Verblijfstitel (pos 16) | — |
 | 21 | *(niet in spec)* | — | AN4 | In demo-data zelfde waarde als Nationaliteit 1 (pos 17) | `0001` |
 
 !!! warning "Extra velden in leveringsdata"
-    De PvE-spec v4.8.2 beschrijft 18 velden (incl. recordsoort). In de werkelijke leveringen bevatten PER-records echter **21 velden** — drie extra velden op posities 19–21 die niet in de spec zijn gedocumenteerd. De waarden spiegelen postcode, verblijfstitel en nationaliteit 1. Een parser die strict 18 velden verwacht zal hierop breken; gebruik lenient parsing (lees alle aanwezige velden op basis van separator-count).
+    De PvE-spec v4.8.2 beschrijft 18 velden (incl. recordsoort). In de werkelijke leveringen bevatten PER-records echter **21 velden** — drie extra velden op posities 19–21 die niet in de spec zijn gedocumenteerd. Ze herhalen meestal postcode, verblijfstitel en nationaliteit 1, maar **niet altijd**: in de demo heeft 1 van de 10 rijen op positie 19 een andere postcode dan op positie 8.
+
+    De ingest leest posities 19–21 niet in (hun betekenis staat niet in het PvE), maar controleert wel of ze gelijk zijn aan het veld dat ze herhalen (`spiegelvelden` in `grondslag_schema.toml`). Een afwijking staat per levering in `quality.json` → `regelinventaris.spiegel_afwijkingen`, met een waarschuwing (#120).
 
 **Speciale postcode-waarden:**
 

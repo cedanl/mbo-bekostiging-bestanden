@@ -40,6 +40,30 @@ def _normalize_row(row: list[str], n: int) -> list[str]:
     return row + [""] * (n - len(row))
 
 
+def _lees_regels(path: Path) -> list[list[str]]:
+    """Niet-lege regels van een multi-record CSV, gesplitst op het scheidingsteken.
+
+    Lege velden aan het eind van een regel vallen weg (``rstrip`` van het
+    scheidingsteken); het schema vult ze bij het inlezen weer aan.
+
+    Raises:
+        FileNotFoundError: Als het bronbestand niet bestaat.
+        ValueError:        Als het bestand leeg is.
+    """
+    if not path.exists():
+        raise FileNotFoundError(f"Bronbestand niet gevonden: {path}")
+    try:
+        content = path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError:
+        content = path.read_text(encoding="latin-1")
+
+    lines = [line.rstrip("\r") for line in content.splitlines() if line.strip()]
+    if not lines:
+        raise ValueError(f"Leeg bestand: {path}")
+    sep = _detect_separator(lines[0])
+    return [line.rstrip(sep).split(sep) for line in lines]
+
+
 def read_multi_record_csv(
     path: str | Path,
     schema_name: str,
@@ -48,7 +72,8 @@ def read_multi_record_csv(
 
     Geschikt voor elk DUO-bestandstype dat de multi-record CSV-structuur
     gebruikt (RO, GRONDSLAG IP MBO, …). Kolomnamen komen uit het opgegeven
-    schema-TOML.
+    schema-TOML. Regels met een onbekend recordtype en velden voorbij de
+    schemabreedte worden niet ingelezen; :func:`inventariseer_regels` telt ze.
 
     Args:
         path:        Pad naar het bronbestand.
@@ -61,30 +86,12 @@ def read_multi_record_csv(
         FileNotFoundError: Als het bronbestand of schema niet bestaat.
         ValueError:        Als het bestand leeg is.
     """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Bronbestand niet gevonden: {path}")
-
-    raw_schema = load_schema(schema_name)
-    schema = {rt: v["fields"] for rt, v in raw_schema.items()}
-
-    try:
-        content = path.read_text(encoding="utf-8-sig")
-    except UnicodeDecodeError:
-        content = path.read_text(encoding="latin-1")
-
-    lines = [line.rstrip("\r") for line in content.splitlines() if line.strip()]
-    if not lines:
-        raise ValueError(f"Leeg bestand: {path}")
-
-    sep = _detect_separator(lines[0])
+    schema = {rt: v["fields"] for rt, v in load_schema(schema_name).items()}
 
     rows_by_type: dict[str, list[list[str]]] = {rt: [] for rt in schema}
-    for line in lines:
-        fields = line.rstrip(sep).split(sep)
-        rt = fields[0] if fields else ""
-        if rt in rows_by_type:
-            rows_by_type[rt].append(fields)
+    for fields in _lees_regels(Path(path)):
+        if fields[0] in rows_by_type:
+            rows_by_type[fields[0]].append(fields)
 
     result: dict[str, pl.DataFrame] = {}
     for rt, rows in rows_by_type.items():
@@ -98,6 +105,42 @@ def read_multi_record_csv(
         )
 
     return result
+
+
+def inventariseer_regels(path: str | Path, schema_name: str) -> dict:
+    """Tel wat :func:`read_multi_record_csv` niet inleest (#120).
+
+    Returns:
+        ``onbekende_recordtypes``: recordtype → aantal regels buiten het schema.
+        ``velden_voorbij_schema``: recordtype → aantal regels met een gevuld
+        veld voorbij de schemabreedte (na eventuele spiegelvelden).
+        ``spiegel_afwijkingen``: recordtype → veld → aantal regels waarin een
+        spiegelveld (``spiegelvelden`` in het schema: extra posities die een
+        bestaand veld herhalen) níet gelijk is aan dat veld.
+    """
+    schema = load_schema(schema_name)
+    onbekend: dict[str, int] = {}
+    voorbij: dict[str, int] = {}
+    spiegel: dict[str, dict[str, int]] = {}
+    for fields in _lees_regels(Path(path)):
+        rt = fields[0]
+        if rt not in schema:
+            onbekend[rt] = onbekend.get(rt, 0) + 1
+            continue
+        kolommen = schema[rt]["fields"]
+        spiegelvelden = schema[rt].get("spiegelvelden", [])
+        extra = fields[len(kolommen) :]
+        for veld, waarde in zip(spiegelvelden, extra, strict=False):
+            if waarde != _normalize_row(fields, len(kolommen))[kolommen.index(veld)]:
+                per_veld = spiegel.setdefault(rt, {})
+                per_veld[veld] = per_veld.get(veld, 0) + 1
+        if any(extra[len(spiegelvelden) :]):
+            voorbij[rt] = voorbij.get(rt, 0) + 1
+    return {
+        "onbekende_recordtypes": dict(sorted(onbekend.items())),
+        "velden_voorbij_schema": dict(sorted(voorbij.items())),
+        "spiegel_afwijkingen": dict(sorted(spiegel.items())),
+    }
 
 
 def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:

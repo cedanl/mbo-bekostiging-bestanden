@@ -122,6 +122,7 @@ Naast de tabellen schrijft elke run een `quality.json` in de doelmap:
 |---|---|
 | `slr_status` / `slr_details` | Gelezen recordaantallen tegen de controletotalen in het sluitrecord (`match`, `mismatch` of `unknown`) |
 | `parseverlies` | Per recordtype en kolom het aantal gevulde bronwaarden dat na typering leeg is (ongeldige datum of getal) |
+| `regelinventaris` | Wat de ingest niet inlas: regels met een onbekend recordtype, regels met gevulde velden voorbij het schema, en extra posities die afwijken van het veld dat ze herhalen. Elk gevuld onderdeel geeft een waarschuwing |
 | `warnings` / `errors` | Leesbare meldingen; de app toont ze op Home |
 
 ### Star schema bouwen

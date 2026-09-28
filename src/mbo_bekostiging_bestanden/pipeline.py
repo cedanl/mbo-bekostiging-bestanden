@@ -2,13 +2,19 @@
 
 import json
 from collections.abc import Callable, Sequence
+from functools import partial
 from pathlib import Path
 
 import polars as pl
 
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
-from mbo_bekostiging_bestanden.ingest import read_grondslag, read_ro, read_tbgi
+from mbo_bekostiging_bestanden.ingest import (
+    inventariseer_regels,
+    read_grondslag,
+    read_ro,
+    read_tbgi,
+)
 from mbo_bekostiging_bestanden.quality import (
     SCENARIO_ONBEKEND,
     check_slr_reconciliation,
@@ -81,6 +87,7 @@ def _run(
     source: str | Path,
     target: str | Path,
     fmt: OutputFormat,
+    inventaris: Callable[[Path], dict] | None = None,
 ) -> dict[str, pl.DataFrame]:
     source_path = Path(source)
     target_path = Path(target)
@@ -93,6 +100,8 @@ def _run(
     levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
     quality_report = check_slr_reconciliation(frames, levering)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
+    if inventaris is not None:
+        quality_report.meld_regelinventaris(inventaris(source_path))
 
     # Sla rapport op als JSON
     report_path = target_path / "quality.json"
@@ -119,7 +128,15 @@ def run_pipeline(
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
     """
-    return _run(read_ro, decode_ro, validate_ro, source, target, fmt)
+    return _run(
+        read_ro,
+        decode_ro,
+        validate_ro,
+        source,
+        target,
+        fmt,
+        inventaris=partial(inventariseer_regels, schema_name="ro"),
+    )
 
 
 def run_grondslag_pipeline(
@@ -138,7 +155,13 @@ def run_grondslag_pipeline(
         Dict van recordtype-code naar getypeerde DataFrame.
     """
     return _run(
-        read_grondslag, decode_grondslag, validate_grondslag, source, target, fmt
+        read_grondslag,
+        decode_grondslag,
+        validate_grondslag,
+        source,
+        target,
+        fmt,
+        inventaris=partial(inventariseer_regels, schema_name="grondslag"),
     )
 
 
