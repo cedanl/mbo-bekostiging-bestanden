@@ -59,7 +59,7 @@ In de GRONDSLAG is de BSN vervangen door een **PGN** (pseudonummer) en de geboor
 | 21 | *(niet in spec)* | — | AN4 | In demo-data zelfde waarde als Nationaliteit 1 (pos 17) | `0001` |
 
 !!! warning "Extra velden in leveringsdata"
-    De PvE-spec v4.8.3 beschrijft 18 velden (incl. recordsoort). In de werkelijke leveringen bevatten PER-records echter **21 velden** — drie extra velden op posities 19–21 die niet in de spec zijn gedocumenteerd. De waarden spiegelen postcode, verblijfstitel en nationaliteit 1. Een parser die strict 18 velden verwacht zal hierop breken; gebruik lenient parsing (lees alle aanwezige velden op basis van separator-count).
+    De PvE-spec v4.8.2 beschrijft 18 velden (incl. recordsoort). In de werkelijke leveringen bevatten PER-records echter **21 velden** — drie extra velden op posities 19–21 die niet in de spec zijn gedocumenteerd. De waarden spiegelen postcode, verblijfstitel en nationaliteit 1. Een parser die strict 18 velden verwacht zal hierop breken; gebruik lenient parsing (lees alle aanwezige velden op basis van separator-count).
 
 **Speciale postcode-waarden:**
 

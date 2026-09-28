@@ -12,7 +12,7 @@ Het DIP-record bevat de gegevens van een behaald diploma. Een student kan meerde
 | 4 | Resultaatvolgnummer | Ja | AN1..20 | Door instelling toegekend volgnummer voor het diploma | `8286771` |
 | 5 | Opleidingcode | Ja | AN5 | CREBO-code van de opleiding | `25655` |
 | 6 | Datum resultaat | Ja | D `ccyy-mm-dd` | Datum waarop het diploma behaald is | `2025-01-16` |
-| 7 | *(niet in spec)* | — | — | Staat niet in PvE v4.8.3 maar is aanwezig in alle bekende leveringen; altijd leeg; parseer als optioneel veld | — |
+| 7 | *(niet in spec)* | — | — | Staat niet in PvE v4.8.2 maar is aanwezig in alle bekende leveringen; altijd leeg; parseer als optioneel veld | — |
 | 8 | Indicatie bekostigbaar | Ja | AN1 | `J` = bekostigbaar, `N` = niet | `J` |
 | 9 | Inschrijvingvolgnummer | Nee | AN1..20 | Koppeling naar de bijbehorende inschrijving | `C3` |
 | 10 | Onderwijsaanbieder | Nee | AN7 | RIO-code `nnnAnnn` | `100A501` |
