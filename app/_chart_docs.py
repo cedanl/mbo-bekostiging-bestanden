@@ -262,8 +262,7 @@ CHART_DOCS: dict[str, dict] = {
             "Per keuzedeel-code (`CodeKeuzedeel`) wordt het totaal en het aantal "
             "behaalde resultaten geteld.  `Behaald` is in de pipeline exact bepaald "
             "uit de DUO-waardenlijst (`Behaald`/`Niet behaald`); een onbekende "
-            "waarde telt niet als behaald.  Top-15 op volume."
-            + _DETAIL_SELECTIE
+            "waarde telt niet als behaald.  Top-15 op volume." + _DETAIL_SELECTIE
         ),
     },
     "instelling": {

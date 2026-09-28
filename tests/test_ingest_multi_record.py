@@ -23,6 +23,7 @@ def test_read_multi_record_csv_kolomnamen_komen_uit_schema():
     """
     result = read_multi_record_csv(RO_27DV, "ro")
     from mbo_bekostiging_bestanden.metadata import load_schema
+
     schema = load_schema("ro")
     assert result["VLP"].width == len(schema["VLP"]["fields"])
     assert result["ISG"].width == len(schema["ISG"]["fields"])

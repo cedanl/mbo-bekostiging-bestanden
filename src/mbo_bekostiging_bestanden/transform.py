@@ -682,26 +682,25 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
         )
         if p.is_empty():
             continue
-        dekt_peildatum = (
-            (pl.col("DatumBegin") <= peildatum)
-            & (pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= peildatum))
+        dekt_peildatum = (pl.col("DatumBegin") <= peildatum) & (
+            pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= peildatum)
         )
         p = p.with_columns(dekt_peildatum.alias("_dekt"))
         actief = p.filter(pl.col("_dekt"))
         if not actief.is_empty():
             actief = actief.with_columns(pl.lit(sj).alias("_schooljaar_peildatum"))
             actieve_periodes_per_sj.append(
-            actief.select(
-                [
-                    "levering",
-                    "BRIN",
-                    "_persoon_id",
-                    "Inschrijvingvolgnummer",
-                    "DatumBegin",
-                    "_schooljaar_peildatum",
-                ]
+                actief.select(
+                    [
+                        "levering",
+                        "BRIN",
+                        "_persoon_id",
+                        "Inschrijvingvolgnummer",
+                        "DatumBegin",
+                        "_schooljaar_peildatum",
+                    ]
+                )
             )
-        )
 
     if not actieve_periodes_per_sj:
         return df.with_columns(
@@ -713,12 +712,9 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
     actief_df = pl.concat(actieve_periodes_per_sj, how="vertical_relaxed")
 
     # Groepeer per periode en verzamel schooljaren
-    schooljaren_per_periode = (
-        actief_df.group_by(
-            ["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"]
-        )
-        .agg(pl.col("_schooljaar_peildatum").sort().alias("_schooljaren_actief"))
-    )
+    schooljaren_per_periode = actief_df.group_by(
+        ["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"]
+    ).agg(pl.col("_schooljaar_peildatum").sort().alias("_schooljaren_actief"))
 
     # Join terug naar originele df (één-op-één, geen duplicatie)
     df = df.join(
@@ -824,7 +820,7 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     )
 
     # Opbrengstjaar velden (blijven op basis van leverings-
-# Studiejaar voor compatibiliteit)
+    # Studiejaar voor compatibiliteit)
     studiejaar_serie = df["Studiejaar"].cast(pl.Int32).drop_nulls()
     if studiejaar_serie.is_empty():
         return df.with_columns(
@@ -941,13 +937,21 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         .with_columns(pl.lit(True).alias("_is_hoofd"))
     )
 
-    df = df.join(
-        hoofd_per_periode,
-        on=["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"],
-        how="left",
-    ).with_columns(
-        pl.col("_is_hoofd").fill_null(False).alias("_hoofdinschrijving")
-    ).drop("_is_hoofd")
+    df = (
+        df.join(
+            hoofd_per_periode,
+            on=[
+                "levering",
+                "BRIN",
+                "_persoon_id",
+                "Inschrijvingvolgnummer",
+                "DatumBegin",
+            ],
+            how="left",
+        )
+        .with_columns(pl.col("_is_hoofd").fill_null(False).alias("_hoofdinschrijving"))
+        .drop("_is_hoofd")
+    )
 
     # Vul _hoogste_niveau en _laagste_CREBO voor alle rijen (niet alleen actieve)
     # Gebruik de waarden uit de actieve periodes per groep
@@ -1194,7 +1198,10 @@ def _kzd_aggregaat(
         perioden,
         _PERIODE_REFERENTIEDATUM["detail_kzd_amo"],
         pl.len().alias("KZD_Aantal"),
-        kzd_behaald(pl.col("Resultaat")).sum().cast(pl.Int64).alias("KZD_AantalBehaald"),
+        kzd_behaald(pl.col("Resultaat"))
+        .sum()
+        .cast(pl.Int64)
+        .alias("KZD_AantalBehaald"),
     )
 
 

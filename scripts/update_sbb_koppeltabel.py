@@ -27,9 +27,7 @@ from pathlib import Path
 import polars as pl
 
 _BASE_URL = "https://kwalificatie-mijn.s-bb.nl/Lijsten/Output/"
-_METADATA = (
-    Path(__file__).parent.parent / "src/mbo_bekostiging_bestanden/metadata"
-)
+_METADATA = Path(__file__).parent.parent / "src/mbo_bekostiging_bestanden/metadata"
 _OUT_KOPPEL = _METADATA / "sbb_koppeltabel.parquet"
 _OUT_CREBO = _METADATA / "sbb_crebolijst.parquet"
 
@@ -296,21 +294,26 @@ def _bouw_sbb_crebolijst() -> pl.DataFrame:
         else:
             prijsfactor, soort = None, None
 
-        rows.append({
-            "kwalificatiecode": code,
-            "geldig_van": gv.isoformat(),
-            "geldig_tot": geldig_tot.isoformat() if geldig_tot else None,
-            "prijsfactor": prijsfactor,
-            "soort_opleiding": soort,
-        })
+        rows.append(
+            {
+                "kwalificatiecode": code,
+                "geldig_van": gv.isoformat(),
+                "geldig_tot": geldig_tot.isoformat() if geldig_tot else None,
+                "prijsfactor": prijsfactor,
+                "soort_opleiding": soort,
+            }
+        )
 
-    return pl.DataFrame(rows, schema={
-        "kwalificatiecode": pl.String,
-        "geldig_van": pl.String,
-        "geldig_tot": pl.String,
-        "prijsfactor": pl.String,
-        "soort_opleiding": pl.String,
-    })
+    return pl.DataFrame(
+        rows,
+        schema={
+            "kwalificatiecode": pl.String,
+            "geldig_van": pl.String,
+            "geldig_tot": pl.String,
+            "prijsfactor": pl.String,
+            "soort_opleiding": pl.String,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

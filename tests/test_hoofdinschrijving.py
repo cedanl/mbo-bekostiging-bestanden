@@ -128,12 +128,9 @@ def test_demo_star_heeft_precies_een_hoofdinschrijving_per_groep(
     )
 
     groep = ["levering", "BRIN", "_persoon_id", "_schooljaar_peildatum"]
-    per_groep = (
-        fact_exploded.group_by(groep)
-        .agg(
-            pl.col("_hoofdinschrijving").sum().alias("n"),
-            pl.col("_actief_1_oktober").any().alias("heeft_actief"),
-        )
+    per_groep = fact_exploded.group_by(groep).agg(
+        pl.col("_hoofdinschrijving").sum().alias("n"),
+        pl.col("_actief_1_oktober").any().alias("heeft_actief"),
     )
     actieve_groepen = per_groep.filter(pl.col("heeft_actief"))
     assert actieve_groepen["n"].to_list() == [1] * actieve_groepen.height

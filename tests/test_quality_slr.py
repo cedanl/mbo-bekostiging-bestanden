@@ -12,9 +12,7 @@ from mbo_bekostiging_bestanden.quality import (
 def test_slr_status_is_tri_state():
     """SLR status moet tri-state zijn: match/mismatch/unknown."""
     report = QualityReport(levering="test", schema_type="ro")
-    assert hasattr(report, "slr_status"), (
-        "QualityReport must have slr_status attribute"
-    )
+    assert hasattr(report, "slr_status"), "QualityReport must have slr_status attribute"
     assert report.slr_status in ["match", "mismatch", "unknown"]
 
 
@@ -33,11 +31,13 @@ def test_slr_mapping_includes_ise_bii_bid():
     """SLR mapping moet ISE, BII, BID bevatten."""
     frames = {
         "VLP": pl.DataFrame({"Recordsoort": ["VLP"]}),
-        "SLR": pl.DataFrame({
-            "AantalBII": [100],
-            "AantalBID": [50],
-            "AantalISE": [20],
-        }),
+        "SLR": pl.DataFrame(
+            {
+                "AantalBII": [100],
+                "AantalBID": [50],
+                "AantalISE": [20],
+            }
+        ),
         "BII": pl.DataFrame({"dummy": [1] * 100}),
         "BID": pl.DataFrame({"dummy": [1] * 50}),
         "ISE": pl.DataFrame({"dummy": [1] * 20}),
@@ -55,18 +55,18 @@ def test_slr_match_status_when_numbers_agree():
     """SLR match: expected == actual → status 'match'."""
     frames = {
         "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
-        "SLR": pl.DataFrame({
-            "AantalPER": [10],
-            "AantalISP": [20],
-        }),
+        "SLR": pl.DataFrame(
+            {
+                "AantalPER": [10],
+                "AantalISP": [20],
+            }
+        ),
         "PER": pl.DataFrame({"dummy": [1] * 10}),
         "ISP": pl.DataFrame({"dummy": [1] * 20}),
     }
 
     report = check_slr_reconciliation(frames, "ro_match")
-    assert report.slr_status == "match", (
-        f"Expected 'match', got {report.slr_status}"
-    )
+    assert report.slr_status == "match", f"Expected 'match', got {report.slr_status}"
 
 
 def test_slr_match_levert_geen_ok_waarschuwing():
@@ -78,10 +78,12 @@ def test_slr_match_levert_geen_ok_waarschuwing():
     """
     frames = {
         "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
-        "SLR": pl.DataFrame({
-            "AantalPER": [10],
-            "AantalISP": [20],
-        }),
+        "SLR": pl.DataFrame(
+            {
+                "AantalPER": [10],
+                "AantalISP": [20],
+            }
+        ),
         "PER": pl.DataFrame({"dummy": [1] * 10}),
         "ISP": pl.DataFrame({"dummy": [1] * 20}),
     }
@@ -95,10 +97,12 @@ def test_slr_mismatch_status():
     """SLR mismatch: expected != actual → status 'mismatch'."""
     frames = {
         "VLP": pl.DataFrame({"Recordsoort": ["RO"]}),
-        "SLR": pl.DataFrame({
-            "AantalPER": [100],
-            "AantalISP": [50],
-        }),
+        "SLR": pl.DataFrame(
+            {
+                "AantalPER": [100],
+                "AantalISP": [50],
+            }
+        ),
         "PER": pl.DataFrame({"dummy": [1] * 10}),
         "ISP": pl.DataFrame({"dummy": [1] * 50}),
     }
