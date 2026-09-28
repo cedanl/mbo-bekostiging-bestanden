@@ -6,6 +6,8 @@ import polars as pl
 
 from mbo_bekostiging_bestanden.metadata import load_schema
 
+_DECIMAALKOMMA = ","
+
 
 def _detect_date_format(sample: str) -> str:
     """Detecteer datumformaat uit een niet-lege voorbeeldwaarde.
@@ -67,9 +69,21 @@ def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) 
     return ""
 
 
+def _leeg_naar_null(col: pl.Expr) -> pl.Expr:
+    return pl.when(col == "").then(None).otherwise(col)
+
+
 def _to_float_expr(col: pl.Expr) -> pl.Expr:
-    """Converteer een string-kolom naar ``pl.Float64`` (null bij lege waarde)."""
-    return pl.when(col == "").then(None).otherwise(col).cast(pl.Float64, strict=False)
+    """Converteer een string-kolom naar ``pl.Float64`` (null bij lege waarde).
+
+    Een komma als decimaalteken (``6,5``) is geldig volgens het PvE en wordt
+    eerst genormaliseerd naar een punt (#207).
+    """
+    return (
+        _leeg_naar_null(col)
+        .str.replace(_DECIMAALKOMMA, ".", literal=True)
+        .cast(pl.Float64, strict=False)
+    )
 
 
 _BEKOSTIGBAAR_JA = frozenset({"J", "j", "1", "true", "True", "TRUE"})
@@ -101,7 +115,7 @@ def decode_frames(
 
     - Datumvelden worden ``pl.Date`` (null bij lege waarde).
     - Integer-velden worden ``pl.Int64``.
-    - Float-velden worden ``pl.Float64``.
+    - Float-velden worden ``pl.Float64``; een decimaalkomma wordt geaccepteerd.
     - Alle casts zijn niet-strikt: een ongeldige waarde wordt null en telt als
       parseverlies in ``quality.json`` (zie :func:`quality.tel_parseverlies`).
     - ``IndicatieBekostigbaar`` wordt genormaliseerd naar ``"J"``/``"N"``.
@@ -137,21 +151,12 @@ def decode_frames(
                 exprs.append(to_date(pl.col(col)).alias(col))
             elif col in int_fields:
                 exprs.append(
-                    pl.when(pl.col(col) == "")
-                    .then(None)
-                    .otherwise(pl.col(col))
-                    .cast(pl.Int64, strict=False)
-                    .alias(col)
+                    _leeg_naar_null(pl.col(col)).cast(pl.Int64, strict=False).alias(col)
                 )
             elif col in float_fields:
                 exprs.append(_to_float_expr(pl.col(col)).alias(col))
             else:
-                exprs.append(
-                    pl.when(pl.col(col) == "")
-                    .then(None)
-                    .otherwise(pl.col(col))
-                    .alias(col)
-                )
+                exprs.append(_leeg_naar_null(pl.col(col)).alias(col))
 
         result[rt] = _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs))
 
