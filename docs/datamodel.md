@@ -155,7 +155,8 @@ waarvan een ISP-periode de peildatum dekt. Deze tabel is de bron voor tellingen,
 | Kolom | Definitie |
 |---|---|
 | `Schooljaar`, `Peildatum` | Schooljaar `t` en peildatum 1-10-t |
-| *Welke jaren* | Elk `t` met `DatumBegin ≤ 1-10-t ≤ einde`. Einde = `_periode_einde` (volgende periode − 1 dag, `DatumEind` of `DatumUitschrijvingWerkelijk`, de vroegste), **begrensd door de peildatum van de levering** (VLP `DatumEindePeriode`, anders `DatumAanmaak`). Zonder einde en zonder peildatum (TBGI zonder VLP): alleen het eerste schooljaar |
+| *Welke jaren* | Elk `t` met `DatumBegin ≤ 1-10-t ≤ einde`. Einde = `_periode_einde` (volgende periode − 1 dag, `DatumEind` of `DatumUitschrijvingWerkelijk`, de vroegste), **begrensd door de peildatum van de levering** (VLP `DatumEindePeriode`, anders `DatumAanmaak`). Zonder einde en zonder peildatum: alleen het eerste schooljaar |
+| *TBGI-inschrijvingen* | TBGI levert inschrijvingen, geen ISP-perioden. Een TBGI-inschrijving telt **alleen in de schooljaren van haar 1-oktober-`Teldatum`** (#197); `DatumInschrijving` bepaalt het schooljaar niet, een teldatum 1-2 is geen peildatum, en een inschrijving zonder teldatum telt niet (PvE §16: niet in aanmerking op 1-10 of 1-2) |
 | `_hoofdinschrijving` | Precies één per deelnemer × instelling × schooljaar, **over leveringen heen**: hoogste niveau, dan laagste CREBO, dan meest recente `DatumBegin`, dan inschrijvingvolgnummer. Zonder bekend niveau nooit hoofdinschrijving |
 | `_telling` | Gelijk aan `_hoofdinschrijving`: telt de deelnemer één keer per instelling per schooljaar |
 | `_bekostigd` | `IndicatieBekostigbaar = J` van de periode die de peildatum dekt |

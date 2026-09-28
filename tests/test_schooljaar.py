@@ -336,9 +336,73 @@ def test_demo_periode_fk_bestaat_in_fact_inschrijving(demo_star):
 
 
 def test_tbgi_only_inschrijving_is_de_periode(tbgi_star):
-    """Zonder ISP telt de TBGI-inschrijving vanaf DatumInschrijving (geen VLP)."""
+    """Zonder ISP verwijst elke schooljaarrij naar de TBGI-inschrijving."""
     jaren = tbgi_star["fact_inschrijving_schooljaar"]
     assert jaren.height > 0
     assert not jaren.join(
         tbgi_star["fact_inschrijving"], on="_inschrijving_periode_id", how="anti"
     ).height
+
+
+# ---------------------------------------------------------------------------
+# TBGI: de teldatum is de waarneming (#197)
+# ---------------------------------------------------------------------------
+
+
+def _tbgi_inschrijving(nr: str = "1", inschrijving: date = date(2024, 2, 1)) -> dict:
+    """TBGI levert een inschrijving (geen ISP-periode) met ``DatumInschrijving``."""
+    rij = _periode(inschrijving, levering="T", nr=nr)
+    rij["DatumInschrijving"] = rij.pop("DatumBegin")
+    rij["DatumUitschrijvingGepland"] = date(2027, 1, 31)
+    return rij
+
+
+def _teldata(*rijen: tuple[str, date]) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "levering": ["T"] * len(rijen),
+            "BRIN": ["27DV"] * len(rijen),
+            "_persoon_id": ["P"] * len(rijen),
+            "Inschrijvingvolgnummer": [nr for nr, _ in rijen],
+            "Teldatum": [d for _, d in rijen],
+        }
+    )
+
+
+def _bouw_tbgi(inschrijvingen: pl.DataFrame, teldata: pl.DataFrame) -> pl.DataFrame:
+    return bouw_inschrijving_schooljaar(
+        inschrijvingen, _leveringen(T=None), teldata=teldata
+    )
+
+
+def test_tbgi_schooljaar_volgt_teldatum_niet_datum_inschrijving():
+    """Inschrijving 1-2-2024, teldatum 1-10-2025 → alleen schooljaar 2025."""
+    df = _bouw_tbgi(
+        _inschrijvingen(_tbgi_inschrijving()), _teldata(("1", date(2025, 10, 1)))
+    )
+    assert df["Schooljaar"].to_list() == [2025]
+    assert df["Peildatum"].to_list() == [date(2025, 10, 1)]
+
+
+def test_tbgi_teldatum_1_februari_is_geen_peildatum():
+    df = _bouw_tbgi(
+        _inschrijvingen(_tbgi_inschrijving()),
+        _teldata(("1", date(2025, 10, 1)), ("1", date(2026, 2, 1))),
+    )
+    assert df["Schooljaar"].to_list() == [2025]
+
+
+def test_tbgi_inschrijving_zonder_teldatum_telt_niet():
+    """PvE §16: geen <Teldatum> = niet in aanmerking op 1-10 of 1-2."""
+    df = _bouw_tbgi(
+        _inschrijvingen(_tbgi_inschrijving("1"), _tbgi_inschrijving("2")),
+        _teldata(("1", date(2025, 10, 1))),
+    )
+    assert df["Inschrijvingvolgnummer"].to_list() == ["1"]
+
+
+def test_tbgi_only_demo_schooljaar_is_teldatum(tbgi_star):
+    """Demo 25LX: DatumInschrijving 2024-02-01, Teldatum 2025-10-01."""
+    jaren = tbgi_star["fact_inschrijving_schooljaar"]
+    assert jaren["Schooljaar"].to_list() == [2025]
+    assert jaren["Peildatum"].to_list() == [date(2025, 10, 1)]
