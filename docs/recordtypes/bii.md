@@ -28,6 +28,12 @@ BII-records volgen direct na het ISG-block (na ISP, ISE en BPV-records) van de b
 | 13 | Verblijfsjaarfactor | Nee | N10 (2 dec.) | Niet meer van toepassing na 01-10-2018 | — |
 | 14 | Bijdrage inschrijving aan deelnemerswaarde | Nee | N15 (6 dec.) | Individuele bijdrage aan de deelnemerswaarde | `1` |
 
+!!! note "In de output"
+    De factoren en de bijdrage worden `Float64`, het aantal verblijfsjaren `Int64`. Het PvE noemt het
+    decimaalteken niet; zowel `0.85` als `0,85` wordt gelezen. De kolomnamen zijn gelijk aan die van
+    TBG-i (`AantalBekostigdeVerblijfsjarenMBO`, `BijdrageInschrijvingAanDeelnemerswaarde`, …), zodat
+    `fact_bekostiging` per begrip één kolom heeft, ongeacht de bron.
+
 ## Factoren uitgelegd
 
 | Factor | Waarde | Uitleg |

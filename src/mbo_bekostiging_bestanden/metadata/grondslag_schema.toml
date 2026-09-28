@@ -70,11 +70,14 @@ fields = [
     "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
     "Bekostigingsstatus", "InschrijvingVoorCorrectiefactor",
     "BBLBOLFactor", "PrijsfactorMBO",
-    "AantalBekostigdeVerblijfsjaren", "Verblijfsjaarfactor",
-    "BijdrageDeelnemerswaarde",
+    "AantalBekostigdeVerblijfsjarenMBO", "Verblijfsjaarfactor",
+    "BijdrageInschrijvingAanDeelnemerswaarde",
 ]
-date_fields = ["Teldatum"]
-int_fields  = []
+# Namen en typering gelijk aan TBG-i (tbgi_schema.toml [Teldatum]), zoals het
+# PvE ze in §16 en §17 noemt: één concept, één kolom in fact_bekostiging (#208).
+date_fields  = ["Teldatum"]
+int_fields   = ["AantalBekostigdeVerblijfsjarenMBO"]
+float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
 
 [DIP]
 fields = [
@@ -94,8 +97,9 @@ fields = [
     "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
     "Bekostigingsstatus", "BijdrageDiplomawaarde",
 ]
-date_fields = []
-int_fields  = []
+date_fields  = []
+int_fields   = []
+float_fields = ["BijdrageDiplomawaarde"]
 
 [AMO]
 # Niet aanwezig in demo-data (subset); aanwezig in volledig bestand.
