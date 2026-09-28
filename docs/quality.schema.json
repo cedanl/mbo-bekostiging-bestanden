@@ -120,6 +120,16 @@
             },
             "additionalProperties": false
           },
+          "domeinafwijkingen": {
+            "type": "object",
+            "description": "Per recordtype en veld: gevulde waarden buiten hun waardedomein (#205)",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            }
+          },
           "warnings": {
             "type": "array",
             "description": "Non-fatal issues",
@@ -142,6 +152,7 @@
           "slr_details",
           "parseverlies",
           "regelinventaris",
+          "domeinafwijkingen",
           "warnings",
           "errors"
         ],

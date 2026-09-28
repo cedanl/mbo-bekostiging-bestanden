@@ -93,6 +93,7 @@ class QualityReport:
     slr_status: str = "unknown"  # match | mismatch | unknown
     parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
     regelinventaris: dict[str, dict] = field(default_factory=dict)
+    domeinafwijkingen: dict[str, dict[str, int]] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -116,6 +117,14 @@ class QualityReport:
             if inventaris.get(sleutel):
                 self.warnings.append(f"{tekst}: {inventaris[sleutel]}")
 
+    def meld_domeinafwijkingen(self, afwijkingen: dict[str, dict[str, int]]) -> None:
+        """Neem waarden buiten hun domein op (``controleer_waardedomeinen``)."""
+        self.domeinafwijkingen = afwijkingen
+        if afwijkingen:
+            self.warnings.append(
+                f"Waarden buiten hun domein (mogelijk verschoven velden): {afwijkingen}"
+            )
+
     def as_dict(self) -> dict:
         """Zet rapport om naar dict voor JSON-export."""
         return {
@@ -125,6 +134,7 @@ class QualityReport:
             "slr_details": self.slr_checks,
             "parseverlies": self.parseverlies,
             "regelinventaris": self.regelinventaris,
+            "domeinafwijkingen": self.domeinafwijkingen,
             "warnings": self.warnings,
             "errors": self.errors,
         }
@@ -182,6 +192,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         slr_checks=data.get("slr_details", {}),
         parseverlies=data.get("parseverlies", {}),
         regelinventaris=data.get("regelinventaris", {}),
+        domeinafwijkingen=data.get("domeinafwijkingen", {}),
         warnings=data.get("warnings", []),
         errors=data.get("errors", []),
     )

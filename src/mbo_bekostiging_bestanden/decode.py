@@ -5,6 +5,7 @@ import re
 import polars as pl
 
 from mbo_bekostiging_bestanden.metadata import load_schema
+from mbo_bekostiging_bestanden.waardenlijsten import indicatie_bekostigbaar
 
 _DECIMAALKOMMA = ","
 
@@ -108,24 +109,18 @@ def _to_float_expr(col: pl.Expr) -> pl.Expr:
     )
 
 
-_BEKOSTIGBAAR_JA = frozenset({"J", "j", "1", "true", "True", "TRUE"})
-_BEKOSTIGBAAR_NEE = frozenset({"N", "n", "0", "false", "False", "FALSE"})
-
-
 def _normaliseer_indicatie_bekostigbaar(df: pl.DataFrame) -> pl.DataFrame:
     """Normaliseer ``IndicatieBekostigbaar`` naar ``"J"``/``"N"``.
 
-    RO gebruikt ``"J"``/``"N"``, GRONDSLAG ``"1"``/``"0"``, TBGI ``"true"``/``"false"``.
+    RO gebruikt ``"J"``/``"N"``, GRONDSLAG ``"1"``/``"0"``, TBGI ``"true"``/``"false"``;
+    de notaties staan in ``metadata/waardenlijsten.toml``.
     """
     if "IndicatieBekostigbaar" not in df.columns:
         return df
     return df.with_columns(
-        pl.when(pl.col("IndicatieBekostigbaar").is_in(list(_BEKOSTIGBAAR_JA)))
-        .then(pl.lit("J"))
-        .when(pl.col("IndicatieBekostigbaar").is_in(list(_BEKOSTIGBAAR_NEE)))
-        .then(pl.lit("N"))
-        .otherwise(pl.col("IndicatieBekostigbaar"))
-        .alias("IndicatieBekostigbaar")
+        indicatie_bekostigbaar(pl.col("IndicatieBekostigbaar")).alias(
+            "IndicatieBekostigbaar"
+        )
     )
 
 

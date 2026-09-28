@@ -2,7 +2,6 @@
 
 import json
 from collections.abc import Callable, Sequence
-from functools import partial
 from pathlib import Path
 
 import polars as pl
@@ -30,6 +29,7 @@ from mbo_bekostiging_bestanden.validate import (
     validate_ro,
     validate_tbgi,
 )
+from mbo_bekostiging_bestanden.waardenlijsten import controleer_waardedomeinen
 
 # Bestandsnaam-prefix (hoofdletters) → bestandstype-sleutel.
 # Langere prefixen eerst: "GRONDSLAG_IP_MBO_" vóór een eventuele "GRONDSLAG_".
@@ -87,7 +87,8 @@ def _run(
     source: str | Path,
     target: str | Path,
     fmt: OutputFormat,
-    inventaris: Callable[[Path], dict] | None = None,
+    schema_naam: str,
+    positioneel: bool = True,
 ) -> dict[str, pl.DataFrame]:
     source_path = Path(source)
     target_path = Path(target)
@@ -100,8 +101,11 @@ def _run(
     levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
     quality_report = check_slr_reconciliation(frames, levering)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
-    if inventaris is not None:
-        quality_report.meld_regelinventaris(inventaris(source_path))
+    quality_report.meld_domeinafwijkingen(controleer_waardedomeinen(ruw, schema_naam))
+    if positioneel:
+        quality_report.meld_regelinventaris(
+            inventariseer_regels(source_path, schema_naam)
+        )
 
     # Sla rapport op als JSON
     report_path = target_path / "quality.json"
@@ -135,7 +139,7 @@ def run_pipeline(
         source,
         target,
         fmt,
-        inventaris=partial(inventariseer_regels, schema_name="ro"),
+        schema_naam="ro",
     )
 
 
@@ -161,7 +165,7 @@ def run_grondslag_pipeline(
         source,
         target,
         fmt,
-        inventaris=partial(inventariseer_regels, schema_name="grondslag"),
+        schema_naam="grondslag",
     )
 
 
@@ -180,7 +184,16 @@ def run_tbgi_pipeline(
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
     """
-    return _run(read_tbgi, decode_tbgi, validate_tbgi, source, target, fmt)
+    return _run(
+        read_tbgi,
+        decode_tbgi,
+        validate_tbgi,
+        source,
+        target,
+        fmt,
+        schema_naam="tbgi",
+        positioneel=False,
+    )
 
 
 def run_star(
