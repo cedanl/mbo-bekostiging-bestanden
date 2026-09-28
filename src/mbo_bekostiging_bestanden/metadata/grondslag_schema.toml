@@ -10,6 +10,7 @@ single_row  = true
 fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
 date_fields = ["DatumAanmaak"]
 int_fields  = ["Studiejaar"]
+domeinen = { BRIN = "brin" }
 
 [PER]
 # Posities 19-21 staan niet in de PvE-spec maar wel in echte leveringen: ze herhalen
@@ -36,6 +37,7 @@ fields = [
 ]
 date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields  = []
+domeinen = { BRIN = "brin" }
 
 [ISP]
 fields = [
@@ -47,6 +49,7 @@ fields = [
 ]
 date_fields = ["DatumBegin", "DatumEind"]
 int_fields  = []
+domeinen = { BRIN = "brin", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject" }
 
 [ISE]
 fields = [
@@ -91,6 +94,7 @@ fields = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
+domeinen = { BRIN = "brin", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode" }
 
 [BID]
 # Niet aanwezig in demo-data; aangemaakt na bekostigingsberekening door DUO.
@@ -115,6 +119,7 @@ fields = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
+domeinen = { Certificaat = "certificaat" }
 
 [GEO]
 fields = [
@@ -138,6 +143,7 @@ fields = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
+domeinen = { Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
 
 [SLR]
 single_row = true

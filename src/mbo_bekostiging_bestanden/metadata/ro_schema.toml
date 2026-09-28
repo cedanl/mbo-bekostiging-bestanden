@@ -8,6 +8,7 @@ single_row  = true
 fields      = ["Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 date_fields = ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 int_fields  = []
+domeinen = { BRIN = "brin" }
 
 [PER]
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht"]
@@ -35,6 +36,7 @@ fields = [
 ]
 date_fields = ["DatumBegin"]
 int_fields  = []
+domeinen = { IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject" }
 
 [ISE]
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "DatumBegin", "DatumEind"]
@@ -61,6 +63,7 @@ fields = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
+domeinen = { _onbekend = "leeg", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode" }
 
 [AMO]
 fields = [
@@ -71,6 +74,7 @@ fields = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
+domeinen = { Certificaat = "certificaat" }
 
 [GEO]
 fields = [
@@ -93,6 +97,7 @@ fields = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
+domeinen = { Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
 
 [SLR]
 single_row  = true
