@@ -19,6 +19,9 @@ from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
     detail_zonder_inschrijving,
 )
+from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
+from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
+from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
 from mbo_bekostiging_bestanden.schooljaar import (
     FEIT as SCHOOLJAAR_FEIT,
 )
@@ -28,11 +31,6 @@ from mbo_bekostiging_bestanden.schooljaar import (
 from mbo_bekostiging_bestanden.schooljaar import (
     HOOFDINSCHRIJVING,
     HOOFDINSCHRIJVING_GROEP,
-)
-from mbo_bekostiging_bestanden.transform import (
-    _NIVEAU_HERKOMST,
-    _NIVEAU_ONBEKEND,
-    _NIVEAU_SBB_NVT,
 )
 
 # Icoon per SLR-status voor de app-weergave.

@@ -1,8 +1,7 @@
-"""Tests voor indicatoren.py (normen, oordeel, populatie, entree)."""
+"""Tests voor app/_indicatoren.py (normen, oordeel, populatie, entree)."""
 
 import polars as pl
-
-from mbo_bekostiging_bestanden.indicatoren import (
+from _indicatoren import (
     _MIN_NOEMER,
     _bepaal_oordeel,
     _laad_normen,
