@@ -1081,26 +1081,15 @@ def test_niveau_gecombineerd_null_leertraject():
     assert result["Niveau_gecombineerd"][0] is None
 
 
-def test_tellingen_aanwezig():
-    df = pl.DataFrame(
-        {
-            "_persoon_id": ["P1", "P1", "P2"],
-            "Inschrijvingvolgnummer": ["1", "1", "1"],
-            "levering": ["L1", "L2", "L1"],
-        }
-    )
-    result = _voeg_afgeleide_velden_toe(df)
-    p1 = result.filter(pl.col("_persoon_id") == "P1")
-    assert p1["_tellingen_aanwezig"][0] == 2
-    p2 = result.filter(pl.col("_persoon_id") == "P2")
-    assert p2["_tellingen_aanwezig"][0] == 1
-
-
 def test_afgeleide_velden_in_demo(demo_tabellen):
-    """Afgeleide velden zijn aanwezig in de inschrijvingen-tabel."""
+    """Afgeleide velden zijn aanwezig in de inschrijvingen-tabel.
+
+    ``_tellingen_aanwezig`` is weg (#210): het telde over instellingen heen en
+    de duplicaatdetectie over leveringen doet de canonicalisatie.
+    """
     df = demo_tabellen["inschrijvingen"]
     assert "Niveau_gecombineerd" in df.columns
-    assert "_tellingen_aanwezig" in df.columns
+    assert "_tellingen_aanwezig" not in df.columns
 
 
 # ---------------------------------------------------------------------------

@@ -99,7 +99,6 @@ fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe
 | Entree | `_entree_uitstroom` | `Boolean` | MBO-1 + uitgeschreven (geen actieve ISP meer) |
 | | `_entree_doorstroom` | `Boolean` | MBO-1 + een hogere inschrijving bij dezelfde instelling |
 | Afgeleid | `Niveau_gecombineerd` | `Utf8` | Niveau + spatie + Leertraject (bijv. `MBO-4 BOL`) |
-| | `_tellingen_aanwezig` | `UInt32` | Aantal ISP-rijen per persoon × inschrijving (duplicaatdetectie) |
 
 #### Verrijking via decodeertabellen
 
