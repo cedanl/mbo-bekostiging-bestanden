@@ -191,24 +191,18 @@ def decode_frames(
 
 
 def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Decodeer een RO-pakket naar getypeerde DataFrames.
-
-    Dunne wrapper om :func:`decode_frames` met schema ``"ro"``.
-    """
+    """Decodeer een RO-pakket. Dunne wrapper om :func:`decode_frames`
+    met schema ``"ro"``."""
     return decode_frames(frames, "ro")
 
 
 def decode_grondslag(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Decodeer een GRONDSLAG IP MBO-pakket naar getypeerde DataFrames.
-
-    Dunne wrapper om :func:`decode_frames` met schema ``"grondslag"``.
-    """
+    """Decodeer een GRONDSLAG IP MBO-pakket. Dunne wrapper om
+    :func:`decode_frames` met schema ``"grondslag"``."""
     return decode_frames(frames, "grondslag")
 
 
 def decode_tbgi(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    """Decodeer een TBGI-pakket naar getypeerde DataFrames.
-
-    Dunne wrapper om :func:`decode_frames` met schema ``"tbgi"``.
-    """
+    """Decodeer een TBGI-pakket. Dunne wrapper om :func:`decode_frames`
+    met schema ``"tbgi"``."""
     return decode_frames(frames, "tbgi")
