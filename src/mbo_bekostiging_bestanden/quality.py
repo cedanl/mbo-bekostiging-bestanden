@@ -14,6 +14,7 @@ from typing import Any
 
 import polars as pl
 
+from mbo_bekostiging_bestanden import ernst
 from mbo_bekostiging_bestanden.canonicalisatie import INSCHRIJVING, REGEL
 from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
@@ -96,7 +97,9 @@ class QualityReport:
     slr_status: str = "unknown"  # match | mismatch | unknown | not_applicable
     parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
     regelinventaris: dict[str, dict] = field(default_factory=dict)
-    domeinafwijkingen: dict[str, dict[str, int]] = field(default_factory=dict)
+    domeinafwijkingen: dict[str, dict[str, dict[str, int | str]]] = field(
+        default_factory=dict
+    )
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -120,13 +123,31 @@ class QualityReport:
             if inventaris.get(sleutel):
                 self.warnings.append(f"{tekst}: {inventaris[sleutel]}")
 
-    def meld_domeinafwijkingen(self, afwijkingen: dict[str, dict[str, int]]) -> None:
-        """Neem waarden buiten hun domein op (``controleer_waardedomeinen``)."""
+    def meld_domeinafwijkingen(
+        self, afwijkingen: dict[str, dict[str, dict[str, int | str]]]
+    ) -> None:
+        """Neem waarden buiten hun domein op (``controleer_waardedomeinen``).
+
+        Een afwijking met ``ernst == "error"`` (bijv. BRIN, Studiejaar: een
+        verschoven recordlayout, #238) meldt in ``errors``; de rest in
+        ``warnings``.
+        """
         self.domeinafwijkingen = afwijkingen
-        if afwijkingen:
-            self.warnings.append(
-                f"Waarden buiten hun domein (mogelijk verschoven velden): {afwijkingen}"
-            )
+        for niveau, sleutel in ((ernst.ERROR, "errors"), (ernst.WARNING, "warnings")):
+            gefilterd = {
+                rt: {
+                    veld: info["aantal"]
+                    for veld, info in velden.items()
+                    if info["ernst"] == niveau
+                }
+                for rt, velden in afwijkingen.items()
+            }
+            gefilterd = {rt: velden for rt, velden in gefilterd.items() if velden}
+            if gefilterd:
+                getattr(self, sleutel).append(
+                    "Waarden buiten hun domein (mogelijk verschoven velden): "
+                    f"{gefilterd}"
+                )
 
     def as_dict(self) -> dict:
         """Zet rapport om naar dict voor JSON-export."""
@@ -471,7 +492,7 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
     ]
 
 
-ERNST_ERROR, ERNST_WARNING, ERNST_INFO = "error", "warning", "info"
+ERNST_ERROR, ERNST_WARNING, ERNST_INFO = ernst.ERROR, ernst.WARNING, ernst.INFO
 _BRON_STER = "ster"
 
 

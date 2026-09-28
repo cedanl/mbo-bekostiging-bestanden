@@ -15,8 +15,15 @@ nee = ["N", "0", "FALSE"]
 # waarde buiten het domein verraadt vaak een verschoven veldindeling.
 # Soorten: patroon (regex op de getrimde waarde), waarden (genormaliseerd),
 # waardenlijst (alle waarden van een lijst hierboven), leeg (veld hoort leeg).
+# Ernst (#238): "error" voor velden waar een afwijking op een verschoven
+# recordlayout wijst (BRIN, Studiejaar) — anders "warning" (default).
 [domein.brin]
 patroon = '^[0-9]{2}[A-Z]{2}$'
+ernst = "error"
+
+[domein.studiejaar]
+patroon = '^[0-9]{4}$'
+ernst = "error"
 
 [domein.onderwijsaanbieder]
 patroon = '^[0-9]{3}A[0-9]{3}$'

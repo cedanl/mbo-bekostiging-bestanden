@@ -123,11 +123,22 @@
           },
           "domeinafwijkingen": {
             "type": "object",
-            "description": "Per recordtype en veld: gevulde waarden buiten hun waardedomein (#205)",
+            "description": "Per recordtype en veld: gevulde waarden buiten hun waardedomein (#205), met ernst (#238)",
             "additionalProperties": {
               "type": "object",
               "additionalProperties": {
-                "type": "integer"
+                "type": "object",
+                "properties": {
+                  "aantal": {
+                    "type": "integer"
+                  },
+                  "ernst": {
+                    "type": "string",
+                    "enum": ["error", "warning"]
+                  }
+                },
+                "required": ["aantal", "ernst"],
+                "additionalProperties": false
               }
             }
           },

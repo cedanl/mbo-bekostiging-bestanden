@@ -34,7 +34,9 @@ def test_dip_zonder_positie_7_wordt_gesignaleerd(tmp_path):
     """``J`` schuift naar ``_onbekend``; ``1`` naar IndicatieBekostigbaar is toevallig
     ook geldig, dus juist het verplicht lege veld verraadt de verschuiving."""
     frames = _ro_frames(tmp_path, DIP_ZONDER_POS_7)
-    assert controleer_waardedomeinen(frames, "ro") == {"DIP": {"_onbekend": 1}}
+    assert controleer_waardedomeinen(frames, "ro") == {
+        "DIP": {"_onbekend": {"aantal": 1, "ernst": "warning"}}
+    }
 
 
 def test_dip_volgens_praktijklayout_heeft_geen_afwijking(tmp_path):
@@ -45,7 +47,9 @@ def test_waarden_worden_genormaliseerd_vergeleken():
     frames = {
         "KZD": pl.DataFrame({"Resultaat": ["Niet  behaald", " behaald", "Deels"]})
     }
-    assert controleer_waardedomeinen(frames, "ro") == {"KZD": {"Resultaat": 1}}
+    assert controleer_waardedomeinen(frames, "ro") == {
+        "KZD": {"Resultaat": {"aantal": 1, "ernst": "warning"}}
+    }
 
 
 def test_lege_waarden_tellen_niet():
@@ -59,8 +63,12 @@ def test_pipeline_meldt_domeinafwijkingen(tmp_path):
     doel = tmp_path / "prepared"
     run_auto_pipeline(bron, doel)
     rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
-    assert rapport["domeinafwijkingen"]["DIP"]["_onbekend"] == 1
+    assert rapport["domeinafwijkingen"]["DIP"]["_onbekend"] == {
+        "aantal": 1,
+        "ernst": "warning",
+    }
     assert any("_onbekend" in w for w in rapport["warnings"])
+    assert rapport["errors"] == []
 
 
 @pytest.mark.parametrize(
@@ -70,3 +78,38 @@ def test_demo_valt_binnen_de_waardedomeinen(bron):
     grondslag = bron.name.startswith("GRONDSLAG")
     frames = (read_grondslag if grondslag else read_ro)(bron)
     assert controleer_waardedomeinen(frames, "grondslag" if grondslag else "ro") == {}
+
+
+def test_ongeldig_brin_wordt_als_error_gemeld():
+    """BRIN is structureel: een afwijking wijst op een verschoven layout (#238)."""
+    frames = {"VLP": pl.DataFrame({"BRIN": ["27DV", "NIET-EEN-BRIN"]})}
+    assert controleer_waardedomeinen(frames, "ro") == {
+        "VLP": {"BRIN": {"aantal": 1, "ernst": "error"}}
+    }
+
+
+def test_verschoven_studiejaar_wordt_als_error_gemeld():
+    """GRONDSLAG-VLP.Studiejaar buiten een 4-cijferig jaar wijst op een
+    verschoven veldindeling, net als BRIN (#238)."""
+    frames = {"VLP": pl.DataFrame({"Studiejaar": ["2025", "25"]})}
+    assert controleer_waardedomeinen(frames, "grondslag") == {
+        "VLP": {"Studiejaar": {"aantal": 1, "ernst": "error"}}
+    }
+
+
+def test_pipeline_meldt_domeinfout_als_error(tmp_path):
+    """Een ongeldig BRIN in VLP komt in ``errors`` terecht, niet ``warnings`` (#238)."""
+    bron = tmp_path / "RO_99XX_20250801_20260731.csv"
+    bron.write_text(
+        "VLP|9X|2025-08-01|2026-07-31|2026-08-01\nPER|BSN1||2001-05-17|V\n",
+        encoding="utf-8",
+    )
+    doel = tmp_path / "prepared"
+    run_auto_pipeline(bron, doel)
+    rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
+    assert rapport["domeinafwijkingen"]["VLP"]["BRIN"] == {
+        "aantal": 1,
+        "ernst": "error",
+    }
+    assert any("BRIN" in e for e in rapport["errors"])
+    assert not any("BRIN" in w for w in rapport["warnings"])

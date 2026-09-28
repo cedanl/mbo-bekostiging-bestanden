@@ -10,7 +10,7 @@ single_row  = true
 fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
 date_fields = ["DatumAanmaak"]
 int_fields  = ["Studiejaar"]
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", Studiejaar = "studiejaar" }
 
 [PER]
 # Posities 19-21 staan niet in de PvE-spec maar wel in echte leveringen: ze herhalen
