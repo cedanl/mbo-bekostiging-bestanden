@@ -256,12 +256,13 @@ CHART_DOCS: dict[str, dict] = {
     },
     "kzd_detail": {
         "titel": "Keuzedelen — resultaten per code",
-        "variabelen": ["fact_kzd.CodeKeuzedeel", "fact_kzd.Resultaat"],
+        "variabelen": ["fact_kzd.CodeKeuzedeel", "fact_kzd.Behaald"],
         "manipulatie": (
             "Gelezen uit `fact_kzd` (grain: één rij per keuzedeel per inschrijving).  "
             "Per keuzedeel-code (`CodeKeuzedeel`) wordt het totaal en het aantal "
-            "behaalde resultaten geteld.  Een keuzedeel telt als behaald als het "
-            "veld `Resultaat` de tekst 'BEHAALD' bevat.  Top-15 op volume."
+            "behaalde resultaten geteld.  `Behaald` is in de pipeline exact bepaald "
+            "uit de DUO-waardenlijst (`Behaald`/`Niet behaald`); een onbekende "
+            "waarde telt niet als behaald.  Top-15 op volume."
             + _DETAIL_SELECTIE
         ),
     },

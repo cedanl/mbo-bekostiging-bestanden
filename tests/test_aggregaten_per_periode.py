@@ -35,7 +35,10 @@ def test_aggregaat_per_periode_komt_overeen_met_detail_feit(demo_star, kolom, fe
 
 
 def test_kzd_behaald_telt_niet_dubbel(demo_star):
+    """Consistentie aggregaat ↔ detail.
+
+    De inhoudelijke verwachting staat in ``test_waardenlijsten``.
+    """
     fi = demo_star["fact_inschrijving"]
     kzd = demo_star["fact_kzd"].drop_nulls(SLEUTEL)
-    behaald = kzd["Resultaat"].str.to_uppercase().str.contains("BEHAALD").sum()
-    assert fi["KZD_AantalBehaald"].sum() == behaald
+    assert fi["KZD_AantalBehaald"].sum() == kzd["Behaald"].sum()
