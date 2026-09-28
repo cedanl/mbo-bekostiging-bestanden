@@ -158,27 +158,41 @@
         },
         "key_duplicates": {
           "type": "object",
-          "description": "Period keys appearing >1x in fact_inschrijving",
-          "properties": {
-            "duplicate_keys": {
-              "type": "integer"
-            },
-            "affected_rows": {
-              "type": "integer"
-            },
-            "by_delivery": {
-              "type": "object",
-              "additionalProperties": {
+          "description": "Per uniciteitscontract (bijv. fact_inschrijving, fact_inschrijving_schooljaar, hoofdinschrijving_per_schooljaar): sleutels die meer dan één keer voorkomen",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "feit": {
+                "type": "string"
+              },
+              "sleutel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "duplicate_keys": {
                 "type": "integer"
+              },
+              "affected_rows": {
+                "type": "integer"
+              },
+              "by_delivery": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
               }
-            }
-          },
-          "required": [
-            "duplicate_keys",
-            "affected_rows",
-            "by_delivery"
-          ],
-          "additionalProperties": false
+            },
+            "required": [
+              "feit",
+              "sleutel",
+              "duplicate_keys",
+              "affected_rows",
+              "by_delivery"
+            ],
+            "additionalProperties": false
+          }
         },
         "overlapping_deliveries": {
           "type": "array",

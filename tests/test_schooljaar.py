@@ -406,3 +406,19 @@ def test_tbgi_only_demo_schooljaar_is_teldatum(tbgi_star):
     jaren = tbgi_star["fact_inschrijving_schooljaar"]
     assert jaren["Schooljaar"].to_list() == [2025]
     assert jaren["Peildatum"].to_list() == [date(2025, 10, 1)]
+
+
+def test_twee_perioden_met_gelijke_begindatum_worden_gemeld():
+    """Auditprobe #200: zelfde inschrijving en DatumBegin, andere periode-ID.
+
+    Dat is een bronfout (dubbele ISP-sleutel); de schooljaar-fact ontdubbelt
+    niet stil, maar quality.json meldt de geschonden grain als error.
+    """
+    from mbo_bekostiging_bestanden.quality import controleer_sleuteluniciteit
+
+    a = _periode(date(2024, 8, 1), crebo="25000")
+    b = _periode(date(2024, 8, 1), crebo="25001")
+    b["_inschrijving_periode_id"] += "-b"
+    df = _bouw(a, b)
+    meldingen = controleer_sleuteluniciteit({"fact_inschrijving_schooljaar": df})
+    assert any("fact_inschrijving_schooljaar" in m for m in meldingen)

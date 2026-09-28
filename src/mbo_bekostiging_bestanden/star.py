@@ -15,6 +15,7 @@ import re
 import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
+from mbo_bekostiging_bestanden.schooljaar import FEIT as SCHOOLJAAR_FEIT
 from mbo_bekostiging_bestanden.schooljaar import bouw_inschrijving_schooljaar
 from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabellen
 
@@ -166,7 +167,7 @@ def build_star(
         "dim_opleiding": dim_opleiding,
         "dim_instelling": dim_instelling,
         "fact_inschrijving": fact_inschrijving,
-        "fact_inschrijving_schooljaar": bouw_inschrijving_schooljaar(
+        SCHOOLJAAR_FEIT: bouw_inschrijving_schooljaar(
             inschrijvingen,
             tables["meta_leveringen"],
             teldata=tables.get("detail_bekostiging"),

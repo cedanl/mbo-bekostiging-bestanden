@@ -19,6 +19,16 @@ from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
     filter_detail_op_inschrijvingen,
 )
+from mbo_bekostiging_bestanden.schooljaar import (
+    FEIT as SCHOOLJAAR_FEIT,
+)
+from mbo_bekostiging_bestanden.schooljaar import (
+    GRAIN as SCHOOLJAAR_GRAIN,
+)
+from mbo_bekostiging_bestanden.schooljaar import (
+    HOOFDINSCHRIJVING,
+    HOOFDINSCHRIJVING_GROEP,
+)
 from mbo_bekostiging_bestanden.transform import (
     _NIVEAU_HERKOMST,
     _NIVEAU_ONBEKEND,
@@ -275,53 +285,95 @@ def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
     return meldingen
 
 
-def _check_key_duplicates_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
-    """Core: period key duplicates in fact_inschrijving. Structured dict output."""
-    feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
-    key_dupes = {"duplicate_keys": 0, "affected_rows": 0, "by_delivery": {}}
+@dataclass(frozen=True)
+class _Uniciteit:
+    """Contract: ``sleutel`` is uniek in ``feit`` (optioneel alleen waar ``alleen``)."""
 
-    if not set(_PERIODE_SLEUTEL) <= set(feit.columns):
-        return {"key_duplicates": key_dupes}
+    feit: str
+    sleutel: tuple[str, ...]
+    melding: str
+    alleen: str | None = None
 
-    gevuld = feit.drop_nulls(_PERIODE_SLEUTEL)
-    dubbel = gevuld.filter(gevuld.select(_PERIODE_SLEUTEL).is_duplicated())
 
+# Naam → uniciteitscontract. Een geschonden contract is een error (#122, #200).
+_UNICITEIT = {
+    _CENTRAAL_FEIT: _Uniciteit(
+        _CENTRAAL_FEIT, tuple(_PERIODE_SLEUTEL), "{n} {sleutels} meer dan één keer voor"
+    ),
+    SCHOOLJAAR_FEIT: _Uniciteit(
+        SCHOOLJAAR_FEIT,
+        tuple(SCHOOLJAAR_GRAIN),
+        "{n} {sleutels} meer dan één keer voor",
+    ),
+    "hoofdinschrijving_per_schooljaar": _Uniciteit(
+        SCHOOLJAAR_FEIT,
+        tuple(HOOFDINSCHRIJVING_GROEP),
+        "{n} persoon × instelling × schooljaar met meer dan één hoofdinschrijving",
+        alleen=HOOFDINSCHRIJVING,
+    ),
+}
+
+
+def _dubbele_sleutels(star: dict[str, pl.DataFrame], contract: _Uniciteit) -> dict:
+    sleutel = list(contract.sleutel)
+    resultaat: dict[str, Any] = {
+        "feit": contract.feit,
+        "sleutel": sleutel,
+        "duplicate_keys": 0,
+        "affected_rows": 0,
+        "by_delivery": {},
+    }
+    feit = star.get(contract.feit, pl.DataFrame())
+    nodig = {*sleutel, *([contract.alleen] if contract.alleen else [])}
+    if not nodig <= set(feit.columns):
+        return resultaat
+    if contract.alleen:
+        feit = feit.filter(pl.col(contract.alleen))
+    gevuld = feit.drop_nulls(sleutel)
+    dubbel = gevuld.filter(gevuld.select(sleutel).is_duplicated())
     if dubbel.is_empty():
-        return {"key_duplicates": key_dupes}
-
-    key_dupes["duplicate_keys"] = dubbel.select(_PERIODE_SLEUTEL).n_unique()
-    key_dupes["affected_rows"] = dubbel.height
-
+        return resultaat
+    resultaat["duplicate_keys"] = dubbel.select(sleutel).n_unique()
+    resultaat["affected_rows"] = dubbel.height
     if "levering" in dubbel.columns:
         per_lev = dubbel.group_by("levering").len().sort("levering")
-        key_dupes["by_delivery"] = {
-            lev: int(n) for lev, n in per_lev.iter_rows()
-        }
+        resultaat["by_delivery"] = {lev: int(n) for lev, n in per_lev.iter_rows()}
+    return resultaat
 
-    return {"key_duplicates": key_dupes}
+
+def _check_key_duplicates_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Per uniciteitscontract: aantal dubbele sleutels en getroffen rijen."""
+    return {
+        "key_duplicates": {
+            naam: _dubbele_sleutels(star, contract)
+            for naam, contract in _UNICITEIT.items()
+        }
+    }
 
 
 def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
-    """Wrapper: gestructureerde check naar strings voor app-display."""
-    result = _check_key_duplicates_structured(star)
-    key_dupes = result.get("key_duplicates", {})
-
-    if key_dupes.get("duplicate_keys", 0) == 0:
-        return []
-
-    aantal = key_dupes["duplicate_keys"]
-    sleutels = "sleutel komt" if aantal == 1 else "sleutels komen"
-    melding = f"{_CENTRAAL_FEIT}: {aantal} {sleutels} meer dan één keer voor"
-
-    by_delivery = key_dupes.get("by_delivery", {})
-    if by_delivery:
-        melding += (
-            " ("
-            + ", ".join(f"{lev}: {n} rijen" for lev, n in by_delivery.items())
-            + ")"
+    """Eén melding per geschonden uniciteitscontract, voor weergave in de app."""
+    meldingen = []
+    for naam, dubbel in _check_key_duplicates_structured(star)[
+        "key_duplicates"
+    ].items():
+        n = dubbel["duplicate_keys"]
+        if n == 0:
+            continue
+        tekst = _UNICITEIT[naam].melding.format(
+            n=n, sleutels="sleutel komt" if n == 1 else "sleutels komen"
         )
-
-    return [melding]
+        melding = f"{dubbel['feit']}: {tekst}"
+        if dubbel["by_delivery"]:
+            melding += (
+                " ("
+                + ", ".join(
+                    f"{lev}: {r} rijen" for lev, r in dubbel["by_delivery"].items()
+                )
+                + ")"
+            )
+        meldingen.append(melding)
+    return meldingen
 
 
 def _check_niveau_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
@@ -369,7 +421,7 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
 def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]:
     """Evaluate star-checks; return (errors, warnings).
 
-    Errors: orphaned_facts with pct > 0, key duplicates > 0,
+    Errors: orphaned_facts with pct > 0, per geschonden uniciteitscontract,
             overlapping_deliveries > 0 (na canonicalisatie telt dat dubbel)
     Warnings: niveau_issues > 0
     """
@@ -381,9 +433,9 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
         if metrics.get("orphaned_pct", 0) > 0:
             errors += 1
 
-    # Check key duplicates
-    if star_checks.get("key_duplicates", {}).get("duplicate_keys", 0) > 0:
-        errors += 1
+    for dubbel in star_checks.get("key_duplicates", {}).values():
+        if dubbel.get("duplicate_keys", 0) > 0:
+            errors += 1
 
     # Check niveau issues
     if star_checks.get("niveau_issues", {}).get("total", 0) > 0:

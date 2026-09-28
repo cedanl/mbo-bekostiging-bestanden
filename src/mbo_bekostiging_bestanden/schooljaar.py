@@ -41,10 +41,13 @@ from mbo_bekostiging_bestanden.transform import (
     _voeg_periode_einde_toe,
 )
 
+FEIT = "fact_inschrijving_schooljaar"
 SCHOOLJAAR = "Schooljaar"
 PEILDATUM = "Peildatum"
 GRAIN = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer", SCHOOLJAAR]
-_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
+# Per groep precies één hoofdinschrijving (invariant, gecontroleerd in quality).
+HOOFDINSCHRIJVING_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
+HOOFDINSCHRIJVING = "_hoofdinschrijving"
 _PEILGRENS = "_peilgrens"
 _TELDATUM = "Teldatum"
 _TBGI_SLEUTEL = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
@@ -63,7 +66,7 @@ _KOLOMMEN = [
     "DatumBegin",
     "Opleidingcode",
     "Leertraject",
-    "_hoofdinschrijving",
+    HOOFDINSCHRIJVING,
     "_telling",
     "_bekostigd",
     "_gediplomeerd_in_jaar",
@@ -129,14 +132,12 @@ def _voeg_hoofdinschrijving_toe(df: pl.DataFrame) -> pl.DataFrame:
             nulls_last=True,
         )
         .first()
-        .over(_GROEP)
+        .over(HOOFDINSCHRIJVING_GROEP)
     )
     return (
         df.with_row_index(rij)
         .with_columns(
-            ((pl.col(rij) == gekozen) & niveau.is_not_null()).alias(
-                "_hoofdinschrijving"
-            )
+            ((pl.col(rij) == gekozen) & niveau.is_not_null()).alias(HOOFDINSCHRIJVING)
         )
         .drop(rij)
     )
@@ -153,7 +154,7 @@ def _in_schooljaar(datum: pl.Expr) -> pl.Expr:
 def _voeg_jr_toe(df: pl.DataFrame) -> pl.DataFrame:
     gediplomeerd = _in_schooljaar(pl.col("DIP_DatumResultaat")).fill_null(False)
     return df.with_columns(
-        pl.col("_hoofdinschrijving").alias("_telling"),
+        pl.col(HOOFDINSCHRIJVING).alias("_telling"),
         (pl.col("IndicatieBekostigbaar") == _BEKOSTIGBAAR)
         .fill_null(False)
         .alias("_bekostigd"),
@@ -180,11 +181,11 @@ def _voeg_dr_toe(df: pl.DataFrame) -> pl.DataFrame:
         False
     )
     return (
-        df.join(volgend_jaar_actief, on=_GROEP, how="left")
+        df.join(volgend_jaar_actief, on=HOOFDINSCHRIJVING_GROEP, how="left")
         .join(laatste_peilgrens, on="BRIN", how="left")
         .with_columns(
             (
-                pl.col("_hoofdinschrijving")
+                pl.col(HOOFDINSCHRIJVING)
                 & niveau_ok
                 & waarneembaar
                 & pl.col("_actief_volgend_jaar").is_null()
