@@ -1084,11 +1084,9 @@ def test_niveau_gecombineerd_null_leertraject():
 
 
 def test_afgeleide_velden_in_demo(demo_tabellen):
-    """Afgeleide velden zijn aanwezig in de inschrijvingen-tabel.
-
-    ``_tellingen_aanwezig`` is weg (#210): het telde over instellingen heen en
-    de duplicaatdetectie over leveringen doet de canonicalisatie.
-    """
+    """Afgeleide velden zijn aanwezig in de inschrijvingen-tabel; er is geen
+    apart, over-instellingen-heen tellend ``_tellingen_aanwezig``-veld (de
+    duplicaatdetectie over leveringen doet de canonicalisatie, #210)."""
     df = demo_tabellen["inschrijvingen"]
     assert "Niveau_gecombineerd" in df.columns
     assert "_tellingen_aanwezig" not in df.columns
