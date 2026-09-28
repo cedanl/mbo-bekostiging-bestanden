@@ -12,9 +12,10 @@ een ``BRIN`` op positie 2 (zie de demo-levering).
 from datetime import date
 from pathlib import Path
 
+import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.decode import decode_grondslag
+from mbo_bekostiging_bestanden.decode import decode_frames, decode_grondslag
 from mbo_bekostiging_bestanden.ingest import read_grondslag
 from mbo_bekostiging_bestanden.quality import tel_parseverlies
 
@@ -203,3 +204,17 @@ def test_pve_conform_bestand_zonder_parseverlies(ruw):
 def test_datum_resultaat_landt_in_eigen_kolom(ruw, recordtype, datum):
     """Referentiedatum voor de periodekoppeling (``_PERIODE_REFERENTIEDATUM``)."""
     assert decode_grondslag(ruw)[recordtype]["DatumResultaat"][0] == datum
+
+
+def test_geo_cijfers_met_komma_worden_niet_null():
+    """Zelfde klasse als #208 (RO-equivalent: #259): Eindcijfer/CijferIE/CijferCE
+    zijn N1..2/N2..3-decimaal in het PvE, geen integer."""
+    frames = {
+        "GEO": pl.DataFrame(
+            {"Eindcijfer": ["6,5"], "CijferIE": ["7,0"], "CijferCE": ["6,0"]}
+        )
+    }
+    geo = decode_frames(frames, "grondslag")["GEO"]
+    assert geo["Eindcijfer"].to_list() == [6.5]
+    assert geo["CijferIE"].to_list() == [7.0]
+    assert geo["CijferCE"].to_list() == [6.0]
