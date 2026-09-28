@@ -17,6 +17,13 @@ Voorbeeld: `RO_27DV_20240731_20260324.CSV`
 - Alle personen waarvoor een inschrijving of diploma in het RO is opgenomen.
 - Een sluitrecord met aantallen.
 
+!!! warning "Meerdere RO-leveringen van dezelfde instelling"
+    Selectieperiodes van verschillende aanvragen kunnen overlappen, en een herlevering of correctie bevat dezelfde
+    inschrijvingen opnieuw. De ster telt een inschrijving (`BRIN × persoon × volgnummer`) daarom alleen uit de
+    **meest recente levering** (hoogste `DatumAanmaak`); oudere rijen van die inschrijving vallen weg, ook in de
+    detailfeiten. Welke leveringen zijn vervangen staat in `meta_canonicalisatie` en `quality.json`
+    (zie [Ontwerpkeuzes](../ontwerpkeuzes.md)).
+
 ## Technisch formaat
 
 | Eigenschap | Waarde |

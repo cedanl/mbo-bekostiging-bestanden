@@ -93,6 +93,11 @@ DUO werkt met drie jaarbegrippen die in de data voorkomen:
 
 #### Berekende vlaggen in fact_inschrijving
 
+!!! warning "Tel niet op deze vlaggen — gebruik `fact_inschrijving_schooljaar`"
+    Deze vlaggen staan op **periode-grain** en zijn verouderd (#201). Een periode die meerdere 1-oktobers dekt,
+    telt hier één keer; in de demo telt `_telling` daardoor tot drie rijen per persoon per levering. Voor tellingen
+    en rendementen per schooljaar is `fact_inschrijving_schooljaar` de bron (zie [Datamodel](datamodel.md)).
+
 fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
 
 | Groep | Kolom | Type | Betekenis |
@@ -102,7 +107,7 @@ fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe
 | | `_gediplomeerd_in_jaar` | `Boolean` | DIP-record aanwezig in het studiejaar |
 | | `_ingeschreven_jaar_later` | `Boolean` | Nog ingeschreven in het volgende studiejaar |
 | | `_deelnemer_niet_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 okt maar niet bekostigd |
-| Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × studiejaar × instelling × levering |
+| Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × instelling × levering, over de hele historiek (niet per studiejaar) |
 | | `_laagste_CREBO` | `Boolean` | Laagste CREBO-code bij gelijk niveau |
 | | `_hoofdinschrijving` | `Boolean` | Precies één rij per persoon × studiejaar × instelling × levering: hoogste niveau, dan laagste CREBO, dan meest recente periode |
 | Tellingen | `_telling` | `Boolean` | `_actief_1_oktober AND _hoofdinschrijving` — telt de deelnemer mee voor bekostiging |

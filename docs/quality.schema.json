@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Quality Report for MBO Ingest Star Schema",
-  "description": "Machine-readable quality metrics for each run. Written to data/03-output/{scenario}/star/quality.json by run_star().",
+  "description": "Machine-readable quality metrics for each run. Written to <target>/quality.json by run_star(); the app uses <output>/star.",
   "type": "object",
   "properties": {
     "timestamp": {

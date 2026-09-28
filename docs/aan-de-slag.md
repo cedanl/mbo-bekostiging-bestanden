@@ -51,8 +51,15 @@ uv run streamlit run app/main.py
 !!! warning "Alleen lokaal"
     De app is een lokale, single-user analysetool en wordt bewust niet gehost
     (ook niet op SURF). Er is geen login, geen rolgebaseerd exportrecht en geen
-    audit-log. Bij downloaden worden persoonsgegevens standaard verwijderd; wie
+    audit-log. In preview en download zijn persoonsgegevens standaard verborgen; wie
     de app draait kan dat uitzetten en is dan zelf verantwoordelijk voor de export.
+
+    Een kolom geldt als persoonsgegeven als een van deze patronen (hoofdletterongevoelig)
+    in de kolomnaam voorkomt; zo vallen ook afgeleide kolommen als `Postcodecijfers_*`
+    eronder:
+    <!-- pii-patronen -->
+    `_persoon_id`, `Burgerservicenummer`, `DatumOverlijden`, `DatumVertrek`, `DatumVestiging`, `Geboortedatum`, `Geboorteland`, `Gemeente`, `Geslacht`, `Leeftijd`, `Migratieachtergrond`, `Nationaliteit`, `Onderwijsnummer`, `Postcode`, `PseudoNummer`, `RedenUitschrijving`, `Verblijfstitel`, `Vertrokken`.
+    <!-- /pii-patronen -->
 
 Open daarna `http://localhost:8501`. Zet ruwe bestanden in `data/01-raw/` (in een submap
 per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De app:
