@@ -106,6 +106,9 @@ VERWACHT: dict[str, list[tuple[str, str]]] = {
         ("InschrijvingVoorCorrectiefactor", "J"),
         ("BBLBOLFactor", "1.00"),
         ("PrijsfactorMBO", "1.25"),
+        ("AantalBekostigdeVerblijfsjarenMBO", "0"),
+        ("Verblijfsjaarfactor", "0.00"),
+        ("BijdrageInschrijvingAanDeelnemerswaarde", "1234.567890"),
     ],
     "DIP": [
         _PGN,
@@ -128,6 +131,7 @@ VERWACHT: dict[str, list[tuple[str, str]]] = {
         ("DatumTijdBepalingBekostigingsgrondslagen", "20251121104229"),
         ("StatusBepalingBekostigingsstatus", "D"),
         ("Bekostigingsstatus", "J"),
+        ("BijdrageDiplomawaarde", "1"),
     ],
     "AMO": [
         _PGN,
