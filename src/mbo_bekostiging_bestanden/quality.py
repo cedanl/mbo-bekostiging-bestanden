@@ -467,7 +467,8 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     Errors: onverklaarde wees-feiten (optionele parent: geen fout), per
             geschonden uniciteitscontract,
             overlapping_deliveries > 0 (na canonicalisatie telt dat dubbel)
-    Warnings: niveau_issues > 0, meervoudige matches in join_keuzes
+    Warnings: niveau_issues > 0, meervoudige matches in join_keuzes,
+              leveringen zonder schooljaarrijen
     """
     errors = 0
     warnings = 0
@@ -490,6 +491,11 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     # Een gekozen rij bij meervoudige match is deterministisch, maar verdient
     # een blik: welke kandidaat inhoudelijk juist was, weet de bron (#209).
     if any(k["meervoudige_sleutels"] for k in star_checks.get("join_keuzes", [])):
+        warnings += 1
+
+    # Een levering die geen enkele peildatum kan waarnemen, telt stil nergens
+    # mee in de schooljaar-fact: inhoudelijk juist, maar niet stil (#211).
+    if star_checks.get("leveringen_zonder_schooljaar"):
         warnings += 1
 
     return errors, warnings
@@ -523,6 +529,7 @@ def compile_quality_report(
         **check_overlapping_deliveries(star),
         **_check_canonicalisatie_structured(star),
         **_check_join_keuzes_structured(star),
+        **_check_leveringen_zonder_schooljaar(star),
     }
 
     # Count totals from deliveries
@@ -633,3 +640,24 @@ def _check_join_keuzes_structured(star: dict[str, pl.DataFrame]) -> dict[str, An
     if keuzes.is_empty():
         return {"join_keuzes": []}
     return {"join_keuzes": keuzes.filter(pl.col("meervoudige_sleutels") > 0).to_dicts()}
+
+
+def _check_leveringen_zonder_schooljaar(
+    star: dict[str, pl.DataFrame],
+) -> dict[str, Any]:
+    """Leveringen met inschrijvingen maar zonder rij in de schooljaar-fact.
+
+    Zonder schooljaar-fact in de ster (niet gebouwd) valt er niets te melden.
+    """
+    inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    jaren = star.get(SCHOOLJAAR_FEIT)
+    if jaren is None or "levering" not in inschrijvingen.columns:
+        return {"leveringen_zonder_schooljaar": []}
+    per_levering = inschrijvingen.group_by("levering").agg(
+        pl.len().alias("inschrijvingen")
+    )
+    if "levering" in jaren.columns:
+        per_levering = per_levering.join(
+            jaren.select("levering").unique(), on="levering", how="anti"
+        )
+    return {"leveringen_zonder_schooljaar": per_levering.sort("levering").to_dicts()}
