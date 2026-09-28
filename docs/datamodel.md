@@ -98,8 +98,17 @@ GRONDSLAG-leveringen van verschillende jaren niet gegarandeerd.
 Feiten met rijen zonder bijbehorende inschrijving (bijv. TBGI-bekostiging van een andere
 instelling of levering dan de RO-bestanden) worden na het bouwen op de Home-pagina gemeld
 (`quality.controleer_koppelingen`).
-`fact_inschrijving` hoort uniek te zijn per `_inschrijving_periode_id`; dubbele sleutels
-(bijv. een identieke ISP-bronrij) worden daar ook gemeld (`quality.controleer_sleuteluniciteit`).
+Uniciteitscontracten (elke schending is een error in `quality.json` → `star.key_duplicates`, en een melding
+op de Home-pagina via `quality.controleer_sleuteluniciteit`):
+
+| Contract | Uniek op |
+|---|---|
+| `fact_inschrijving` | `_inschrijving_periode_id` |
+| `fact_inschrijving_schooljaar` | `BRIN × _persoon_id × Inschrijvingvolgnummer × Schooljaar` |
+| `hoofdinschrijving_per_schooljaar` | `BRIN × _persoon_id × Schooljaar`, alleen rijen met `_hoofdinschrijving` |
+
+Twee ISP-rijen van één inschrijving met dezelfde `DatumBegin` zijn een bronfout: beide dekken dezelfde
+peildatum. De ster ontdubbelt dat niet stil; de geschonden contracten maken het zichtbaar (#200).
 
 ---
 
@@ -164,7 +173,7 @@ waarvan een ISP-periode de peildatum dekt. Deze tabel is de bron voor tellingen,
 | `_jr_noemer` / `_jr_teller` | Noemer = `_telling`; teller = noemer én gediplomeerd in het jaar |
 | `_dr_noemer` / `_dr_teller` | Noemer = hoofdinschrijving, niveau ≥ 2, geen inschrijving bij dezelfde instelling in `t+1`, **en** `t+1` is waarneembaar (1-10-(t+1) ligt vóór de laatste leveringspeildatum van die instelling). Teller = noemer met een diploma (zonder formeel zesjaarsvenster, zie #119; uitstroom binnen dezelfde BRIN, zie #118) |
 
-Invariant (getest op de star-output): precies één `_hoofdinschrijving` per `BRIN × _persoon_id × Schooljaar`.
+Invariant (getest op de star-output en bewaakt in `quality.json`): precies één `_hoofdinschrijving` per `BRIN × _persoon_id × Schooljaar`.
 
 ### Indicatoren in fact_inschrijving (verouderd)
 

@@ -3,6 +3,7 @@
 import polars as pl
 
 from mbo_bekostiging_bestanden.quality import (
+    compile_quality_report,
     controleer_koppelingen,
     controleer_niveau,
     controleer_sleuteluniciteit,
@@ -121,3 +122,56 @@ def test_niveau_melding_leeg_als_alle_niveaus_bekend():
 
 def test_niveau_melding_leeg_zonder_herkomstkolom():
     assert controleer_niveau({"fact_inschrijving": pl.DataFrame({"x": [1]})}) == []
+
+
+# --- Uniciteit van de schooljaar-grain (issue #200) --------------------------
+
+_SCHOOLJAAR_GRAIN = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer", "Schooljaar"]
+
+
+def _schooljaren(*rijen: tuple[str, str, bool]) -> dict[str, pl.DataFrame]:
+    """Schooljaar-fact met (levering, inschrijving, hoofd)-rijen in één jaar."""
+    return {
+        "fact_inschrijving_schooljaar": pl.DataFrame(
+            {
+                "levering": [r[0] for r in rijen],
+                "BRIN": ["27DV"] * len(rijen),
+                "_persoon_id": ["P"] * len(rijen),
+                "Inschrijvingvolgnummer": [r[1] for r in rijen],
+                "Schooljaar": [2025] * len(rijen),
+                "_hoofdinschrijving": [r[2] for r in rijen],
+                SLEUTEL: ["a"] * len(rijen),
+            }
+        )
+    }
+
+
+def test_dubbele_schooljaar_grain_wordt_gemeld():
+    star = _schooljaren(("L1", "1", True), ("L1", "1", False))
+    [melding] = controleer_sleuteluniciteit(star)
+    assert "fact_inschrijving_schooljaar" in melding
+    assert "L1: 2 rijen" in melding
+
+
+def test_twee_hoofdinschrijvingen_in_een_schooljaar_worden_gemeld():
+    star = _schooljaren(("L1", "1", True), ("L1", "2", True))
+    [melding] = controleer_sleuteluniciteit(star)
+    assert "hoofdinschrijving" in melding
+
+
+def test_een_hoofdinschrijving_per_schooljaar_is_geen_melding():
+    star = _schooljaren(("L1", "1", True), ("L1", "2", False))
+    assert controleer_sleuteluniciteit(star) == []
+
+
+def test_quality_report_telt_elk_geschonden_contract_als_error():
+    star = {
+        **_inschrijvingen(("L1", "a"), ("L1", "a")),
+        **_schooljaren(("L1", "1", True), ("L1", "1", True)),
+    }
+    rapport = compile_quality_report(star)
+    dubbel = rapport["star"]["key_duplicates"]
+    assert dubbel["fact_inschrijving"]["duplicate_keys"] == 1
+    assert dubbel["fact_inschrijving_schooljaar"]["duplicate_keys"] == 1
+    assert dubbel["fact_inschrijving_schooljaar"]["sleutel"] == _SCHOOLJAAR_GRAIN
+    assert rapport["summary"]["total_errors"] == 3
