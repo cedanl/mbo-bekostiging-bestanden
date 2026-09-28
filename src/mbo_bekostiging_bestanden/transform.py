@@ -249,7 +249,6 @@ def _resolve_inschrijving(
     dan leeg.  Door te joinen op DIP.Resultaatvolgnummer halen we het
     ``Inschrijvingvolgnummer`` op.
     """
-    # Normaliseer lege string naar null
     df = df.with_columns(
         pl.when(pl.col("Inschrijvingvolgnummer") == "")
         .then(None)
@@ -439,7 +438,6 @@ def _geo_pivot(
         aggregate_function="first",
     )
 
-    # Hernoem: "Eindcijfer_3005" → "GEO_3005_Eindcijfer"
     hernoem: dict[str, str] = {}
     for col in pivot.columns:
         for veld in [
@@ -535,7 +533,6 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
         else:
             df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar"))
     elif df["Studiejaar"].null_count() > 0 and datum_col is not None:
-        # Vul nulls aan
         df = df.with_columns(
             pl.coalesce([pl.col("Studiejaar"), _studiejaar_expr(datum_col)]).alias(
                 "Studiejaar"
@@ -616,7 +613,6 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.List(pl.Int64)).alias("_schooljaren_actief"),
         )
 
-    # Bereken _periode_einde eerst
     df = _voeg_periode_einde_toe(df)
 
     # Bepaal unieke schooljaren per persoon per levering/BRIN
@@ -643,7 +639,6 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
         pl.date(pl.col("schooljaar"), _TELDATUM_MONTH, _TELDATUM_DAG).alias("peildatum")
     )
 
-    # Periodes per persoon
     periodes = df.select(
         [
             "levering",
@@ -702,7 +697,6 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
 
     actief_df = pl.concat(actieve_periodes_per_sj, how="vertical_relaxed")
 
-    # Groepeer per periode en verzamel schooljaren
     schooljaren_per_periode = actief_df.group_by(
         ["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"]
     ).agg(pl.col("_schooljaar_peildatum").sort().alias("_schooljaren_actief"))
@@ -810,8 +804,8 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         )
     )
 
-    # Opbrengstjaar velden (blijven op basis van leverings-
-    # Studiejaar voor compatibiliteit)
+    # Opbrengstjaar-velden volgen het leveringsstudiejaar en zijn daardoor
+    # run-afhankelijk; ze verdwijnen met de legacy-vlaggen (#201).
     studiejaar_serie = df["Studiejaar"].cast(pl.Int32).drop_nulls()
     if studiejaar_serie.is_empty():
         return df.with_columns(
@@ -868,7 +862,6 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
         )
 
-    # Alleen actieve periodes doen mee
     actieve = df.filter(pl.col("_actief_1_oktober").fill_null(False))
     if actieve.is_empty():
         return df.with_columns(
@@ -880,7 +873,6 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         {"_schooljaren_actief": "_schooljaar_peildatum"}
     )
 
-    # Groepeer per (levering, BRIN, _persoon_id, schooljaar)
     groep_cols = [
         c
         for c in ["levering", "BRIN", "_persoon_id", "_schooljaar_peildatum"]
@@ -898,7 +890,6 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         hoogste.alias("_hoogste_niveau"), laagste_crebo.alias("_laagste_CREBO")
     )
 
-    # Selecteer hoofdinschrijving per groep
     kandidaat = pl.col("_laagste_CREBO").fill_null(False)
     begin = _periode_begin_kolom(actieve_exploded)
     volgorde = [kandidaat, *([pl.col(begin)] if begin else [])]

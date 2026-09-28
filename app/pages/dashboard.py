@@ -201,14 +201,10 @@ _JAREN_KEY = "beschikbare_jaren"
 
 
 def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
-    """Rendert studiejaar-pills met select/deselect-all in de sidebar en filtert df.
+    """Rendert studiejaar-pills in de sidebar en filtert ``df`` op de selectie.
 
-    Gebruikt Studiejaar_periode voor correcte filtering van periode-gebaseerde data
-    (i.t.t. leveringsjaar). GRONDSLAG-records vertonen hun werkelijke
-    periodejaargangen, niet alleen het leveringsjaar.
+    De jaarkolom kiest :func:`~mbo_bekostiging_bestanden.filters.periode_jaar_kolom`.
     """
-    # Gebruik Studiejaar_periode als beschikbaar (correct voor periodes),
-    # fallback naar Studiejaar (backward-compat)
     jaar_col = periode_jaar_kolom(df)
     if jaar_col is None:
         return df
@@ -224,11 +220,9 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
         old_jaren = st.session_state[_JAREN_KEY]
         huidige_selectie = st.session_state.get(_PILLS_KEY, [])
 
-        # Voeg nieuwe jaren toe aan selectie
         new_jaren = [j for j in jaren if j not in old_jaren]
         nieuwe_selectie = list(set(huidige_selectie) | set(new_jaren))
 
-        # Verwijder jaren die niet meer beschikbaar zijn
         nieuwe_selectie = [j for j in nieuwe_selectie if j in jaren]
 
         st.session_state[_JAREN_KEY] = jaren
@@ -251,7 +245,6 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
             selection_mode="multi",
             key=_PILLS_KEY,
         )
-        # Toon indicator als niet alle jaren geselecteerd zijn
         if geselecteerd and len(geselecteerd) < len(jaren):
             st.info(f"ℹ️ {len(geselecteerd)} van {len(jaren)} studiejaren geselecteerd")
         if not geselecteerd:
@@ -1046,12 +1039,12 @@ with tab_examens:
         for _code, _meta in _geo_toml.get("codes", {}).items():
             _geo_labels[_code] = _meta.get("label", _code)
 
-    # Bereken GEO-stats éénmalig (cijfergemiddelde + slagingspercentage).
     _geo_heeft_data = (
         not fact_geo_f.is_empty()
         and "CodeGeneriekExamenonderdeel" in fact_geo_f.columns
         and "Eindcijfer" in fact_geo_f.columns
     )
+    # Eenmalig berekend; de eindcijfer- en de slagingsgrafiek delen de uitkomst.
     _geo_stats: list[dict] = []
     if _geo_heeft_data:
         for (code,), grp in fact_geo_f.group_by("CodeGeneriekExamenonderdeel"):

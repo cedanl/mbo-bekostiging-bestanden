@@ -420,7 +420,7 @@ def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
 
 
 def _check_niveau_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
-    """Core: unknown or missing niveau. Structured dict output."""
+    """Inschrijvingen zonder bekend niveau, naar oorzaak (#130)."""
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     niveau_issues = {"unknown_code": 0, "sbb_without_level": 0, "total": 0}
 
@@ -441,7 +441,7 @@ def _check_niveau_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
 
 
 def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
-    """Wrapper: gestructureerde check naar strings voor app-display."""
+    """Melding over inschrijvingen zonder bekend niveau, voor de app."""
     result = _check_niveau_structured(star)
     niveau_issues = result.get("niveau_issues", {})
 
@@ -570,22 +570,18 @@ def compile_quality_report(
     deliveries: dict[str, QualityReport] | None = None,
     scenario: str = SCENARIO_ONBEKEND,
 ) -> dict[str, Any]:
-    """Compile quality report for quality.json output.
+    """Stel ``quality.json`` samen voor een ster-run (``docs/quality.schema.json``).
 
     Args:
-        star: Star schema tables (from build_star)
-        deliveries: Per-delivery quality reports (from check_slr_reconciliation)
-        scenario: Scenario label (e.g., 'demo', 'prod')
-
-    Returns:
-        Dict matching quality.schema.json structure, ready for JSON export.
+        star:       Tabellen van :func:`~mbo_bekostiging_bestanden.star.build_star`.
+        deliveries: Rapport per levering (label zoals in de ster).
+        scenario:   Label voor de run, bijv. ``"demo"`` of ``"prod"``.
     """
     deliveries_list = []
     if deliveries:
         for _levering, report in sorted(deliveries.items()):
             deliveries_list.append(report.as_dict())
 
-    # Star-level checks
     star_checks = {
         **_check_orphaned_facts_structured(star),
         **_check_key_duplicates_structured(star),
@@ -596,7 +592,6 @@ def compile_quality_report(
         **_check_leveringen_zonder_schooljaar(star),
     }
 
-    # Count totals from deliveries
     total_warnings = 0
     total_errors = 0
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
@@ -606,12 +601,10 @@ def compile_quality_report(
         total_warnings += len(delivery.get("warnings", []))
         total_errors += len(delivery.get("errors", []))
 
-    # Add star-check findings to totals
     star_errors, star_warnings = _evaluate_star_checks_status(star_checks)
     total_errors += star_errors
     total_warnings += star_warnings
 
-    # Overall status: FAIL if any errors, WARN if warnings, PASS otherwise
     status = "fail" if total_errors > 0 else ("warn" if total_warnings > 0 else "pass")
 
     return {

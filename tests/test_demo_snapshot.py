@@ -54,7 +54,7 @@ SCHOOLJAAR_COLS = [
 
 @pytest.fixture(scope="session")
 def demo_star_snapshot(demo_star):
-    """Load expected values from fixture; use conftest demo_star."""
+    """De demo-ster naast de vastgelegde verwachting uit de fixture."""
     with open(FIXTURE_PATH) as f:
         expected = json.load(f)
     return demo_star, expected
