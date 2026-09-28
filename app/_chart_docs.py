@@ -18,6 +18,29 @@ _DETAIL_SELECTIE = (
 
 CHART_DOCS: dict[str, dict] = {
     # ── Tab Rendementen ──────────────────────────────────────────────────────
+    "kwaliteit": {
+        "titel": "Kwaliteitsstatus en bronleveringen",
+        "variabelen": [
+            "quality.json.summary",
+            "quality.json.deliveries",
+            "quality.json.star",
+            "meta_leveringen.Peilgrens",
+            "meta_leveringen.Laatste_peildatum",
+        ],
+        "manipulatie": (
+            "De status komt uit `quality.json` naast het star schema: `fail` bij "
+            "minstens één error, `warn` bij warnings, anders `pass`.  Elke melding "
+            "staat erbij met haar bron (een levering of de ster) en ernst; de "
+            "ernst en de telling in de status komen uit dezelfde functie "
+            "(`quality.kwaliteitsmeldingen`).  De tabel toont per levering de "
+            "aanmaakdatum, het observatievenster (tot welke peildatum de levering "
+            "iets kan zeggen) en de SLR-reconciliatie."
+        ),
+        "kanttekening": (
+            "Grafieken op een ster met status `fail` zijn niet betrouwbaar: los "
+            "eerst de errors op."
+        ),
+    },
     "jr_indicatief": {
         "titel": "Jaarresultaat (JR) — indicatief, per schooljaar en niveau",
         "variabelen": [

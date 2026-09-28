@@ -461,44 +461,108 @@ def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
     ]
 
 
-def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]:
-    """Evaluate star-checks; return (errors, warnings).
+ERNST_ERROR, ERNST_WARNING, ERNST_INFO = "error", "warning", "info"
+_BRON_STER = "ster"
 
-    Errors: onverklaarde wees-feiten (optionele parent: geen fout), per
-            geschonden uniciteitscontract,
-            overlapping_deliveries > 0 (na canonicalisatie telt dat dubbel)
-    Warnings: niveau_issues > 0, meervoudige matches in join_keuzes,
-              leveringen zonder schooljaarrijen
+
+@dataclass(frozen=True)
+class Melding:
+    """Eén bevinding uit ``quality.json``: ernst, bron (levering of ster), tekst."""
+
+    ernst: str
+    bron: str
+    tekst: str
+
+
+def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
+    """Bevindingen van de star-checks, elk met zijn ernst.
+
+    Error: onverklaarde wees-feiten, elk geschonden uniciteitscontract, overlap
+    die na canonicalisatie (#174) in de ster blijft (telt dubbel).
+    Warning: onbekend niveau, meervoudige matches bij koppelingen (#209),
+    leveringen zonder waarneembare peildatum (#211).
+    Info: verklaarde wees-rijen (#196), vervangen leveringen (#174).
     """
-    errors = 0
-    warnings = 0
+    meldingen: list[Melding] = []
 
-    for metrics in star_checks.get("orphaned_facts", {}).values():
-        if metrics["orphaned_rows"] > metrics["explained_rows"]:
-            errors += 1
+    def melding(ernst: str, tekst: str) -> None:
+        meldingen.append(Melding(ernst, _BRON_STER, tekst))
 
-    for dubbel in star_checks.get("key_duplicates", {}).values():
+    for naam, wees in star.get("orphaned_facts", {}).items():
+        onverklaard = wees["orphaned_rows"] - wees["explained_rows"]
+        if onverklaard > 0:
+            melding(
+                ERNST_ERROR,
+                f"{naam}: {onverklaard} van {wees['total_rows']} rijen zonder "
+                f"inschrijving in {_CENTRAAL_FEIT}",
+            )
+        if wees["explained_rows"]:
+            melding(
+                ERNST_INFO,
+                f"{naam}: {wees['explained_rows']} rijen zonder inschrijving, "
+                f"verklaard: {wees['explanation']}",
+            )
+    for naam, dubbel in star.get("key_duplicates", {}).items():
         if dubbel.get("duplicate_keys", 0) > 0:
-            errors += 1
+            melding(
+                ERNST_ERROR,
+                f"{naam}: {dubbel['duplicate_keys']} dubbele sleutels "
+                f"({', '.join(dubbel.get('sleutel', []))})",
+            )
+    if star.get("overlapping_deliveries"):
+        melding(
+            ERNST_ERROR,
+            f"{len(star['overlapping_deliveries'])} overlappende leveringen na "
+            "canonicalisatie",
+        )
+    if star.get("niveau_issues", {}).get("total", 0) > 0:
+        melding(
+            ERNST_WARNING,
+            f"{star['niveau_issues']['total']} inschrijvingen zonder bekend niveau",
+        )
+    meervoudig = [k for k in star.get("join_keuzes", []) if k["meervoudige_sleutels"]]
+    if meervoudig:
+        melding(
+            ERNST_WARNING,
+            "meervoudige matches bij koppelen: "
+            + ", ".join(
+                f"{k['koppeling']} ({k['meervoudige_sleutels']})" for k in meervoudig
+            ),
+        )
+    if star.get("leveringen_zonder_schooljaar"):
+        melding(
+            ERNST_WARNING,
+            "leveringen zonder waarneembare peildatum: "
+            + ", ".join(r["levering"] for r in star["leveringen_zonder_schooljaar"]),
+        )
+    vervangen = star.get("canonicalisatie", {}).get("vervangen_inschrijvingen", 0)
+    if vervangen:
+        melding(
+            ERNST_INFO,
+            f"{vervangen} inschrijvingen vervangen door een recentere levering",
+        )
+    return meldingen
 
-    if star_checks.get("niveau_issues", {}).get("total", 0) > 0:
-        warnings += 1
 
-    # Overlap die na canonicalisatie (#174) in de ster blijft, telt dubbel
-    if len(star_checks.get("overlapping_deliveries", [])) > 0:
-        errors += 1
+def kwaliteitsmeldingen(rapport: dict[str, Any]) -> list[Melding]:
+    """Alle bevindingen uit een ``quality.json``-rapport, per levering en uit de ster.
 
-    # Een gekozen rij bij meervoudige match is deterministisch, maar verdient
-    # een blik: welke kandidaat inhoudelijk juist was, weet de bron (#209).
-    if any(k["meervoudige_sleutels"] for k in star_checks.get("join_keuzes", [])):
-        warnings += 1
+    De ``summary`` van :func:`compile_quality_report` telt precies de meldingen
+    met ernst error en warning hieruit.
+    """
+    meldingen = [
+        Melding(ernst, levering["levering"], tekst)
+        for levering in rapport.get("deliveries", [])
+        for ernst, sleutel in ((ERNST_ERROR, "errors"), (ERNST_WARNING, "warnings"))
+        for tekst in levering.get(sleutel, [])
+    ]
+    return meldingen + _ster_meldingen(rapport.get("star", {}))
 
-    # Een levering die geen enkele peildatum kan waarnemen, telt stil nergens
-    # mee in de schooljaar-fact: inhoudelijk juist, maar niet stil (#211).
-    if star_checks.get("leveringen_zonder_schooljaar"):
-        warnings += 1
 
-    return errors, warnings
+def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]:
+    """Aantal (errors, warnings) in de star-checks; zie :func:`_ster_meldingen`."""
+    ernsten = [m.ernst for m in _ster_meldingen(star_checks)]
+    return ernsten.count(ERNST_ERROR), ernsten.count(ERNST_WARNING)
 
 
 def compile_quality_report(
