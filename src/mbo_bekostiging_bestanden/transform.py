@@ -869,9 +869,9 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         )
 
     # Explodeer schooljaren per actieve periode
-    actieve_exploded = actieve.explode("_schooljaren_actief").rename(
-        {"_schooljaren_actief": "_schooljaar_peildatum"}
-    )
+    actieve_exploded = actieve.explode(
+        "_schooljaren_actief", empty_as_null=True
+    ).rename({"_schooljaren_actief": "_schooljaar_peildatum"})
 
     groep_cols = [
         c
