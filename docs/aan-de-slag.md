@@ -129,7 +129,7 @@ Naast de tabellen schrijft elke run een `quality.json` in de doelmap:
 |---|---|
 | `slr_status` / `slr_details` | Gelezen recordaantallen tegen de controletotalen in het sluitrecord (`match`, `mismatch` of `unknown`) |
 | `parseverlies` | Per recordtype en kolom het aantal gevulde bronwaarden dat na typering leeg is (ongeldige datum of getal) |
-| `regelinventaris` | Wat de ingest niet inlas: regels met een onbekend recordtype, regels met gevulde velden voorbij het schema, en extra posities die afwijken van het veld dat ze herhalen. Elk gevuld onderdeel geeft een waarschuwing |
+| `regelinventaris` | Extra posities die afwijken van het veld dat ze herhalen (spiegelvelden). Een onbekend recordtype of een gevuld veld voorbij het schema wordt niet meer gerapporteerd — sinds #257 breekt de ingest daar meteen op (fail-closed), vóórdat `quality.json` geschreven wordt |
 | `domeinafwijkingen` | Per recordtype en veld het aantal gevulde waarden buiten hun waardedomein (patroon of waardenlijst uit `metadata/waardenlijsten.toml`, per veld gekoppeld via `domeinen` in het schema). Een afwijking wijst vaak op een verschoven veldindeling, bijv. een DUO-versie die een positie weglaat |
 | `warnings` / `errors` | Leesbare meldingen; de app toont ze op Home |
 

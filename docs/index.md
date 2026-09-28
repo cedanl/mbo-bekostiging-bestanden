@@ -23,8 +23,8 @@ DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan co
 | Map | `data/02-prepared/<map>/<levering>/` | `data/03-output/<scenario>/star/datamodel/` |
 | Wat | Elk DUO-bestand per recordtype | Dimensies en feiten over alle leveringen |
 | Keuzes | Alleen technisch (typering, notaties) | Inhoudelijk: canonicalisatie, hoofdinschrijving, peildatum, niveau-aanvulling, … ([Ontwerpkeuzes](ontwerpkeuzes.md)) |
-| Gegarandeerd | Kolommen en volgorde volgens het PvE; wat niet ingelezen werd, staat geteld in `quality.json` | Grain en relaties per tabel ([Datamodel](datamodel.md)); status in `quality.json` |
-| Beperkingen | Bevat nog BSN/ONr in platte tekst (#173); onbekende recordtypes en extra posities worden niet ingelezen (#120) | JR/DR zijn benaderingen (#118, #119); legacy-vlaggen in `fact_inschrijving` (#201) |
+| Gegarandeerd | Kolommen en volgorde volgens het PvE; een onbekend recordtype of gevuld veld voorbij het schema breekt de ingest (fail-closed, #257) in plaats van stil te worden genegeerd | Grain en relaties per tabel ([Datamodel](datamodel.md)); status in `quality.json` |
+| Beperkingen | Bevat nog BSN/ONr in platte tekst (#173) | JR/DR zijn benaderingen (#118, #119); legacy-vlaggen in `fact_inschrijving` (#201) |
 | Voor wie | Wie eigen keuzes wil maken of een levering wil controleren | Wie direct wil analyseren met de keuzes van deze tool |
 
 De fasering: `ingest > decode > validate > export` levert de brondata;

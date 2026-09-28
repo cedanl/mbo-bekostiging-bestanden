@@ -1,12 +1,14 @@
-"""Ingest gooit niets stil weg: afwijkende regels worden geteld en gemeld (#120).
+"""Ingest gooit niets stil weg (#120), en faalt sinds #257 fail-closed.
 
 Positioneel parsen neemt per recordtype alleen de velden uit het schema. Een
 onbekend recordtype en gevulde velden voorbij de schemabreedte verdwenen
-voorheen zonder spoor; de SLR-reconciliatie bleef "match". Nu staan ze per
-levering in ``quality.json`` (``regelinventaris``) met een waarschuwing.
+voorheen zonder spoor; de SLR-reconciliatie bleef "match". Sinds #257 breekt
+``read_multi_record_csv`` de ingest op precies die twee gevallen, in plaats
+van ze stil te negeren/afknippen. ``inventariseer_regels`` blijft een
+onafhankelijk diagnosemiddel (o.a. voor ``spiegel_afwijkingen``, dat wél door
+de pipeline heen komt) — zie de docstring in ``ingest.py``.
 """
 
-import json
 from pathlib import Path
 
 import pytest
@@ -60,14 +62,30 @@ def test_spiegelveld_dat_afwijkt_wordt_geteld(tmp_path):
     assert inv["spiegel_afwijkingen"] == {"PER": {"Postcodecijfers": 1}}
 
 
-def test_pipeline_meldt_inventaris_in_quality_json(tmp_path):
-    bron = _bestand(tmp_path, "RO_99XX_20250801_20260731.csv", RO)
+def test_pipeline_faalt_bij_onbekend_recordtype(tmp_path):
+    """Fail-closed (#257): geen quality.json meer, de ingest breekt meteen."""
+    bron = _bestand(
+        tmp_path,
+        "RO_99XX_20250801_20260731.csv",
+        "VLP|99XX|2025-08-01|2026-07-31|2026-08-01\nXYZ|iets\n",
+    )
     doel = tmp_path / "prepared"
-    run_auto_pipeline(bron, doel)
-    rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
-    assert rapport["regelinventaris"]["onbekende_recordtypes"] == {"CTR": 1, "XYZ": 1}
-    assert any("XYZ" in w for w in rapport["warnings"])
-    assert any("ISG" in w for w in rapport["warnings"])
+    with pytest.raises(ValueError, match="XYZ"):
+        run_auto_pipeline(bron, doel)
+    assert not (doel / "quality.json").exists()
+
+
+def test_pipeline_faalt_bij_velden_voorbij_schema(tmp_path):
+    """Fail-closed (#257): een gevuld veld voorbij het schema breekt de ingest."""
+    bron = _bestand(
+        tmp_path,
+        "RO_99XX_20250801_20260731.csv",
+        "VLP|99XX|2025-08-01|2026-07-31|2026-08-01\n"
+        "ISG|BSN2||1|2025-08-01|2027-07-31|||ONVERWACHT\n",
+    )
+    doel = tmp_path / "prepared"
+    with pytest.raises(ValueError, match="ISG"):
+        run_auto_pipeline(bron, doel)
 
 
 @pytest.mark.parametrize(
