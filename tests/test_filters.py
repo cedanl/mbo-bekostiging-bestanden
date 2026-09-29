@@ -1,101 +1,85 @@
-"""Tests voor de sidebar-jaarselectie die consistent op data-feiten wordt toegepast.
+"""Sidebar-jaarselectie, consistent toegepast op de feiten.
 
 De helpers leven in het package (``mbo_bekostiging_bestanden.filters``) zodat de
-app-jaarselectie en de TBGI-bekostigingsfilter los van de UI getest kunnen worden.
+app-jaarselectie los van de UI getest kan worden.
 """
+
+from datetime import date
 
 import polars as pl
 
 from mbo_bekostiging_bestanden.filters import (
+    beschikbare_schooljaren,
+    filter_bekostiging_op_schooljaren,
     filter_detail_op_inschrijvingen,
-    filter_fact_bekostiging_op_jaar,
-    filter_schooljaren_op_jaar,
-    periode_jaar_kolom,
+    filter_op_schooljaren,
+    filter_perioden_op_schooljaren,
 )
 
-
-def test_periode_jaar_kolom_kiest_periode_variant():
-    """Studiejaar_periode heeft voorrang (correct voor periode-analyses)."""
-    df = pl.DataFrame({"Studiejaar": [2025], "Studiejaar_periode": [2024]})
-    assert periode_jaar_kolom(df) == "Studiejaar_periode"
-
-
-def test_periode_jaar_kolom_fallbacks_naar_studiejaar():
-    """Zonder periode-variant valt het terug op Studiejaar, anders None."""
-    assert periode_jaar_kolom(pl.DataFrame({"Studiejaar": [2024]})) == "Studiejaar"
-    assert periode_jaar_kolom(pl.DataFrame({"levering": ["h16"]})) is None
+# ---------------------------------------------------------------------------
+# Jaarselectie op schooljaar (#240)
+# ---------------------------------------------------------------------------
+# Eén selector, elk feit met zijn eigen jaarbetekenis: Schooljaar in de
+# schooljaar-fact, het schooljaar van Teldatum in de bekostiging. Een TBGI-only
+# inschrijving heeft een pseudo-periode vanaf DatumInschrijving (2023) maar telt
+# in het schooljaar van haar Teldatum (2025).
 
 
-def test_bekostiging_filter_hanteert_periodejaar_niet_leveringjaar():
-    """De sidebar selecteert op periodejaar; bekostiging moet datzelfde jaar aanhouden.
+def _bekostiging(*teldata: date) -> pl.DataFrame:
+    return pl.DataFrame({"Teldatum": list(teldata)})
 
-    Regressie: eerder werd op ``df["Studiejaar"]`` (leveringjaar) gefilterd, waardoor
-    bij RO/GRONDSLAG/TBGI-combinaties andere jaren verschenen dan de selectie.
-    """
-    geselecteerd = pl.DataFrame(
+
+def test_beschikbare_schooljaren_is_unie_van_schooljaar_en_teldatum():
+    jaren = pl.DataFrame({"Schooljaar": [2024, 2024]})
+    bek = _bekostiging(date(2025, 10, 1), date(2026, 2, 1))
+    assert beschikbare_schooljaren(jaren, bek) == [2024, 2025]
+
+
+def test_beschikbare_schooljaren_zonder_feiten_is_leeg():
+    assert beschikbare_schooljaren(pl.DataFrame(), pl.DataFrame()) == []
+
+
+def test_schooljaar_fact_filtert_op_schooljaar():
+    jaren = pl.DataFrame({"Schooljaar": [2023, 2024, 2025]})
+    assert filter_op_schooljaren(jaren, [2024, 2025])["Schooljaar"].to_list() == [
+        2024,
+        2025,
+    ]
+
+
+def test_bekostiging_filtert_op_schooljaar_van_teldatum():
+    """1-2-2026 is schooljaar 2025; 1-10-2024 is 2024."""
+    bek = _bekostiging(date(2024, 10, 1), date(2026, 2, 1))
+    resultaat = filter_bekostiging_op_schooljaren(bek, [2025])
+    assert resultaat["Teldatum"].to_list() == [date(2026, 2, 1)]
+
+
+def test_perioden_die_in_het_schooljaar_beginnen_of_op_1_oktober_actief_zijn():
+    """Een korte periode zonder 1 oktober blijft zichtbaar in haar beginjaar;
+    een TBGI-pseudo-periode (begin 2023) telt in het jaar van haar teldatum."""
+    perioden = pl.DataFrame(
         {
-            "levering": ["h17/GRONDSLAG_IP_MBO_27DV_2025"],
-            "Studiejaar": [2025],  # leveringjaar — misleidend
-            "Studiejaar_periode": [2024],  # werkelijke periode (aug'24–jul'25)
+            "_inschrijving_periode_id": ["kort", "tbgi", "ander"],
+            "Studiejaar_periode": [2025, 2023, 2023],
         }
     )
-    bek = pl.DataFrame(
-        {
-            "levering": ["h16/TBGI_25LX_2027", "h16/TBGI_25LX_2027"],
-            "Studiejaar": [2024, 2025],  # afgeleid uit Teldatum
-            "Bekostigingsstatus": ["Bekostigd", "Niet bekostigd"],
-        }
+    jaren = pl.DataFrame(
+        {"_inschrijving_periode_id": ["tbgi", "ander"], "Schooljaar": [2025, 2023]}
     )
-
-    resultaat = filter_fact_bekostiging_op_jaar(bek, geselecteerd)
-
-    assert resultaat["Studiejaar"].to_list() == [2024]
+    resultaat = filter_perioden_op_schooljaren(perioden, jaren, [2025])
+    assert resultaat["_inschrijving_periode_id"].to_list() == ["kort", "tbgi"]
 
 
-def test_bekostiging_filter_behoudt_alle_rijen_bij_alle_jaren():
-    """Wanneer alle periodejaren geselecteerd zijn, blijft alles behouden."""
-    geselecteerd = pl.DataFrame({"Studiejaar_periode": [2024, 2025]})
-    bek = pl.DataFrame(
-        {
-            "levering": ["h16/TBGI", "h16/TBGI", "h16/TBGI"],
-            "Studiejaar": [2024, 2025, 2025],
-        }
+def test_lege_selectie_geeft_lege_feiten():
+    jaren = pl.DataFrame({"Schooljaar": [2024], "_inschrijving_periode_id": ["a"]})
+    perioden = pl.DataFrame(
+        {"_inschrijving_periode_id": ["a"], "Studiejaar_periode": [2024]}
     )
-
-    resultaat = filter_fact_bekostiging_op_jaar(bek, geselecteerd)
-
-    assert resultaat.height == 3
-
-
-def test_bekostiging_filter_leeg_zonder_selectie():
-    """Geen geselecteerde jaren (of leeg df) levert een lege feitentabel."""
-    leeg_df = pl.DataFrame(
-        schema={
-            "Studiejaar": pl.Int64,
-            "Studiejaar_periode": pl.Int64,
-        }
-    )
-    bek = pl.DataFrame({"levering": ["h16"], "Studiejaar": [2024]})
-
-    assert filter_fact_bekostiging_op_jaar(bek, leeg_df).is_empty()
-
-
-def test_bekostiging_filter_ongewijzigd_zonder_jaarkolom_in_feit():
-    """Als fact_bekostiging geen Studiejaar kent is er niets te filteren."""
-    bek = pl.DataFrame({"levering": ["h16"], "Teldatum": ["2024-10-01"]})
-    geselecteerd = pl.DataFrame({"Studiejaar_periode": [2024]})
-
-    resultaat = filter_fact_bekostiging_op_jaar(bek, geselecteerd)
-
-    assert resultaat.height == 1
-
-
-def test_bekostiging_filter_leeg_zonder_jaarkolom_in_selectie():
-    """Als de inschrijvingen geen jaarkolom hebben kan er niet gefilterd worden."""
-    bek = pl.DataFrame({"levering": ["h16"], "Studiejaar": [2024]})
-    geselecteerd = pl.DataFrame({"levering": ["h17/..."]})
-
-    assert filter_fact_bekostiging_op_jaar(bek, geselecteerd).is_empty()
+    assert filter_op_schooljaren(jaren, []).is_empty()
+    assert filter_bekostiging_op_schooljaren(
+        _bekostiging(date(2024, 10, 1)), []
+    ).is_empty()
+    assert filter_perioden_op_schooljaren(perioden, jaren, []).is_empty()
 
 
 def _twee_perioden() -> pl.DataFrame:
@@ -147,23 +131,3 @@ def test_detailfilter_zonder_gedeelde_sleutel_of_selectie_geeft_leeg():
     leeg = _twee_perioden().clear()
     met_sleutel = _twee_perioden().select("_inschrijving_periode_id")
     assert filter_detail_op_inschrijvingen(met_sleutel, leeg).is_empty()
-
-
-# ---------------------------------------------------------------------------
-# filter_schooljaren_op_jaar (#136)
-# ---------------------------------------------------------------------------
-
-
-def test_schooljaren_volgen_de_studiejaarselectie():
-    jaren = pl.DataFrame({"Schooljaar": [2023, 2024, 2025], "x": [1, 2, 3]})
-    selectie = pl.DataFrame({"Studiejaar_periode": [2024, 2025, 2025]})
-    assert filter_schooljaren_op_jaar(jaren, selectie)["Schooljaar"].to_list() == [
-        2024,
-        2025,
-    ]
-
-
-def test_schooljaren_leeg_bij_lege_selectie():
-    jaren = pl.DataFrame({"Schooljaar": [2024]})
-    selectie = pl.DataFrame({"Studiejaar_periode": pl.Series([], dtype=pl.Int64)})
-    assert filter_schooljaren_op_jaar(jaren, selectie).is_empty()

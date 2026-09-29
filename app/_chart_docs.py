@@ -138,7 +138,10 @@ CHART_DOCS: dict[str, dict] = {
             "uitstroom met/zonder diploma.  Doorstroom = dezelfde persoon heeft "
             "ook een inschrijving op niveau ≥ 2; diploma = `_gediplomeerd_in_jaar`.  "
             "De vier aandelen tellen op tot 100% van het aantal niveau-1-"
-            "inschrijvingen (de noemer)."
+            "inschrijvingen (de noemer).  **Periode-grain**: telt rijen van "
+            "`fact_inschrijving` (ISP-perioden in de schooljaarselectie), niet "
+            "inschrijvingen op 1 oktober; een student met meerdere perioden kan "
+            "dubbel tellen (#306)."
         ),
     },
     "diplomas_leertraject": {
@@ -148,7 +151,9 @@ CHART_DOCS: dict[str, dict] = {
             "Elke inschrijving wordt op basis van `DIP_DatumResultaat` (gevuld of "
             "leeg) ingedeeld als 'Diploma behaald' of 'Geen diploma'.  Daarna wordt "
             "het aantal inschrijvingen per combinatie van Leertraject en "
-            "diplomastatus geteld."
+            "diplomastatus geteld.  **Periode-grain**: rijen van "
+            "`fact_inschrijving` die in een geselecteerd schooljaar beginnen of "
+            "er op 1 oktober actief zijn."
         ),
     },
     # ── Tab Bekostiging ──────────────────────────────────────────────────────
@@ -169,11 +174,16 @@ CHART_DOCS: dict[str, dict] = {
     },
     "bekostiging_levering": {
         "titel": "Bekostigd vs niet-bekostigd per levering",
-        "variabelen": ["levering", "IndicatieBekostigbaar"],
+        "variabelen": [
+            "fact_inschrijving_schooljaar.levering",
+            "fact_inschrijving_schooljaar._bekostigd",
+        ],
         "manipulatie": (
-            "`IndicatieBekostigbaar` wordt genormaliseerd naar 'Bekostigd' "
-            "(codes 'J'/'1') of 'Niet bekostigd' (overig).  Per levering wordt het "
-            "aantal inschrijvingen per categorie geteld."
+            "Gelezen uit `fact_inschrijving_schooljaar`: één rij per inschrijving "
+            "× geselecteerd schooljaar waarin zij op 1 oktober actief is.  "
+            "'Bekostigd' = `_bekostigd` (`IndicatieBekostigbaar` = J in de periode "
+            "op 1 oktober), anders 'Niet bekostigd'.  Per levering wordt het "
+            "aantal per categorie geteld (#240)."
         ),
     },
     "bekostigingsgrondslagen": {
@@ -184,10 +194,9 @@ CHART_DOCS: dict[str, dict] = {
         ],
         "manipulatie": (
             "Gelezen uit `fact_bekostiging` (grain: één rij per inschrijving per "
-            "teldatum, afkomstig uit het TBGI-bestand).  Omdat TBGI-leveringen qua "
-            "`levering` niet overlappen met ISP-data wordt gefilterd op het uit "
-            "`Teldatum` afgeleide jaar, afgestemd op dezelfde (periode)studiejaren "
-            "als de sidebar-selectie.  Het aantal rijen wordt per "
+            "teldatum, uit TBG-i of GRONDSLAG-BII).  Gefilterd op het schooljaar "
+            "waarin de `Teldatum` valt (1-8 t/m 31-7), dat in de sidebar-selectie "
+            "moet zitten (#240).  Het aantal rijen wordt per "
             "`Bekostigingsstatus` geteld en aflopend gesorteerd.  Aanvullend "
             "wordt de som van `BijdrageInschrijvingAanDeelnemerswaarde` over alle "
             "rijen getoond als totale deelnemerswaarde."
@@ -199,7 +208,8 @@ CHART_DOCS: dict[str, dict] = {
         "manipulatie": (
             "Telt het aantal inschrijvingen waarvan `DatumInschrijving` ná 1 "
             "oktober van het studiejaar valt.  Deze studenten tellen niet mee voor "
-            "de 1-oktober-bekostiging."
+            "de 1-oktober-bekostiging.  **Periode-grain**: legacy-vlag uit "
+            "`fact_inschrijving` (#201)."
         ),
     },
     # ── Tab Opleidingen ──────────────────────────────────────────────────────
