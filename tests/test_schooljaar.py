@@ -32,6 +32,7 @@ def _periode(
     crebo: str = "25000",
     bekostigbaar: str = "J",
     diploma: date | None = None,
+    diploma_crebo: str = "10002",
 ) -> dict:
     return {
         "levering": levering,
@@ -46,6 +47,7 @@ def _periode(
         "Leertraject": "BOL",
         "IndicatieBekostigbaar": bekostigbaar,
         "DIP_DatumResultaat": diploma,
+        "DIP_Opleidingcode": diploma_crebo if diploma else None,
         "_inschrijving_periode_id": f"{levering}|{persoon}|{nr}|{begin}",
     }
 
@@ -57,6 +59,7 @@ def _inschrijvingen(*perioden: dict) -> pl.DataFrame:
             "DatumEind": pl.Date,
             "DatumUitschrijvingWerkelijk": pl.Date,
             "DIP_DatumResultaat": pl.Date,
+            "DIP_Opleidingcode": pl.Utf8,
         },
     )
 
@@ -341,6 +344,104 @@ def test_overstap_maakt_onwaarneembaar_jaar_niet_waarneembaar():
         leveringen=lev,
     )
     assert _dr_bij(df, "A") == {2023: (False, False)}
+
+
+# ---------------------------------------------------------------------------
+# DR-teller (#119, #237): diploma niveau >= 2 bij de instelling die de student
+# verlaat, van het begin van schooljaar t-5 tot de peildatum 1-10-(t+1)
+# ---------------------------------------------------------------------------
+# Uitstroom in schooljaar 2023: actief op 1-10-2023, niet op 1-10-2024. Het
+# venster loopt van 1-8-2018 (begin van schooljaar 2018 = 2023 - 5) tot
+# 1-10-2024: een diploma in augustus of september 2024 is er een waarmee de
+# student vertrok. Crebo 10002 is niveau 4, 10022 niveau 1 (metadata/crebo.csv).
+_NIVEAU_4, _NIVEAU_1 = "10002", "10022"
+
+
+def _uitstromer_2023(*eerdere: dict, **kwargs) -> pl.DataFrame:
+    """Uitstromer in 2023, met eventueel eerdere inschrijvingen (met diploma)."""
+    return _bouw(
+        _periode(date(2023, 8, 1), uitschrijving=date(2024, 7, 31), **kwargs),
+        *eerdere,
+    ).filter(pl.col("Schooljaar") == 2023, pl.col("Inschrijvingvolgnummer") == "1")
+
+
+def _eerder(diploma: date, **kwargs) -> dict:
+    begin = date(diploma.year - 1, 8, 1)
+    return _periode(begin, nr="0", uitschrijving=diploma, diploma=diploma, **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("diploma", "verwacht"),
+    [
+        (date(2024, 7, 31), True),  # laatste dag van het uitstroomjaar
+        (date(2024, 9, 30), True),  # daags voor de peildatum van t+1
+        (date(2018, 8, 1), True),  # eerste dag van het zesde schooljaar ervoor
+        (date(2018, 7, 31), False),  # zeven schooljaren voor uitstroom
+    ],
+)
+def test_dr_diploma_in_het_zesjaarsvenster(diploma, verwacht):
+    if diploma >= date(2023, 8, 1):
+        df = _uitstromer_2023(diploma=diploma)
+    else:
+        df = _uitstromer_2023(_eerder(diploma))
+    assert df.select("_dr_noemer", "_dr_teller").row(0) == (True, verwacht)
+
+
+def test_dr_diploma_op_of_na_de_peildatum_van_t_plus_1_telt_niet():
+    """Eén dag na het venster: het diploma hoort niet bij deze uitstroom."""
+    df = _uitstromer_2023(diploma=date(2024, 10, 1))
+    assert df.select("_dr_noemer", "_dr_teller").row(0) == (True, False)
+
+
+def test_dr_diploma_op_niveau_1_telt_niet():
+    df = _uitstromer_2023(diploma=date(2024, 6, 1), diploma_crebo=_NIVEAU_1)
+    assert df.select("_dr_noemer", "_dr_teller").row(0) == (True, False)
+
+
+def test_dr_eerder_diploma_niveau_2_plus_telt_bij_uitstroom_zonder_diploma():
+    """Het diploma hoeft niet bij de uitstroominschrijving te horen."""
+    df = _uitstromer_2023(_eerder(date(2021, 6, 30)))
+    assert df.select("_dr_noemer", "_dr_teller").row(0) == (True, True)
+
+
+def test_dr_diploma_van_onbekend_niveau_telt_niet():
+    df = _uitstromer_2023(diploma=date(2024, 6, 1), diploma_crebo="00000")
+    assert df.select("_dr_noemer", "_dr_teller").row(0) == (True, False)
+
+
+def test_dr_meerdere_diplomas_een_uitkomst():
+    df = _uitstromer_2023(
+        _eerder(date(2021, 6, 30)),
+        _eerder(date(2016, 6, 30)) | {"Inschrijvingvolgnummer": "9"},
+        diploma=date(2024, 6, 1),
+    )
+    assert df.height == 1
+    assert df.select("_dr_noemer", "_dr_teller").row(0) == (True, True)
+
+
+def test_dr_diploma_bij_andere_instelling_telt_niet():
+    """DR is het resultaat van de instelling die de student verlaat."""
+    df = _bouw(
+        _bij("A", date(2023, 8, 1), uitschrijving=date(2024, 7, 31)),
+        _bij(
+            "B",
+            date(2020, 8, 1),
+            uitschrijving=date(2021, 6, 30),
+            diploma=date(2021, 6, 30),
+            nr="0",
+        ),
+        leveringen=_TWEE_INSTELLINGEN,
+    ).filter(pl.col("BRIN") == "A")
+    assert _dr(df) == {2023: (True, False)}
+
+
+def test_dr_diploma_zonder_uitstroom_telt_niet():
+    df = _bouw(
+        _periode(
+            date(2023, 8, 1), uitschrijving=date(2025, 7, 31), diploma=date(2024, 6, 1)
+        )
+    ).filter(pl.col("Schooljaar") == 2023)
+    assert _dr(df) == {2023: (False, False)}
 
 
 def test_quality_noemt_de_instellingen_waarbinnen_uitstroom_bepaald_is():

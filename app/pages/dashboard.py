@@ -441,8 +441,8 @@ with tab_rendementen:
         "waarneembaar volgend schooljaar).",
     )
     st.caption(
-        "DR is een benadering: het formele zesjaarsvenster is nog niet "
-        f"geïmplementeerd (#119). {_uitstroom_scope(kwaliteitsrapport)}"
+        "DR is indicatief: diploma's van vóór de eerste levering ontbreken. "
+        f"{_uitstroom_scope(kwaliteitsrapport)}"
     )
 
     st.subheader("Berekend oordeel Studiesucces (indicatief)")
