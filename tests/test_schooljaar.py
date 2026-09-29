@@ -300,6 +300,68 @@ def test_dr_alleen_vanaf_niveau_2():
     assert _dr(df) == {2023: (False, False)}
 
 
+# Uitstroom is instelling-onafhankelijk (#118): wie in t+1 bij een andere
+# instelling in de dataset staat, is geen uitstromer. Waarneembaarheid blijft
+# per eigen BRIN: dat t+1 bij een andere instelling gezien is, maakt een
+# onwaarneembaar t+1 niet waarneembaar (anders telt alleen blijven mee).
+_TWEE_INSTELLINGEN = _leveringen(A=_PEILGRENS, B=_PEILGRENS)
+
+
+def _bij(brin: str, begin: date, **kwargs) -> dict:
+    return _periode(begin, levering=brin, brin=brin, **kwargs)
+
+
+def _dr_bij(df: pl.DataFrame, brin: str) -> dict[int, tuple[bool, bool]]:
+    return _dr(df.filter(pl.col("BRIN") == brin))
+
+
+def test_overstap_naar_andere_instelling_is_geen_uitstroom():
+    df = _bouw(
+        _bij("A", date(2023, 8, 1), uitschrijving=date(2024, 7, 31)),
+        _bij("B", date(2024, 8, 1), uitschrijving=date(2025, 7, 31)),
+        leveringen=_TWEE_INSTELLINGEN,
+    )
+    assert _dr_bij(df, "A") == {2023: (False, False)}
+
+
+def test_andere_persoon_bij_andere_instelling_telt_niet():
+    df = _bouw(
+        _bij("A", date(2023, 8, 1), uitschrijving=date(2024, 7, 31)),
+        _bij("B", date(2024, 8, 1), persoon="Q"),
+        leveringen=_TWEE_INSTELLINGEN,
+    )
+    assert _dr_bij(df, "A") == {2023: (True, False)}
+
+
+def test_overstap_maakt_onwaarneembaar_jaar_niet_waarneembaar():
+    lev = _leveringen(A=date(2024, 3, 1), B=_PEILGRENS)
+    df = _bouw(
+        _bij("A", date(2023, 8, 1)),
+        _bij("B", date(2024, 8, 1)),
+        leveringen=lev,
+    )
+    assert _dr_bij(df, "A") == {2023: (False, False)}
+
+
+def test_quality_noemt_de_instellingen_waarbinnen_uitstroom_bepaald_is():
+    """Buiten de dataset ziet niemand de overstap: dat staat in quality.json."""
+    from mbo_bekostiging_bestanden.quality import (
+        compile_quality_report,
+        kwaliteitsmeldingen,
+    )
+
+    df = _bouw(
+        _bij("A", date(2023, 8, 1)),
+        _bij("B", date(2023, 8, 1), persoon="Q"),
+        leveringen=_TWEE_INSTELLINGEN,
+    )
+    rapport = compile_quality_report({"fact_inschrijving_schooljaar": df})
+
+    assert rapport["star"]["dr_scope"] == {"brins": ["A", "B"], "mbo_breed": False}
+    info = [m.tekst for m in kwaliteitsmeldingen(rapport) if m.ernst == "info"]
+    assert any("2 instellingen" in t for t in info)
+
+
 # ---------------------------------------------------------------------------
 # Star-output op de demo
 # ---------------------------------------------------------------------------
@@ -506,9 +568,9 @@ def test_demo_heeft_geen_levering_zonder_schooljaar(demo_star):
 # Entree (niveau 1): wat gebeurt er in t+1 (#306)
 # ---------------------------------------------------------------------------
 # Populatie: de entree-hoofdinschrijving in t die Entree verlaat. Doorstroom =
-# in t+1 niveau >= 2 bij dezelfde instelling; uitstroom = daar in t+1 niet meer
-# ingeschreven. Wie in Entree blijft of van wie t+1 niet waarneembaar is, valt
-# erbuiten — net als bij DR.
+# in t+1 niveau >= 2, bij welke instelling in de dataset ook (#118); uitstroom =
+# in t+1 nergens meer ingeschreven. Wie in Entree blijft of van wie t+1 niet
+# waarneembaar is, valt erbuiten — net als bij DR.
 
 
 def _entree(df: pl.DataFrame) -> dict[int, tuple[bool, bool, bool]]:
@@ -550,6 +612,16 @@ def test_entree_zonder_waarneembaar_volgend_jaar_valt_buiten_de_populatie():
     lev = _leveringen(L=date(2025, 11, 19))
     df = _bouw(_periode(date(2025, 8, 1), niveau="MBO-1"), leveringen=lev)
     assert _entree(df) == {2025: (False, False, False)}
+
+
+def test_entree_doorstroom_naar_andere_instelling():
+    """Net als DR instelling-onafhankelijk (#118)."""
+    df = _bouw(
+        _bij("A", date(2023, 8, 1), niveau="MBO-1", uitschrijving=date(2024, 7, 31)),
+        _bij("B", date(2024, 8, 1), niveau="MBO-2"),
+        leveringen=_TWEE_INSTELLINGEN,
+    )
+    assert _entree(df) == {2023: (True, True, False)}
 
 
 def test_niveau_2_is_geen_entree():

@@ -21,13 +21,16 @@ Regels:
   ``DatumInschrijving`` zegt niets over welke peildata de levering waarneemt,
   en een inschrijving zonder teldatum komt volgens PvE §16 niet in aanmerking.
 - JR: gediplomeerd als ``DIP_DatumResultaat`` in het schooljaar zelf valt (#194).
-- DR: uitstromer als de hoofdinschrijving in ``t`` bij dezelfde BRIN geen
-  inschrijving in ``t+1`` heeft, **en** ``t+1`` waarneembaar is (de peildatum
-  1-10-(t+1) ligt vóór de laatste peildatum van een levering van die BRIN).
+- DR: uitstromer als de persoon van de hoofdinschrijving in ``t`` in ``t+1``
+  bij geen enkele instelling in de dataset staat ingeschreven (#118), **en**
+  ``t+1`` waarneembaar is (de peildatum 1-10-(t+1) ligt vóór de laatste
+  peildatum van een levering van de eigen BRIN). Een overstap naar een
+  instelling buiten de dataset blijft uitstroom (``quality.json`` →
+  ``dr_scope``).
 - Entree (#306): een niveau-1-hoofdinschrijving in ``t`` die Entree verlaat,
-  met ``t+1`` waarneembaar. Doorstroom = in ``t+1`` niveau >= 2 bij dezelfde
-  BRIN; uitstroom = daar in ``t+1`` niet meer ingeschreven. Wie in Entree
-  blijft, valt buiten de populatie.
+  met ``t+1`` waarneembaar. Doorstroom = in ``t+1`` niveau >= 2, bij welke
+  instelling in de dataset ook; uitstroom = in ``t+1`` nergens meer
+  ingeschreven. Wie in Entree blijft, valt buiten de populatie.
 """
 
 import polars as pl
@@ -53,6 +56,8 @@ GRAIN = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer", SCHOOLJAAR]
 # Per groep precies één hoofdinschrijving (invariant, gecontroleerd in quality).
 HOOFDINSCHRIJVING_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
 HOOFDINSCHRIJVING = "_hoofdinschrijving"
+# DR en Entree zoeken de persoon in t+1 over alle instellingen in de dataset (#118).
+VOLGEND_JAAR_GROEP = ["_persoon_id"]
 _PEILGRENS = "_peilgrens"
 _TELDATUM = "Teldatum"
 PEILGRENS = "Peilgrens"
@@ -223,13 +228,16 @@ def _voeg_jr_toe(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _voeg_volgend_jaar_toe(df: pl.DataFrame) -> pl.DataFrame:
-    """Wat de instelling in ``t+1`` van deze persoon ziet, en of dat waarneembaar is.
+    """Wat de dataset in ``t+1`` van deze persoon ziet, en of dat waarneembaar is.
 
-    ``_actief_volgend_jaar``: een inschrijving bij dezelfde BRIN in ``t+1``;
+    ``_actief_volgend_jaar``: een inschrijving in ``t+1`` bij welke instelling in
+    de dataset ook, want uitstroom is instelling-onafhankelijk (#118);
     ``_niveau_volgend_jaar``: het hoogste niveau daarvan (null zonder niveau).
+    Waarneembaar blijft per eigen BRIN: een waarneming elders telt alleen
+    blijvers, dus zou een onwaarneembaar jaar naar doorstroom scheeftrekken.
     """
     volgend_jaar = df.group_by(
-        "BRIN", "_persoon_id", (pl.col(SCHOOLJAAR) - 1).alias(SCHOOLJAAR)
+        *VOLGEND_JAAR_GROEP, (pl.col(SCHOOLJAAR) - 1).alias(SCHOOLJAAR)
     ).agg(
         pl.lit(True).alias("_actief_volgend_jaar"),
         _niveau_numeriek(pl.col("Niveau")).max().alias("_niveau_volgend_jaar"),
@@ -238,7 +246,7 @@ def _voeg_volgend_jaar_toe(df: pl.DataFrame) -> pl.DataFrame:
         pl.col(_PEILGRENS).max().alias("_laatste_peilgrens")
     )
     return (
-        df.join(volgend_jaar, on=HOOFDINSCHRIJVING_GROEP, how="left")
+        df.join(volgend_jaar, on=[*VOLGEND_JAAR_GROEP, SCHOOLJAAR], how="left")
         .join(laatste_peilgrens, on="BRIN", how="left")
         .with_columns(
             pl.col("_actief_volgend_jaar").fill_null(False),

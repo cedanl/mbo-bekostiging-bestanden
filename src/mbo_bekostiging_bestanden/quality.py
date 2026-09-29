@@ -527,7 +527,8 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
     Warning: onbekend niveau, meervoudige matches bij koppelingen (#209),
     leveringen zonder waarneembare peildatum (#211).
     Info: verklaarde wees-rijen (#196), vervangen leveringen (#174),
-    verouderde kolommen (#201).
+    verouderde kolommen (#201), de instellingen waarbinnen uitstroom bepaald
+    is (#118).
     Dekkingsgaten (#295) hebben hun ernst al in de dekkingstabel.
     """
     meldingen: list[Melding] = []
@@ -594,6 +595,15 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
             f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
             f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
         )
+    brins = star.get("dr_scope", {}).get("brins", [])
+    if brins:
+        melding(
+            ERNST_INFO,
+            f"DR- en Entree-uitstroom bepaald binnen {len(brins)} "
+            f"{'instelling' if len(brins) == 1 else 'instellingen'} "
+            f"({', '.join(brins)}); een overstap naar een instelling buiten de "
+            "dataset telt als uitstroom (#118)",
+        )
     for rij in star.get("dekking", []):
         if rij["ernst"]:
             doel = f"0 in {rij['feit']}" if rij["feit"] else rij["verklaring"]
@@ -658,6 +668,7 @@ def compile_quality_report(
         **_check_join_keuzes_structured(star),
         **_check_leveringen_zonder_schooljaar(star),
         **_check_verouderde_kolommen(star),
+        **_check_dr_scope(star),
         "dekking": controleer_dekking(invoer or {}, star),
     }
 
@@ -887,6 +898,22 @@ def controleer_dekking(
                     rij["ernst"] = ERNST_ERROR if doel.bekostiging else ERNST_WARNING
             rijen.append(rij)
     return rijen
+
+
+def _check_dr_scope(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Instellingen waarbinnen DR- en Entree-uitstroom bepaald zijn (#118).
+
+    Uitstroom zoekt de persoon in ``t+1`` bij alle instellingen in de dataset;
+    een overstap naar een instelling daarbuiten telt als uitstroom. De dataset
+    bevat alleen eigen leveringen, dus nooit de hele mbo-populatie.
+    """
+    jaren = star.get(SCHOOLJAAR_FEIT, pl.DataFrame())
+    brins = (
+        sorted(jaren["BRIN"].drop_nulls().unique().to_list())
+        if "BRIN" in jaren.columns
+        else []
+    )
+    return {"dr_scope": {"brins": brins, "mbo_breed": False}}
 
 
 def _check_verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
