@@ -190,7 +190,7 @@ waarvan een ISP-periode de peildatum dekt. Deze tabel is de bron voor tellingen,
 | `_bekostigd` | `IndicatieBekostigbaar = J` van de periode die de peildatum dekt |
 | `_gediplomeerd_in_jaar` | `DIP_DatumResultaat` valt in het schooljaar zelf (1-8-t t/m 31-7-(t+1)) |
 | `_jr_noemer` / `_jr_teller` | Noemer = `_telling`; teller = noemer én gediplomeerd in het jaar |
-| `_dr_noemer` / `_dr_teller` | Noemer = hoofdinschrijving, niveau ≥ 2, geen inschrijving bij dezelfde instelling in `t+1`, **en** `t+1` is waarneembaar (1-10-(t+1) ligt vóór de laatste leveringspeildatum van die instelling). Teller = noemer met een diploma (zonder formeel zesjaarsvenster, zie #119; uitstroom binnen dezelfde BRIN, zie #118) |
+| `_dr_noemer` / `_dr_teller` | Noemer = hoofdinschrijving, niveau ≥ 2, de persoon staat in `t+1` bij geen enkele instelling in de dataset ingeschreven (#118), **en** `t+1` is waarneembaar (1-10-(t+1) ligt vóór de laatste leveringspeildatum van de eigen instelling). Een overstap naar een instelling buiten de dataset telt als uitstroom (`quality.json` → `dr_scope`). Teller = noemer met een diploma (zonder formeel zesjaarsvenster, zie #119) |
 
 Invariant (getest op de star-output en bewaakt in `quality.json`): precies één `_hoofdinschrijving` per `BRIN × _persoon_id × Schooljaar`.
 
@@ -224,7 +224,7 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
 |---|---|---|
 | `Facttabel` | `fact_inschrijving` | Geïmplementeerd |
 | `Studiesucces` JR | `_jr_noemer` / `_jr_teller` in `fact_inschrijving_schooljaar` | Geïmplementeerd |
-| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving_schooljaar` | Benaderd (#118, #119) |
+| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving_schooljaar` | Benaderd: zonder zesjaarsvenster (#119); uitstroom binnen de instellingen in de dataset (#118) |
 | `Studiesucces` SR | — | Vereist 6-jaar inschrijvingshistorie buiten eigen leveringen; buiten scope |
 | `CREBOs` | `dim_opleiding` | Geïmplementeerd |
 | `Deelnemers` | `dim_deelnemer` | Geïmplementeerd |

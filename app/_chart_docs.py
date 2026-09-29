@@ -81,9 +81,10 @@ CHART_DOCS: dict[str, dict] = {
         ],
         "manipulatie": (
             "Gelezen uit `fact_inschrijving_schooljaar`.  Noemer `_dr_noemer`: de "
-            "hoofdinschrijving (niveau ≥ 2) in schooljaar t zonder inschrijving "
-            "bij hetzelfde BRIN in t+1, alleen als t+1 waarneembaar is (een "
-            "levering van dat BRIN dekt 1-10-(t+1)).  Teller `_dr_teller`: "
+            "hoofdinschrijving (niveau ≥ 2) in schooljaar t van een student die "
+            "in t+1 bij geen enkele instelling in de dataset staat ingeschreven, "
+            "alleen als t+1 waarneembaar is (een levering van het eigen BRIN "
+            "dekt 1-10-(t+1)).  Teller `_dr_teller`: "
             "daarvan met een diploma.  Beide berekent de pipeline; na de "
             "**populatieregels** (bijlage 3) geldt **DR = teller / noemer × 100** "
             "per schooljaar × niveau, met de DUO-normen ernaast."
@@ -92,10 +93,11 @@ CHART_DOCS: dict[str, dict] = {
             "Dit is een **indicatieve schatting**, geen officiële inspectie-"
             "indicator.  De inspectie hanteert een 6-jaars terugblik voor "
             "diploma's en ontdubbelt studenten bij neveninschrijvingen.  "
-            "De uitstromer-bepaling is hier benaderd via de aanwezigheid in "
-            "het volgende studiejaar binnen de gestapelde leveringen; studenten "
-            "van het meest recente studiejaar hebben geen 't+1'-referentie en "
-            "vallen daardoor altijd in de noemer.  Zie §3.1 en bijlage 1."
+            "Uitstroom is instelling-onafhankelijk, maar de dataset bevat alleen "
+            "de eigen leveringen: een overstap naar een instelling buiten de "
+            "dataset telt hier als uitstroom (`quality.json` → `dr_scope`, "
+            "#118).  Schooljaren zonder waarneembaar t+1 vallen buiten de "
+            "noemer.  Zie §3.1 en bijlage 1."
         ),
     },
     "berekend_oordeel": {
@@ -138,8 +140,9 @@ CHART_DOCS: dict[str, dict] = {
             "student × instelling × schooljaar.  Populatie (`_entree_noemer`): de "
             "hoofdinschrijving op niveau 1 in schooljaar t die Entree daarna "
             "verlaat, met t+1 waarneembaar.  Doorstroom = in t+1 een inschrijving "
-            "op niveau ≥ 2 bij dezelfde instelling; uitstroom = daar in t+1 niet "
-            "meer ingeschreven; wie in Entree blijft telt niet mee.  Diploma = "
+            "op niveau ≥ 2, bij welke instelling in de dataset ook (#118); "
+            "uitstroom = in t+1 nergens meer ingeschreven; wie in Entree blijft "
+            "telt niet mee.  Diploma = "
             "`_gediplomeerd_in_jaar` (diploma in schooljaar t).  De vier aandelen "
             "tellen op tot 100% van de populatie (hoofdstuk 5 van de toelichting, "
             "#306)."

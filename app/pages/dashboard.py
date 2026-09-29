@@ -154,6 +154,17 @@ def _lees_kwaliteitsrapport(data_dir: Path) -> dict | None:
     return json.loads(pad.read_text(encoding="utf-8"))
 
 
+def _uitstroom_scope(rapport: dict | None) -> str:
+    """Binnen welke instellingen uitstroom bepaald is (``dr_scope``, #118)."""
+    brins = (rapport or {}).get("star", {}).get("dr_scope", {}).get("brins", [])
+    if not brins:
+        return "Uitstroom is bepaald binnen de instellingen in de dataset."
+    return (
+        f"Uitstroom is bepaald binnen {', '.join(brins)}: een overstap naar een "
+        "instelling buiten de dataset telt als uitstroom."
+    )
+
+
 def _toon_kwaliteit(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None:
     """Status uit ``quality.json`` bovenaan, met meldingen en bronleveringen (#202)."""
     if rapport is None:
@@ -261,7 +272,8 @@ if data_dir is None:
     fact_jaren,
     meta_leveringen,
 ) = _lees_star_schema(data_dir, _parquet_max_mtime(data_dir))
-_toon_kwaliteit(_lees_kwaliteitsrapport(data_dir), meta_leveringen)
+kwaliteitsrapport = _lees_kwaliteitsrapport(data_dir)
+_toon_kwaliteit(kwaliteitsrapport, meta_leveringen)
 geselecteerd = _sidebar_schooljaar_selectie(
     beschikbare_schooljaren(fact_jaren, fact_bekostiging)
 )
@@ -429,8 +441,8 @@ with tab_rendementen:
         "waarneembaar volgend schooljaar).",
     )
     st.caption(
-        "DR is een benadering: het formele zesjaarsvenster en de MBO-brede "
-        "uitstroom zijn nog niet geïmplementeerd (#118, #119)."
+        "DR is een benadering: het formele zesjaarsvenster is nog niet "
+        f"geïmplementeerd (#119). {_uitstroom_scope(kwaliteitsrapport)}"
     )
 
     st.subheader("Berekend oordeel Studiesucces (indicatief)")

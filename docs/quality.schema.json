@@ -431,6 +431,26 @@
             }
           }
         },
+        "dr_scope": {
+          "type": "object",
+          "description": "Instellingen (BRIN) in fact_inschrijving_schooljaar waarbinnen DR- en Entree-uitstroom bepaald zijn (#118). Uitstroom zoekt de persoon in t+1 bij al deze instellingen; een overstap naar een instelling buiten de dataset telt als uitstroom. mbo_breed is false: de dataset bevat alleen eigen leveringen",
+          "properties": {
+            "brins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mbo_breed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "brins",
+            "mbo_breed"
+          ],
+          "additionalProperties": false
+        },
         "dekking": {
           "type": "array",
           "description": "Per levering × recordtype: ingelezen records tegen rijen in het analysemodel (#295). Alleen een volledig gat (bereikt 0) krijgt een ernst: error voor bekostigingsrecords, anders warning. Recordtypes zonder eigen feit hebben feit en bereikt null en een verklaring",
@@ -481,6 +501,7 @@
         "join_keuzes",
         "leveringen_zonder_schooljaar",
         "verouderde_kolommen",
+        "dr_scope",
         "dekking"
       ],
       "additionalProperties": false
