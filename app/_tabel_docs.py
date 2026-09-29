@@ -176,6 +176,20 @@ TABEL_DOCS: dict[str, dict[str, str]] = {
             "nieuwste aanmaakdatum (VLP)."
         ),
     },
+    "meta_referentiedata": {
+        "titel": "Referentiedata (metadata)",
+        "wat": (
+            "Welke referentietabellen de run gebruikte: bron, datum van "
+            "opname, tot wanneer ze de opleidingen dekken, en een vingerafdruk "
+            "(sha256) van de inhoud. `afwijkend` betekent dat het bestand op "
+            "schijf niet meer het bestand uit het manifest is."
+        ),
+        "bron": (
+            "`metadata/referentiedata.json` in het package, vergeleken met de "
+            "bestanden ernaast. Het niveau van RO-inschrijvingen komt uit "
+            "`crebo.csv` en de S-BB-koppeltabel."
+        ),
+    },
 }
 
 

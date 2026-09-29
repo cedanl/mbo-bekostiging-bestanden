@@ -13,7 +13,9 @@ Het script combineert twee bronnen uit S-BB:
   per opleidingscode op basis van de gepubliceerde crebolijsten (2015 t/m heden).
   Output: ``src/mbo_bekostiging_bestanden/metadata/sbb_crebolijst.parquet``
 
-Commit beide bestanden in git zodat eindgebruikers ze direct hebben.
+Het script werkt ``metadata/referentiedata.json`` bij (sha256, rijen, opname en
+dekking, #132). Commit de bestanden en het manifest samen in git, zodat
+eindgebruikers ze direct hebben.
 """
 
 from __future__ import annotations
@@ -22,26 +24,26 @@ import datetime
 import io
 import re
 import urllib.request
-from pathlib import Path
 
 import polars as pl
 
-_BASE_URL = "https://kwalificatie-mijn.s-bb.nl/Lijsten/Output/"
-_METADATA = Path(__file__).parent.parent / "src/mbo_bekostiging_bestanden/metadata"
-_OUT_KOPPEL = _METADATA / "sbb_koppeltabel.parquet"
-_OUT_CREBO = _METADATA / "sbb_crebolijst.parquet"
+from mbo_bekostiging_bestanden.referentiedata import (
+    METADATA,
+    laad_manifest,
+    werk_manifest_bij,
+)
+
+_OUT_KOPPEL = METADATA / "sbb_koppeltabel.parquet"
+_OUT_CREBO = METADATA / "sbb_crebolijst.parquet"
+_BASE_URL = laad_manifest()[_OUT_KOPPEL.name]["bron_url"]
 
 # ---------------------------------------------------------------------------
 # Groep 19: Mbo-opleidingskoppeltabel (beroep / niveau / opvolger)
 # ---------------------------------------------------------------------------
 
-# Output IDs van de koppeltabel (Groep 19) in het nieuwe formaat.
-# Voeg nieuwe IDs toe zodra S-BB een nieuw schooljaar publiceert.
-_KOPPELTABEL_IDS = [
-    "58496",  # 2025-2026 (versie 1)
-    "58499",  # 2025-2026 (versie 2, bijgewerkt)
-    "58526",  # 2025-2026 + 2026-2027 (meest recent)
-]
+# Output-IDs per groep staan in metadata/referentiedata.json (``bron_ids``, #132):
+# voeg daar een nieuw ID toe zodra S-BB een nieuw schooljaar publiceert.
+_KOPPELTABEL_IDS = laad_manifest()[_OUT_KOPPEL.name]["bron_ids"]
 
 _KOLOMMEN_KOPPEL = {
     "opleidingscode": pl.Int64,
@@ -121,36 +123,9 @@ def _bouw_koppeltabel() -> pl.DataFrame:
 # Groep 14: Crebolijsten (geldigheid / prijsfactor / soort opleiding)
 # ---------------------------------------------------------------------------
 
-# Alle Output-IDs van Groep 14 met een bruikbare code-kolom (2015 t/m 2026).
-# Oudere bestanden (53729–53731, vóór 2015) hebben een afwijkend formaat zonder
-# herkenbare code-kolom en worden niet meegenomen.
-_CREBOLIJST_IDS = [
-    "58436",  # HKS 2015
-    "58454",  # HKS 2016
-    "58455",  # HKS 2016 juli
-    "58458",  # HKS 2017 jan
-    "58459",  # HKS 2017 mei
-    "58460",  # HKS 2017 juli
-    "58461",  # HKS 2018 jan
-    "58464",  # HKS 2018/2019 (amendement)
-    "58466",  # HKS 2019 jan (amendement)
-    "58467",  # HKS 2019 apr (amendement)
-    "58468",  # HKS 2019 juli (amendement)
-    "58469",  # HKS 2020 (amendement)
-    "58470",  # HKS 2020 (amendement)
-    "58471",  # HKS 2020 (amendement)
-    "58472",  # HKS 2020 (amendement)
-    "58474",  # HKS 2021 (amendement)
-    "58484",  # HKS 2022
-    "58479",  # HKS 2023 jan
-    "58488",  # HKS 2023 juli
-    "58490",  # HKS 2024
-    "58493",  # HKS 2024 apr
-    "58494",  # HKS 2024 okt → geldig 2025-08-01
-    "58498",  # HKS 2025 apr
-    "58500",  # HKS 2025 okt → geldig 2026-08-01
-    "58502",  # HKS 2026 apr
-]
+# Groep 14 vanaf 2015: oudere bestanden (53729–53731) hebben een afwijkend
+# formaat zonder herkenbare code-kolom en staan daarom niet in het manifest.
+_CREBOLIJST_IDS = laad_manifest()[_OUT_CREBO.name]["bron_ids"]
 
 # Kolomnamen voor de opleidingscode per versiejaar
 _CODE_COLS = ["Crebonummer", "Erkende opleidingscode", "Opleidingscode"]
@@ -321,11 +296,21 @@ def _bouw_sbb_crebolijst() -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+def _einde_schooljaar(schooljaar: str) -> str:
+    """``"2026-2027"`` → ``"2027-07-31"``: laatste dag die de lijst dekt."""
+    return f"{schooljaar.split('-')[-1]}-07-31"
+
+
 def main() -> None:
     print("=== Groep 19: koppeltabel ophalen ===")
     koppel = _bouw_koppeltabel()
-    _METADATA.mkdir(parents=True, exist_ok=True)
     koppel.write_parquet(_OUT_KOPPEL, compression="zstd")
+    vandaag = datetime.date.today().isoformat()
+    werk_manifest_bij(
+        _OUT_KOPPEL.name,
+        opgenomen=vandaag,
+        dekking_tot=_einde_schooljaar(str(koppel["laatste_schooljaar"].max())),
+    )
     print(
         f"Geschreven: {_OUT_KOPPEL} "
         f"({_OUT_KOPPEL.stat().st_size // 1024} KB, {koppel.height} codes)"
@@ -335,6 +320,12 @@ def main() -> None:
     print("=== Groep 14: crebolijsten ophalen ===")
     crebo = _bouw_sbb_crebolijst()
     crebo.write_parquet(_OUT_CREBO, compression="zstd")
+    laatste_lijst = datetime.date.fromisoformat(str(crebo["geldig_van"].max()))
+    werk_manifest_bij(
+        _OUT_CREBO.name,
+        opgenomen=vandaag,
+        dekking_tot=f"{laatste_lijst.year + 1}-07-31",
+    )
     n_actief = crebo["geldig_tot"].is_null().sum()
     n_verlopen = crebo["geldig_tot"].drop_nulls().len()
     print(

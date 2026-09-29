@@ -1,0 +1,3 @@
+# Referentiebestanden byte-exact: het manifest bewaakt hun sha256 (#132).
+src/mbo_bekostiging_bestanden/metadata/*.csv -text
+src/mbo_bekostiging_bestanden/metadata/*.parquet binary

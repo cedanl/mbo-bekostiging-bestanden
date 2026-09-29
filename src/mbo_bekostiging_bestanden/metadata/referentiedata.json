@@ -1,0 +1,80 @@
+{
+  "brinnummer.csv": {
+    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "opgenomen": "2026-07-29",
+    "sha256": "f07253c39e8c27753c90ec1edc5816ef8c0463fe741cfea939fd169672aa765d",
+    "rijen": 19209
+  },
+  "crebo.csv": {
+    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "opgenomen": "2026-07-29",
+    "sha256": "4734afdbf3baf6ad8355c2222a668827f7b4a60464f8daf29a6eb4a2501f89e4",
+    "rijen": 4288
+  },
+  "landcode.csv": {
+    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "opgenomen": "2026-07-29",
+    "sha256": "87a0dcf0c237dfd3ee11a337318029111d21fb3f0cce626854f9f537336504fa",
+    "rijen": 391
+  },
+  "nationaliteitscode.csv": {
+    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "opgenomen": "2026-07-29",
+    "sha256": "48d7c16be5757e0f80a3dc2af7def4fef1c08f4ffe1c87cab3c989c8078974f8",
+    "rijen": 219
+  },
+  "postcodecijfers.csv": {
+    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "opgenomen": "2026-07-29",
+    "sha256": "e1eddee393e0b1b80a899c221fa95473fd308e74006661836e86dffe3c881157",
+    "rijen": 4104
+  },
+  "sbb_crebolijst.parquet": {
+    "bron": "S-BB kwalificatiestructuur, groep 14 (crebolijsten)",
+    "bron_url": "https://kwalificatie-mijn.s-bb.nl/Lijsten/Output/",
+    "bron_ids": [
+      "58436",
+      "58454",
+      "58455",
+      "58458",
+      "58459",
+      "58460",
+      "58461",
+      "58464",
+      "58466",
+      "58467",
+      "58468",
+      "58469",
+      "58470",
+      "58471",
+      "58472",
+      "58474",
+      "58484",
+      "58479",
+      "58488",
+      "58490",
+      "58493",
+      "58494",
+      "58498",
+      "58500",
+      "58502"
+    ],
+    "opgenomen": "2026-08-06",
+    "dekking_tot": "2027-07-31",
+    "sha256": "0057ab79678272f691242a12e44f1284f1e78660103f4517e9fd5a36ccdda9ac",
+    "rijen": 1075
+  },
+  "sbb_koppeltabel.parquet": {
+    "bron": "S-BB kwalificatiestructuur, groep 19 (opleidingskoppeltabel)",
+    "bron_url": "https://kwalificatie-mijn.s-bb.nl/Lijsten/Output/",
+    "bron_ids": [
+      "58496",
+      "58499",
+      "58526"
+    ],
+    "opgenomen": "2026-08-06",
+    "dekking_tot": "2027-07-31",
+    "sha256": "d0deff3c16b05777cf85dc855632a9566d7f8ec4fd07e76cb6f36dfffe477e42",
+    "rijen": 4395
+  }
+}

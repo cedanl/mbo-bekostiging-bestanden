@@ -451,6 +451,80 @@
           ],
           "additionalProperties": false
         },
+        "referentiedata": {
+          "type": "object",
+          "description": "Herkomst van de referentietabellen (metadata/referentiedata.json, zie meta_referentiedata) en opleidingscodes die de referentie niet kent in inschrijvingen na haar dekking: een verouderde referentie (#132)",
+          "properties": {
+            "bestanden": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "bestand": {
+                    "type": "string"
+                  },
+                  "bron": {
+                    "type": "string"
+                  },
+                  "opgenomen": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "dekking_tot": {
+                    "type": ["string", "null"],
+                    "format": "date"
+                  },
+                  "sha256": {
+                    "type": "string"
+                  },
+                  "rijen": {
+                    "type": "integer"
+                  },
+                  "afwijkend": {
+                    "type": "boolean",
+                    "description": "Het bestand op schijf heeft een andere sha256 dan het manifest"
+                  }
+                },
+                "required": [
+                  "bestand",
+                  "bron",
+                  "opgenomen",
+                  "dekking_tot",
+                  "sha256",
+                  "rijen",
+                  "afwijkend"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "onbekende_codes_na_dekking": {
+              "type": ["object", "null"],
+              "description": "Null als de dekking van de opleidingsreferenties onbekend is",
+              "properties": {
+                "dekking_tot": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "codes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "dekking_tot",
+                "codes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "bestanden",
+            "onbekende_codes_na_dekking"
+          ],
+          "additionalProperties": false
+        },
         "dekking": {
           "type": "array",
           "description": "Per levering × recordtype: ingelezen records tegen rijen in het analysemodel (#295). Alleen een volledig gat (bereikt 0) krijgt een ernst: error voor bekostigingsrecords, anders warning. Recordtypes zonder eigen feit hebben feit en bereikt null en een verklaring",
@@ -502,6 +576,7 @@
         "leveringen_zonder_schooljaar",
         "verouderde_kolommen",
         "dr_scope",
+        "referentiedata",
         "dekking"
       ],
       "additionalProperties": false

@@ -15,6 +15,8 @@ import re
 import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
+from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
+from mbo_bekostiging_bestanden.referentiedata import meta_referentiedata
 from mbo_bekostiging_bestanden.schooljaar import FEIT as SCHOOLJAAR_FEIT
 from mbo_bekostiging_bestanden.schooljaar import (
     bouw_inschrijving_schooljaar,
@@ -135,6 +137,7 @@ def build_star(
           ``meta_leveringen``            — VLP + SLR per bronbestand (per levering)
           ``meta_canonicalisatie``       — vervangen leveringen per leveringspaar
           ``meta_koppelkeuzes``          — meervoudige matches per koppeling (#209)
+          ``meta_referentiedata``        — herkomst en inhoud van de referenties (#132)
     """
     tables = _bouw_analysetabellen(stacked)
     inschrijvingen = tables["inschrijvingen"]
@@ -184,6 +187,7 @@ def build_star(
         "meta_leveringen": _build_meta_leveringen(tables),
         "meta_canonicalisatie": tables["meta_canonicalisatie"],
         "meta_koppelkeuzes": tables["meta_koppelkeuzes"],
+        REFERENTIE_TABEL: meta_referentiedata(),
     }
 
 

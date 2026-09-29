@@ -69,6 +69,7 @@ Alle prepared-mappen worden gecombineerd tot Parquet-bestanden in `data/03-outpu
 | `fact_bekostiging_diploma.parquet` | GRONDSLAG BID, TBGI Diploma | Diplomawaarde-bijdragen per diploma |
 | `meta_leveringen.parquet` | Leveringsbestand | VLP + SLR metadata (één rij per bronbestand) |
 | `meta_canonicalisatie.parquet` | Leveringspaar | Vervangen leveringen bij overlap (aantallen + reden) |
+| `meta_referentiedata.parquet` | Referentiebestand | Bron, opname, dekking en sha256 van de referentietabellen (#132) |
 | `meta_koppelkeuzes.parquet` | Koppeling | Per koppeling hoeveel sleutels meer dan één kandidaat hadden, en hoeveel rijen daardoor zijn weggelaten |
 
 Zie [Datamodel](datamodel.md) voor een volledig schema-overzicht.
