@@ -56,9 +56,10 @@ CHART_DOCS: dict[str, dict] = {
             "schooljaar), de teller `_jr_teller` (daarvan gediplomeerd in dat "
             "schooljaar); beide berekent de pipeline, het dashboard telt alleen op "
             "(`_indicatoren.rendement`).  Daarna gelden de **populatieregels** "
-            "(bijlage 3): leerwegen bol/bbl/ex (ov en od buiten beschouwing) en "
-            "niveaus ≥ 2.  **JR = teller / noemer × 100** per schooljaar × niveau, "
-            "met de DUO-normen uit `metadata/normen.toml` ernaast."
+            "(bijlage 3): leerwegen bol/bol-dt/bbl/ex (OVO en ODT buiten "
+            "beschouwing) en niveaus ≥ 2.  **JR = teller / noemer × 100** per "
+            "schooljaar × niveau, met de DUO-normen uit `metadata/normen.toml` "
+            "ernaast."
         ),
         "kanttekening": (
             "Dit is een **indicatieve schatting**, geen officiële inspectie-"
