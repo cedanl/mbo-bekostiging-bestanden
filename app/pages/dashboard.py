@@ -22,10 +22,11 @@ from _utils import star_dir, vind_star_dir
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from mbo_bekostiging_bestanden.filters import (
+    beschikbare_schooljaren,
+    filter_bekostiging_op_schooljaren,
     filter_detail_op_inschrijvingen,
-    filter_fact_bekostiging_op_jaar,
-    filter_schooljaren_op_jaar,
-    periode_jaar_kolom,
+    filter_op_schooljaren,
+    filter_perioden_op_schooljaren,
 )
 from mbo_bekostiging_bestanden.quality import (
     ERNST_ERROR,
@@ -122,16 +123,6 @@ def _lees_star_schema(
         fact_bek = fact_bek.join(dim_instelling, on="BRIN", how="left")
         fact_bek = fact_bek.drop([c for c in fact_bek.columns if c.endswith("_right")])
 
-    # Leid Studiejaar af uit Teldatum zodat TBGI-data jaargebonden filterbaar is.
-    if "Teldatum" in fact_bek.columns:
-        teldatum = pl.col("Teldatum").cast(pl.Date, strict=False)
-        fact_bek = fact_bek.with_columns(
-            pl.when(teldatum.dt.month() >= 8)
-            .then(teldatum.dt.year())
-            .otherwise(teldatum.dt.year() - 1)
-            .alias("Studiejaar")
-        )
-
     return (
         df,
         _laad("fact_geo"),
@@ -196,43 +187,33 @@ def _toon_kwaliteit(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None
             st.dataframe(leveringen, width="stretch", hide_index=True)
 
 
-_PILLS_KEY = "studiejaar_pills"
+_PILLS_KEY = "schooljaar_pills"
 _JAREN_KEY = "beschikbare_jaren"
 
 
-def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
-    """Rendert studiejaar-pills in de sidebar en filtert ``df`` op de selectie.
+def _sidebar_schooljaar_selectie(jaren: list[int]) -> list[int]:
+    """Rendert schooljaar-pills in de sidebar en geeft de selectie terug.
 
-    De jaarkolom kiest :func:`~mbo_bekostiging_bestanden.filters.periode_jaar_kolom`.
+    Nieuw beschikbare jaren (bijv. na een nieuwe verwerking) worden aan de
+    selectie toegevoegd; verdwenen jaren vallen eruit.
     """
-    jaar_col = periode_jaar_kolom(df)
-    if jaar_col is None:
-        return df
-    jaren = sorted(df[jaar_col].drop_nulls().unique().to_list())
-
-    # Synchroniseer selectie-staat wanneer beschikbare jaren veranderen.
     if _JAREN_KEY not in st.session_state:
         st.session_state[_JAREN_KEY] = jaren
         st.session_state[_PILLS_KEY] = jaren
     elif st.session_state[_JAREN_KEY] != jaren:
-        # Jaren zijn veranderd (bijv. nieuwe data verwerkt). Synchroniseer selectie:
-        # voeg nieuwe jaren toe, verwijder verdwenen jaren.
-        old_jaren = st.session_state[_JAREN_KEY]
-        huidige_selectie = st.session_state.get(_PILLS_KEY, [])
-
-        new_jaren = [j for j in jaren if j not in old_jaren]
-        nieuwe_selectie = list(set(huidige_selectie) | set(new_jaren))
-
-        nieuwe_selectie = [j for j in nieuwe_selectie if j in jaren]
-
+        oud = st.session_state[_JAREN_KEY]
+        huidig = set(st.session_state.get(_PILLS_KEY, []))
         st.session_state[_JAREN_KEY] = jaren
-        st.session_state[_PILLS_KEY] = sorted(nieuwe_selectie)
+        st.session_state[_PILLS_KEY] = [j for j in jaren if j in huidig or j not in oud]
 
     with st.sidebar:
         st.header("Filters")
         st.caption(
-            "**Studiejaar** — schooljaar dat start op 1 augustus "
-            "(bijv. 2024 = aug 2024 – jul 2025)."
+            "**Schooljaar** — loopt van 1 augustus t/m 31 juli (bijv. 2024 = "
+            "aug 2024 – jul 2025); peildatum 1 oktober. Elk feit filtert op zijn "
+            "eigen jaar: inschrijvingen op 1 oktober op hun schooljaar, "
+            "bekostiging op het schooljaar van de teldatum, perioden als ze in het "
+            "schooljaar beginnen of er op 1 oktober actief zijn."
         )
         col_all, col_none = st.columns(2)
         if col_all.button("Alle", width="stretch"):
@@ -240,18 +221,16 @@ def _sidebar_studiejaar_filter(df: pl.DataFrame) -> pl.DataFrame:
         if col_none.button("Geen", width="stretch"):
             st.session_state[_PILLS_KEY] = []
         geselecteerd = st.pills(
-            "Studiejaar",
+            "Schooljaar",
             options=jaren,
             selection_mode="multi",
             key=_PILLS_KEY,
         )
         if geselecteerd and len(geselecteerd) < len(jaren):
-            st.info(f"ℹ️ {len(geselecteerd)} van {len(jaren)} studiejaren geselecteerd")
+            st.info(f"ℹ️ {len(geselecteerd)} van {len(jaren)} schooljaren geselecteerd")
         if not geselecteerd:
-            st.warning("Geen studiejaar geselecteerd.")
-    if not geselecteerd:
-        return df.clear()
-    return df.filter(pl.col(jaar_col).is_in(geselecteerd))
+            st.warning("Geen schooljaar geselecteerd.")
+    return list(geselecteerd or [])
 
 
 st.markdown(
@@ -282,10 +261,14 @@ if data_dir is None:
     meta_leveringen,
 ) = _lees_star_schema(data_dir, _parquet_max_mtime(data_dir))
 _toon_kwaliteit(_lees_kwaliteitsrapport(data_dir), meta_leveringen)
-df = _sidebar_studiejaar_filter(df)
+geselecteerd = _sidebar_schooljaar_selectie(
+    beschikbare_schooljaren(fact_jaren, fact_bekostiging)
+)
 # Schooljaar-grain: één rij per inschrijving × schooljaar waarin zij op
-# 1 oktober actief is. Bron voor alle tellingen en rendementen (#136).
-jaren_f = filter_schooljaren_op_jaar(fact_jaren, df)
+# 1 oktober actief is. Bron voor alle tellingen en rendementen (#136, #240).
+jaren_f = filter_op_schooljaren(fact_jaren, geselecteerd)
+# Periode-grain (fact_inschrijving): voor analyses zonder peildatum.
+df = filter_perioden_op_schooljaren(df, fact_jaren, geselecteerd)
 
 
 _JR_KOLOMMEN = {"Schooljaar", "Niveau", "_jr_noemer", "_jr_teller"}
@@ -348,9 +331,7 @@ def _hbar(df: pl.DataFrame, label: str, value: str) -> None:
 fact_geo_f = filter_detail_op_inschrijvingen(fact_geo, df)
 fact_bpv_f = filter_detail_op_inschrijvingen(fact_bpv, df)
 fact_kzd_f = filter_detail_op_inschrijvingen(fact_kzd, df)
-# TBGI-leveringen overlappen niet met ISP; filter op dezelfde periodejaren als
-# de sidebar-selectie, afgeleid uit Teldatum.
-fact_bek_f = filter_fact_bekostiging_op_jaar(fact_bekostiging, df)
+fact_bek_f = filter_bekostiging_op_schooljaren(fact_bekostiging, geselecteerd)
 
 # ---------------------------------------------------------------------------
 # Header metrics
@@ -363,9 +344,7 @@ studenten_1okt = (
     else 0
 )
 
-bekostigd_n = 0
-if "IndicatieBekostigbaar" in df.columns:
-    bekostigd_n = df.filter(pl.col("IndicatieBekostigbaar").is_in(["J", "1"])).height
+bekostigd_n = int(jaren_f["_bekostigd"].sum()) if "_bekostigd" in jaren_f.columns else 0
 
 diplomas_n = 0
 if "DIP_DatumResultaat" in df.columns:
@@ -377,8 +356,9 @@ col1, col_studenten, col2, col3, col4 = st.columns(5)
 col1.metric(
     "Inschrijvingsperioden",
     f"{totaal:,}",
-    help="Aantal ISP-perioden (rijen in fact_inschrijving) na de studiejaarfilters; "
-    "één inschrijving kan meerdere perioden hebben.",
+    help="Aantal ISP-perioden (rijen in fact_inschrijving) die in een "
+    "geselecteerd schooljaar beginnen of er op 1 oktober actief zijn; één "
+    "inschrijving kan meerdere perioden hebben.",
 )
 col_studenten.metric(
     "Studenten op 1 oktober",
@@ -387,14 +367,16 @@ col_studenten.metric(
     "geselecteerde schooljaren, uit fact_inschrijving_schooljaar.",
 )
 col2.metric(
-    "Bekostigd (indicatie)",
+    "Bekostigbaar op 1 oktober",
     f"{bekostigd_n:,}",
-    help="Aantal inschrijvingen met `IndicatieBekostigbaar` in ('J','1').",
+    help="Inschrijving × schooljaar met `IndicatieBekostigbaar` = J in de periode "
+    "op 1 oktober, uit fact_inschrijving_schooljaar.",
 )
 col3.metric(
     "Diploma's behaald",
     f"{diplomas_n:,}",
-    help="Aantal inschrijvingen met een ingevulde `DIP_DatumResultaat`.",
+    help="Inschrijvingsperioden met een ingevulde `DIP_DatumResultaat` "
+    "(periode-grain, fact_inschrijving).",
 )
 col4.metric(
     "Leveringen",
@@ -550,10 +532,10 @@ with tab_bekostiging:
 
     st.subheader("Bekostigd vs niet-bekostigd per levering")
     chart_help("bekostiging_levering")
-    if "IndicatieBekostigbaar" in df.columns and "levering" in df.columns:
+    if _heeft_kolommen(jaren_f, {"_bekostigd", "levering"}):
         bek_lev = (
-            df.with_columns(
-                pl.when(pl.col("IndicatieBekostigbaar").is_in(["J", "1"]))
+            jaren_f.with_columns(
+                pl.when(pl.col("_bekostigd"))
                 .then(pl.lit("Bekostigd"))
                 .otherwise(pl.lit("Niet bekostigd"))
                 .alias("Bekostigingstatus")
@@ -572,7 +554,7 @@ with tab_bekostiging:
         else:
             st.info("Geen data beschikbaar voor deze grafiek.")
     else:
-        st.info("Kolommen `IndicatieBekostigbaar` of `levering` niet beschikbaar.")
+        st.info("fact_inschrijving_schooljaar niet beschikbaar.")
 
     st.subheader("Inschrijvingen na 1-oktober")
     chart_help("na_1okt")

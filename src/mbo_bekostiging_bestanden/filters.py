@@ -2,18 +2,21 @@
 
 De logica is app-agnostisch en leeft daarom in het package (niet in ``app/``)
 zodat de UI-pagina's én de tests dezelfde selectie gebruiken.
+
+Eén jaarselector, elk feit met zijn eigen jaarbetekenis (#240): ``Schooljaar``
+in de schooljaar-fact, het schooljaar van ``Teldatum`` in de bekostiging.
+Eén kolom voor leveringsjaar, periodejaar en observatiejaar samen liet
+TBGI-only jaren wegvallen.
 """
 
 import polars as pl
 
-_STUDIEJAAR_KOLOMMEN = ("Studiejaar_periode", "Studiejaar")
-# In fact_bekostiging is "Studiejaar" afgeleid uit Teldatum (dus periode-semantiek),
-# terwijl dezelfde kolomnaam in de inschrijvingsselectie het leveringjaar draagt.
-# Bewust een aparte constante zónder "_periode-suffix": in het feit is er geen
-# Studiejaar_periode-kolom, en het zijn twee verschillende begrippen die toevallig
-# dezelfde naam delen.
-_FEIT_STUDIEJAAR_KOLOM = "Studiejaar"
-_SCHOOLJAAR_KOLOM = "Schooljaar"
+from mbo_bekostiging_bestanden.transform import _STUDIEJAAR_START_MONTH
+
+_SCHOOLJAAR = "Schooljaar"
+_TELDATUM = "Teldatum"
+# Schooljaar waarin een ISP-periode begint (transform._leid_studiejaar_af).
+_PERIODE_JAAR = "Studiejaar_periode"
 # Koppelsleutels van detail-feiten naar fact_inschrijving, in voorkeursvolgorde:
 # de periodesleutel wijst één ISP-periode aan; de inschrijvingssleutel is de
 # fallback voor star-output van vóór die sleutel (en kent geen periode).
@@ -21,64 +24,72 @@ _PERIODE_SLEUTEL = ["_inschrijving_periode_id"]
 _INSCHRIJVING_SLEUTEL = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 
-def periode_jaar_kolom(df: pl.DataFrame) -> str | None:
-    """Jaarkolom die de periode-semantiek draagt.
-
-    ``Studiejaar_periode`` (afgeleid uit datum) heeft voorrang als die aanwezig is;
-    anders valt het terug op ``Studiejaar`` (backward-compat).  ``None`` wanneer
-    geen van beide kolommen aanwezig is. GRONDSLAG-records dragen zo hun eigen
-    periodejaar (uit Teldatum), niet alleen het leveringjaar.
-    """
-    for naam in _STUDIEJAAR_KOLOMMEN:
-        if naam in df.columns:
-            return naam
-    return None
+def _schooljaar_van(datum: pl.Expr) -> pl.Expr:
+    """Schooljaar *t* loopt van 1-8-t t/m 31-7-(t+1)."""
+    datum = datum.cast(pl.Date, strict=False)
+    return datum.dt.year() - (datum.dt.month() < _STUDIEJAAR_START_MONTH).cast(pl.Int32)
 
 
-def _filter_op_selectiejaren(
-    feit: pl.DataFrame, jaar_kolom: str, geselecteerde_inschrijvingen: pl.DataFrame
-) -> pl.DataFrame:
-    """Beperk ``feit`` tot de jaren die in de inschrijvingsselectie voorkomen.
+def beschikbare_schooljaren(
+    jaren: pl.DataFrame, fact_bekostiging: pl.DataFrame
+) -> list[int]:
+    """Schooljaren in de schooljaar-fact of in de teldata van de bekostiging."""
+    reeksen = []
+    if _SCHOOLJAAR in jaren.columns:
+        reeksen.append(jaren[_SCHOOLJAAR].cast(pl.Int64))
+    if _TELDATUM in fact_bekostiging.columns:
+        reeksen.append(
+            fact_bekostiging.select(_schooljaar_van(pl.col(_TELDATUM)))
+            .to_series()
+            .cast(pl.Int64)
+        )
+    if not reeksen:
+        return []
+    return sorted(pl.concat(reeksen).drop_nulls().unique().to_list())
 
-    De selectie draagt haar jaren in ``Studiejaar_periode`` (fallback
-    ``Studiejaar``). Is daar niets uit af te leiden, dan is het resultaat leeg
-    in plaats van de volledige feitentabel.
-    """
-    if jaar_kolom not in feit.columns:
-        return feit
-    selectie_kolom = periode_jaar_kolom(geselecteerde_inschrijvingen)
-    if selectie_kolom is None:
+
+def filter_op_schooljaren(feit: pl.DataFrame, geselecteerd: list[int]) -> pl.DataFrame:
+    """Rijen van ``feit`` (met ``Schooljaar``) in de geselecteerde schooljaren."""
+    if _SCHOOLJAAR not in feit.columns:
         return feit.clear()
-    jaren = geselecteerde_inschrijvingen[selectie_kolom].drop_nulls().unique()
-    return feit.filter(pl.col(jaar_kolom).is_in(jaren.to_list()))
+    return feit.filter(pl.col(_SCHOOLJAAR).is_in(geselecteerd))
 
 
-def filter_fact_bekostiging_op_jaar(
-    fact_bekostiging: pl.DataFrame,
-    geselecteerde_inschrijvingen: pl.DataFrame,
+def filter_bekostiging_op_schooljaren(
+    fact_bekostiging: pl.DataFrame, geselecteerd: list[int]
 ) -> pl.DataFrame:
-    """Filter ``fact_bekostiging`` op de geselecteerde periodestudiejaren.
+    """Bekostigingsrijen waarvan de ``Teldatum`` in een geselecteerd schooljaar valt.
 
-    TBGI-bekostiging (h16) overlapt qua ``levering`` niet met de ISP-leveringen,
-    waardoor een FK-join via (levering, _persoon_id, Inschrijvingvolgnummer) de
-    TBGI-rijen weglaat.  Daarom filteren we op het uit ``Teldatum`` afgeleide
-    jaartal in ``fact_bekostiging``.
+    TBGI-bekostiging deelt geen ``levering`` met de ISP-perioden; een join via
+    de inschrijving zou haar rijen weglaten.
     """
-    return _filter_op_selectiejaren(
-        fact_bekostiging, _FEIT_STUDIEJAAR_KOLOM, geselecteerde_inschrijvingen
+    if _TELDATUM not in fact_bekostiging.columns:
+        return fact_bekostiging.clear()
+    return fact_bekostiging.filter(
+        _schooljaar_van(pl.col(_TELDATUM)).is_in(geselecteerd)
     )
 
 
-def filter_schooljaren_op_jaar(
-    jaren: pl.DataFrame, geselecteerde_inschrijvingen: pl.DataFrame
+def filter_perioden_op_schooljaren(
+    perioden: pl.DataFrame, jaren: pl.DataFrame, geselecteerd: list[int]
 ) -> pl.DataFrame:
-    """Filter ``fact_inschrijving_schooljaar`` op de geselecteerde studiejaren.
+    """Perioden die in een geselecteerd schooljaar beginnen óf er op 1 oktober
+    actief zijn (volgens ``jaren``, de schooljaar-fact).
 
-    Schooljaar *t* en studiejaar *t* zijn hetzelfde jaar (1-8-t t/m 31-7-(t+1)).
+    Het beginjaar alleen mist een TBGI-pseudo-periode (begin = inschrijving,
+    telt in het jaar van haar teldatum, #197) en perioden over meerdere jaren;
+    1 oktober alleen mist korte perioden die geen peildatum dekken.
     """
-    return _filter_op_selectiejaren(
-        jaren, _SCHOOLJAAR_KOLOM, geselecteerde_inschrijvingen
+    actief = filter_op_schooljaren(jaren, geselecteerd)
+    begint = (
+        pl.col(_PERIODE_JAAR).is_in(geselecteerd)
+        if _PERIODE_JAAR in perioden.columns
+        else pl.lit(False)
     )
+    [sleutel] = _PERIODE_SLEUTEL
+    if sleutel in actief.columns and sleutel in perioden.columns:
+        begint = begint | pl.col(sleutel).is_in(actief[sleutel].drop_nulls().implode())
+    return perioden.filter(begint)
 
 
 def _koppelsleutel(
