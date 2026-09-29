@@ -135,3 +135,20 @@ def test_resultaten_toont_beide_lagen_zonder_pii_in_preview(
     assert any(k.startswith("Brondata per levering") for k in koppen)
     for tabel in app.dataframe:
         assert detect_pii_columns(list(tabel.value.columns)) == []
+
+
+def test_verouderde_kolommen_staan_als_info_in_quality_json(demo_star):
+    """Release N van #201: afnemers zien welke kolommen verdwijnen, zonder dat
+    de status verandert (geen warning)."""
+    from mbo_bekostiging_bestanden.quality import ERNST_INFO, compile_quality_report
+
+    rapport = compile_quality_report(demo_star)
+    verouderd = rapport["star"]["verouderde_kolommen"]
+    assert "_actief_1_oktober" in verouderd["fact_inschrijving"]
+    assert "fact_inschrijving_schooljaar" not in verouderd
+
+    [melding] = [
+        m for m in kwaliteitsmeldingen(rapport) if "verouderd" in m.tekst.lower()
+    ]
+    assert melding.ernst == ERNST_INFO
+    assert "fact_inschrijving_schooljaar" in melding.tekst

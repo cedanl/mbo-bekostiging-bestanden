@@ -51,3 +51,30 @@ def test_teldatumjaar_is_kiesbaar(dashboard):
 def test_tbgi_only_metrics_zijn_niet_nul(dashboard):
     assert _metric(dashboard, "Studenten op 1 oktober") > 0
     assert _metric(dashboard, "Actief op 1-oktober") > 0
+
+
+# Alleen in fact_inschrijving (periode-grain) en verouderd (#201). Namen die ook
+# in fact_inschrijving_schooljaar bestaan (_telling, _jr_*, …) staan in
+# transform.VEROUDERDE_KOLOMMEN; hier gaat het erom dat het dashboard ze uit de
+# periode-fact niet nodig heeft.
+@pytest.fixture(scope="module")
+def star_zonder_legacy(demo_prepared, tmp_path_factory) -> Path:
+    import polars as pl
+
+    from mbo_bekostiging_bestanden.transform import VEROUDERDE_KOLOMMEN
+
+    prepared, dirs = demo_prepared
+    doel = tmp_path_factory.mktemp("star_zonder_legacy")
+    run_star(dirs, doel, relative_to=prepared)
+    pad = doel / "datamodel" / "fact_inschrijving.parquet"
+    pl.read_parquet(pad).drop(VEROUDERDE_KOLOMMEN, strict=False).write_parquet(pad)
+    return doel
+
+
+def test_dashboard_leest_geen_verouderde_kolommen(star_zonder_legacy):
+    app = AppTest.from_file(_DASHBOARD, default_timeout=120)
+    app.session_state["resultaten_dir"] = star_zonder_legacy
+    app.run()
+    assert not app.exception
+    meldingen = [i.value for i in app.info]
+    assert not any("niet beschikbaar" in m for m in meldingen), meldingen

@@ -1,5 +1,7 @@
 """Tests voor app/_indicatoren.py (normen, oordeel, populatie, entree)."""
 
+from datetime import date
+
 import polars as pl
 from _indicatoren import (
     _MIN_NOEMER,
@@ -9,6 +11,7 @@ from _indicatoren import (
     entree_indicatoren,
     entree_totaal,
     indicator_voldoet,
+    ingeschreven_na_peildatum,
     norm_voor,
     populatie_regele_filter,
     rendement,
@@ -441,3 +444,29 @@ def test_demo_schooljaar_fact_draagt_niveau(demo_star):
     jaren = demo_star["fact_inschrijving_schooljaar"]
     assert "Niveau" in jaren.columns
     assert jaren.filter(pl.col("_hoofdinschrijving"))["Niveau"].null_count() == 0
+
+
+# ---------------------------------------------------------------------------
+# ingeschreven_na_peildatum (#201: vervangt legacy _ingeschreven_jaar_later)
+# ---------------------------------------------------------------------------
+
+
+def test_ingeschreven_na_peildatum_telt_elke_inschrijving_eenmaal():
+    """Na 1 oktober gestart telt dat schooljaar niet mee in de telling."""
+    perioden = pl.DataFrame(
+        {
+            "BRIN": ["A", "A", "A", "A"],
+            "_persoon_id": ["p", "p", "q", "r"],
+            "Inschrijvingvolgnummer": ["1", "1", "1", "1"],
+            # p: twee perioden van één inschrijving; q: vóór 1-10; r: vorig jaar
+            "DatumInschrijving": [
+                date(2024, 11, 1),
+                date(2024, 11, 1),
+                date(2024, 9, 1),
+                date(2024, 3, 1),
+            ],
+        }
+    )
+    assert ingeschreven_na_peildatum(perioden, [2024]) == 1
+    assert ingeschreven_na_peildatum(perioden, [2023]) == 1
+    assert ingeschreven_na_peildatum(perioden, []) == 0

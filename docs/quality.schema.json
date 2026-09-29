@@ -420,6 +420,16 @@
             "per_levering"
           ],
           "additionalProperties": false
+        },
+        "verouderde_kolommen": {
+          "type": "object",
+          "description": "Per tabel de jaargebonden kolommen die verouderd zijn en in v4.0.0 verdwijnen; gebruik fact_inschrijving_schooljaar (#201)",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "required": [
@@ -429,7 +439,8 @@
         "niveau_issues",
         "canonicalisatie",
         "join_keuzes",
-        "leveringen_zonder_schooljaar"
+        "leveringen_zonder_schooljaar",
+        "verouderde_kolommen"
       ],
       "additionalProperties": false
     },

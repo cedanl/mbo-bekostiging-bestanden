@@ -15,6 +15,7 @@ from _indicatoren import (
     bereken_oordeel,
     entree_indicatoren,
     entree_totaal,
+    ingeschreven_na_peildatum,
     norm_voor,
     rendement,
 )
@@ -562,15 +563,12 @@ with tab_bekostiging:
 
     st.subheader("Inschrijvingen na 1-oktober")
     chart_help("na_1okt")
-    if "_ingeschreven_jaar_later" in df.columns:
-        na_1okt = df.filter(pl.col("_ingeschreven_jaar_later")).height
-        st.metric(
-            "Ingeschreven na 1-oktober",
-            f"{na_1okt:,}",
-            help="Tellen niet mee voor de 1-oktober-bekostiging.",
-        )
-    else:
-        st.info("Kolom `_ingeschreven_jaar_later` niet beschikbaar.")
+    st.metric(
+        "Ingeschreven na 1-oktober",
+        f"{ingeschreven_na_peildatum(df, geselecteerd):,}",
+        help="Inschrijvingen die in een geselecteerd schooljaar ná 1 oktober "
+        "begonnen; ze tellen dat schooljaar niet mee op de peildatum.",
+    )
 
     st.subheader("Bekostigingsgrondslagen (TBGI)")
     chart_help("bekostigingsgrondslagen")

@@ -204,12 +204,12 @@ CHART_DOCS: dict[str, dict] = {
     },
     "na_1okt": {
         "titel": "Inschrijvingen na 1-oktober",
-        "variabelen": ["_ingeschreven_jaar_later"],
+        "variabelen": ["DatumInschrijving", "BRIN", "_persoon_id"],
         "manipulatie": (
-            "Telt het aantal inschrijvingen waarvan `DatumInschrijving` ná 1 "
-            "oktober van het studiejaar valt.  Deze studenten tellen niet mee voor "
-            "de 1-oktober-bekostiging.  **Periode-grain**: legacy-vlag uit "
-            "`fact_inschrijving` (#201)."
+            "Telt de inschrijvingen (persoon × instelling × volgnummer, elk één "
+            "keer) waarvan `DatumInschrijving` in een geselecteerd schooljaar ná "
+            "1 oktober valt.  Ze tellen dat schooljaar niet mee op de peildatum "
+            "en dus niet voor de 1-oktober-bekostiging (#201)."
         ),
     },
     # ── Tab Opleidingen ──────────────────────────────────────────────────────

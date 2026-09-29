@@ -191,6 +191,31 @@ _PERIODE_KOPPELSLEUTELS = {
     "detail_bekostiging_diploma": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
 }
 
+# Jaargebonden vlaggen op periode-grain: verouderd sinds fact_inschrijving_schooljaar
+# (#164). Migratiepad (#201): een release markeert ze, de major daarna verwijdert ze.
+VEROUDERD_TOT = "v4.0.0"
+VEROUDERDE_KOLOMMEN = (
+    "_actief_1_oktober",
+    "_bekostigd_eerste_1okt",
+    "_gediplomeerd_in_jaar",
+    "_ingeschreven_jaar_later",
+    "_deelnemer_niet_bekostigd_eerste_1okt",
+    "_hoogste_niveau",
+    "_laagste_CREBO",
+    "_hoofdinschrijving",
+    "_telling",
+    "_jr_noemer",
+    "_jr_teller",
+    "_dr_noemer",
+    "_dr_teller",
+    "_entree_uitstroom",
+    "_entree_doorstroom",
+    "Opbrengstjaar_uitsplitsing",
+    "_driejaars_teljaar",
+    "Opbrengstjaar_3jaars_voortschrijdend",
+    "_num_opbrengstjaar_3jr",
+)
+
 # Domeinconstanten (DUO-bekostigingsregels).
 _TELDATUM_MONTH = 10  # telling op 1 oktober
 _TELDATUM_DAG = 1
@@ -623,17 +648,15 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
         )
 
     df = _voeg_periode_einde_toe(df)
-
-    # Bepaal unieke schooljaren per persoon per levering/BRIN
     sj_col = (
         "Studiejaar_periode" if "Studiejaar_periode" in df.columns else "Studiejaar"
     )
-
+    persoon = ["levering", "BRIN", "_persoon_id"]
+    periode = [*persoon, "Inschrijvingvolgnummer", "DatumBegin"]
     schooljaren = (
-        df.select(["levering", "BRIN", "_persoon_id", sj_col])
-        .drop_nulls(sj_col)
+        df.select(*persoon, pl.col(sj_col).alias("_schooljaar_peildatum"))
+        .drop_nulls("_schooljaar_peildatum")
         .unique()
-        .rename({sj_col: "schooljaar"})
     )
 
     if schooljaren.is_empty():
@@ -643,79 +666,31 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.List(pl.Int64)).alias("_schooljaren_actief"),
         ).drop(_PERIODE_EINDE, strict=False)
 
-    # Voor elke schooljaar, bepaal peildatum = 1-okt
-    schooljaren = schooljaren.with_columns(
-        pl.date(pl.col("schooljaar"), _TELDATUM_MONTH, _TELDATUM_DAG).alias("peildatum")
+    # Elke periode tegen elk schooljaar van dezelfde persoon × BRIN × levering:
+    # actief als de periode 1 oktober van dat jaar dekt. Vectoraal i.p.v. een
+    # filter per schooljaar (#201: die lus kostte ~75% van build_star).
+    peildatum = pl.date(pl.col("_schooljaar_peildatum"), _TELDATUM_MONTH, _TELDATUM_DAG)
+    schooljaren_per_periode = (
+        df.select(*periode, _PERIODE_EINDE)
+        .drop_nulls("DatumBegin")
+        .join(schooljaren, on=persoon, how="inner")
+        .filter(
+            (pl.col("DatumBegin") <= peildatum)
+            & (pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= peildatum))
+        )
+        .group_by(periode)
+        .agg(pl.col("_schooljaar_peildatum").sort().alias("_schooljaren_actief"))
     )
 
-    periodes = df.select(
-        [
-            "levering",
-            "BRIN",
-            "_persoon_id",
-            "Inschrijvingvolgnummer",
-            "DatumBegin",
-            _PERIODE_EINDE,
-        ]
-    ).drop_nulls("DatumBegin")
-
-    # Voor elke periode, bepaal welke schooljaren deze dekt
-    # Doe dit efficiënt met join_asof per schooljaar
-    actieve_periodes_per_sj = []
-    for sj_row in schooljaren.iter_rows(named=True):
-        lev, brin, pid, sj, peildatum = (
-            sj_row["levering"],
-            sj_row["BRIN"],
-            sj_row["_persoon_id"],
-            sj_row["schooljaar"],
-            sj_row["peildatum"],
-        )
-        p = periodes.filter(
-            (pl.col("levering") == lev)
-            & (pl.col("BRIN") == brin)
-            & (pl.col("_persoon_id") == pid)
-        )
-        if p.is_empty():
-            continue
-        dekt_peildatum = (pl.col("DatumBegin") <= peildatum) & (
-            pl.col(_PERIODE_EINDE).is_null() | (pl.col(_PERIODE_EINDE) >= peildatum)
-        )
-        p = p.with_columns(dekt_peildatum.alias("_dekt"))
-        actief = p.filter(pl.col("_dekt"))
-        if not actief.is_empty():
-            actief = actief.with_columns(pl.lit(sj).alias("_schooljaar_peildatum"))
-            actieve_periodes_per_sj.append(
-                actief.select(
-                    [
-                        "levering",
-                        "BRIN",
-                        "_persoon_id",
-                        "Inschrijvingvolgnummer",
-                        "DatumBegin",
-                        "_schooljaar_peildatum",
-                    ]
-                )
-            )
-
-    if not actieve_periodes_per_sj:
+    if schooljaren_per_periode.is_empty():
         return df.with_columns(
             pl.lit(False, dtype=pl.Boolean).alias("_actief_1_oktober"),
             pl.lit(False, dtype=pl.Boolean).alias("_ingeschreven_jaar_later"),
             pl.lit(None, dtype=pl.List(pl.Int64)).alias("_schooljaren_actief"),
         ).drop(_PERIODE_EINDE, strict=False)
 
-    actief_df = pl.concat(actieve_periodes_per_sj, how="vertical_relaxed")
-
-    schooljaren_per_periode = actief_df.group_by(
-        ["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"]
-    ).agg(pl.col("_schooljaar_peildatum").sort().alias("_schooljaren_actief"))
-
     # Join terug naar originele df (één-op-één, geen duplicatie)
-    df = df.join(
-        schooljaren_per_periode,
-        on=["levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer", "DatumBegin"],
-        how="left",
-    )
+    df = df.join(schooljaren_per_periode, on=periode, how="left")
 
     # _actief_1_oktober = True als periode minstens één schooljaar dekt
     df = df.with_columns(
