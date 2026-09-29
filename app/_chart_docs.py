@@ -127,21 +127,21 @@ CHART_DOCS: dict[str, dict] = {
     "entree": {
         "titel": "Entree-indicatoren (niveau 1)",
         "variabelen": [
-            "Niveau",
+            "fact_inschrijving_schooljaar._entree_noemer",
             "_entree_doorstroom",
             "_entree_uitstroom",
             "_gediplomeerd_in_jaar",
         ],
         "manipulatie": (
-            "Alle niveau-1-inschrijvingen worden in vier categorieën verdeeld "
-            "(hoofdstuk 5 van de toelichting): doorstroom met/zonder diploma en "
-            "uitstroom met/zonder diploma.  Doorstroom = dezelfde persoon heeft "
-            "ook een inschrijving op niveau ≥ 2; diploma = `_gediplomeerd_in_jaar`.  "
-            "De vier aandelen tellen op tot 100% van het aantal niveau-1-"
-            "inschrijvingen (de noemer).  **Periode-grain**: telt rijen van "
-            "`fact_inschrijving` (ISP-perioden in de schooljaarselectie), niet "
-            "inschrijvingen op 1 oktober; een student met meerdere perioden kan "
-            "dubbel tellen (#306)."
+            "Gelezen uit `fact_inschrijving_schooljaar`, dus één rij per "
+            "student × instelling × schooljaar.  Populatie (`_entree_noemer`): de "
+            "hoofdinschrijving op niveau 1 in schooljaar t die Entree daarna "
+            "verlaat, met t+1 waarneembaar.  Doorstroom = in t+1 een inschrijving "
+            "op niveau ≥ 2 bij dezelfde instelling; uitstroom = daar in t+1 niet "
+            "meer ingeschreven; wie in Entree blijft telt niet mee.  Diploma = "
+            "`_gediplomeerd_in_jaar` (diploma in schooljaar t).  De vier aandelen "
+            "tellen op tot 100% van de populatie (hoofdstuk 5 van de toelichting, "
+            "#306)."
         ),
     },
     "diplomas_leertraject": {

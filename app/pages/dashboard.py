@@ -463,14 +463,18 @@ with tab_rendementen:
 
     st.subheader("Entree-indicatoren (niveau 1)")
     chart_help("entree")
-    entree_df = entree_indicatoren(df)
+    entree_df = entree_indicatoren(jaren_f)
     if entree_df.is_empty():
-        st.info("Geen niveau-1-inschrijvingen in de data.")
+        st.info(
+            "Geen entree-studenten die Entree verlaten in de geselecteerde "
+            "schooljaren (vraagt een waarneembaar volgend schooljaar)."
+        )
     else:
         st.metric(
-            "Niveau-1-inschrijvingen (noemer)",
-            f"{entree_totaal(df):,}",
-            help="Aantal inschrijvingen op niveau 1 (Entree).",
+            "Entree-populatie (noemer)",
+            f"{entree_totaal(jaren_f):,}",
+            help="Hoofdinschrijvingen op niveau 1 die na het schooljaar doorstromen "
+            "naar niveau ≥ 2 of uitstromen, uit fact_inschrijving_schooljaar.",
         )
         st.dataframe(entree_df, width="stretch", hide_index=True)
         if "Categorie" in entree_df.columns:

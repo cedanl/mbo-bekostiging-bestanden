@@ -308,13 +308,15 @@ def test_populatie_filter_leerweg_case_insensitief():
 
 
 def _entree_inschrijvingen():
-    """Vier niveau-1 studenten in de vier categorieën + één niveau-2 rij."""
+    """Vier entree-uitstromers in de vier categorieën, één die in Entree
+    blijft (buiten de populatie) en één niveau-2-rij (schooljaar-grain, #306)."""
     return pl.DataFrame(
         {
-            "Niveau": ["MBO-1", "MBO-1", "MBO-1", "MBO-1", "MBO-2"],
-            "_entree_doorstroom": [True, True, False, False, False],
-            "_entree_uitstroom": [False, False, True, True, False],
-            "_gediplomeerd_in_jaar": [True, False, True, False, False],
+            "Niveau": ["MBO-1"] * 5 + ["MBO-2"],
+            "_entree_noemer": [True, True, True, True, False, False],
+            "_entree_doorstroom": [True, True, False, False, False, False],
+            "_entree_uitstroom": [False, False, True, True, False, False],
+            "_gediplomeerd_in_jaar": [True, False, True, False, True, False],
         }
     )
 
@@ -346,10 +348,11 @@ def test_entree_totaal():
     assert entree_totaal(_entree_inschrijvingen()) == 4
 
 
-def test_entree_indicatoren_geen_niveau_1():
+def test_entree_indicatoren_zonder_populatie_is_leeg():
     df = pl.DataFrame(
         {
-            "Niveau": ["MBO-2", "MBO-3"],
+            "Niveau": ["MBO-1", "MBO-3"],
+            "_entree_noemer": [False, False],
             "_entree_doorstroom": [False, False],
             "_entree_uitstroom": [False, False],
             "_gediplomeerd_in_jaar": [False, False],
@@ -365,24 +368,10 @@ def test_entree_indicatoren_ontbrekende_kolommen():
     assert result.is_empty()
 
 
-def test_entree_indicatoren_ongeclassificeerde_rijen_vallen_in_uitstroom():
-    """Rij die nergens een vlag heeft (geen doorstroom/uitstroom) → uitval."""
-    df = pl.DataFrame(
-        {
-            "Niveau": ["MBO-1"],
-            "_entree_doorstroom": [False],
-            "_entree_uitstroom": [False],
-            "_gediplomeerd_in_jaar": [False],
-        }
-    )
-    result = entree_indicatoren(df)
-    row = result.filter(pl.col("Categorie") == "Uitstroom zonder diploma")
-    assert row["Aantal"].to_list() == [1]
-
-
-# ---------------------------------------------------------------------------
-# Demo-data integratie
-# ---------------------------------------------------------------------------
+def test_entree_die_in_entree_blijft_telt_niet_mee():
+    """Buiten de populatie (``_entree_noemer`` = False), ook met diploma."""
+    result = entree_indicatoren(_entree_inschrijvingen())
+    assert result["Aantal"].sum() == 4
 
 
 def test_normen_en_populatie_in_demo_tabellen(demo_tabellen):

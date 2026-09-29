@@ -500,3 +500,58 @@ def test_demo_heeft_geen_levering_zonder_schooljaar(demo_star):
 
     rapport = compile_quality_report(demo_star)
     assert rapport["star"]["leveringen_zonder_schooljaar"] == []
+
+
+# ---------------------------------------------------------------------------
+# Entree (niveau 1): wat gebeurt er in t+1 (#306)
+# ---------------------------------------------------------------------------
+# Populatie: de entree-hoofdinschrijving in t die Entree verlaat. Doorstroom =
+# in t+1 niveau >= 2 bij dezelfde instelling; uitstroom = daar in t+1 niet meer
+# ingeschreven. Wie in Entree blijft of van wie t+1 niet waarneembaar is, valt
+# erbuiten — net als bij DR.
+
+
+def _entree(df: pl.DataFrame) -> dict[int, tuple[bool, bool, bool]]:
+    return {
+        r["Schooljaar"]: (
+            r["_entree_noemer"],
+            r["_entree_doorstroom"],
+            r["_entree_uitstroom"],
+        )
+        for r in df.filter(pl.col("Niveau") == "MBO-1").iter_rows(named=True)
+    }
+
+
+def test_entree_met_twee_perioden_telt_een_keer():
+    """Periode-grain telde deze student twee keer (audit F-07)."""
+    df = _bouw(
+        _periode(date(2023, 8, 1), niveau="MBO-1", eind=date(2023, 12, 31)),
+        _periode(date(2024, 1, 1), niveau="MBO-1", uitschrijving=date(2024, 7, 31)),
+        _periode(date(2024, 8, 1), nr="2", niveau="MBO-2"),
+    )
+    assert _entree(df) == {2023: (True, True, False)}
+
+
+def test_entree_zonder_inschrijving_volgend_jaar_is_uitstroom():
+    df = _bouw(
+        _periode(date(2023, 8, 1), niveau="MBO-1", uitschrijving=date(2024, 7, 31))
+    )
+    assert _entree(df) == {2023: (True, False, True)}
+
+
+def test_entree_die_in_entree_blijft_valt_buiten_de_populatie():
+    df = _bouw(
+        _periode(date(2023, 8, 1), niveau="MBO-1", uitschrijving=date(2025, 7, 31))
+    )
+    assert _entree(df)[2023] == (False, False, False)
+
+
+def test_entree_zonder_waarneembaar_volgend_jaar_valt_buiten_de_populatie():
+    lev = _leveringen(L=date(2025, 11, 19))
+    df = _bouw(_periode(date(2025, 8, 1), niveau="MBO-1"), leveringen=lev)
+    assert _entree(df) == {2025: (False, False, False)}
+
+
+def test_niveau_2_is_geen_entree():
+    df = _bouw(_periode(date(2023, 8, 1), uitschrijving=date(2024, 7, 31)))
+    assert not df["_entree_noemer"].any()

@@ -24,6 +24,10 @@ Regels:
 - DR: uitstromer als de hoofdinschrijving in ``t`` bij dezelfde BRIN geen
   inschrijving in ``t+1`` heeft, **en** ``t+1`` waarneembaar is (de peildatum
   1-10-(t+1) ligt vóór de laatste peildatum van een levering van die BRIN).
+- Entree (#306): een niveau-1-hoofdinschrijving in ``t`` die Entree verlaat,
+  met ``t+1`` waarneembaar. Doorstroom = in ``t+1`` niveau >= 2 bij dezelfde
+  BRIN; uitstroom = daar in ``t+1`` niet meer ingeschreven. Wie in Entree
+  blijft, valt buiten de populatie.
 """
 
 import polars as pl
@@ -65,6 +69,7 @@ _TELDATUM_ATTRIBUTEN = (
 # Peildatum van een levering, in voorkeursvolgorde (VLP-velden).
 _PEILGRENS_KOLOMMEN = ("DatumEindePeriode", "DatumAanmaak")
 _JR_DR_MIN_NIVEAU = 2
+_ENTREE_NIVEAU = 1
 _BEKOSTIGBAAR = "J"
 _KOLOMMEN = [
     "levering",
@@ -86,6 +91,9 @@ _KOLOMMEN = [
     "_jr_teller",
     "_dr_noemer",
     "_dr_teller",
+    "_entree_noemer",
+    "_entree_doorstroom",
+    "_entree_uitstroom",
 ]
 
 
@@ -214,38 +222,67 @@ def _voeg_jr_toe(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _voeg_dr_toe(df: pl.DataFrame) -> pl.DataFrame:
-    volgend_jaar_actief = (
-        df.select("BRIN", "_persoon_id", (pl.col(SCHOOLJAAR) - 1).alias(SCHOOLJAAR))
-        .unique()
-        .with_columns(pl.lit(True).alias("_actief_volgend_jaar"))
+def _voeg_volgend_jaar_toe(df: pl.DataFrame) -> pl.DataFrame:
+    """Wat de instelling in ``t+1`` van deze persoon ziet, en of dat waarneembaar is.
+
+    ``_actief_volgend_jaar``: een inschrijving bij dezelfde BRIN in ``t+1``;
+    ``_niveau_volgend_jaar``: het hoogste niveau daarvan (null zonder niveau).
+    """
+    volgend_jaar = df.group_by(
+        "BRIN", "_persoon_id", (pl.col(SCHOOLJAAR) - 1).alias(SCHOOLJAAR)
+    ).agg(
+        pl.lit(True).alias("_actief_volgend_jaar"),
+        _niveau_numeriek(pl.col("Niveau")).max().alias("_niveau_volgend_jaar"),
     )
     laatste_peilgrens = df.group_by("BRIN").agg(
         pl.col(_PEILGRENS).max().alias("_laatste_peilgrens")
     )
-    waarneembaar = (
-        _peildatum(pl.col(SCHOOLJAAR) + 1) <= pl.col("_laatste_peilgrens")
-    ).fill_null(False)
+    return (
+        df.join(volgend_jaar, on=HOOFDINSCHRIJVING_GROEP, how="left")
+        .join(laatste_peilgrens, on="BRIN", how="left")
+        .with_columns(
+            pl.col("_actief_volgend_jaar").fill_null(False),
+            (_peildatum(pl.col(SCHOOLJAAR) + 1) <= pl.col("_laatste_peilgrens"))
+            .fill_null(False)
+            .alias("_waarneembaar_volgend_jaar"),
+        )
+    )
+
+
+def _voeg_dr_toe(df: pl.DataFrame) -> pl.DataFrame:
     niveau_ok = (_niveau_numeriek(pl.col("Niveau")) >= _JR_DR_MIN_NIVEAU).fill_null(
         False
     )
-    return (
-        df.join(volgend_jaar_actief, on=HOOFDINSCHRIJVING_GROEP, how="left")
-        .join(laatste_peilgrens, on="BRIN", how="left")
-        .with_columns(
-            (
-                pl.col(HOOFDINSCHRIJVING)
-                & niveau_ok
-                & waarneembaar
-                & pl.col("_actief_volgend_jaar").is_null()
-            ).alias("_dr_noemer")
+    return df.with_columns(
+        (
+            pl.col(HOOFDINSCHRIJVING)
+            & niveau_ok
+            & pl.col("_waarneembaar_volgend_jaar")
+            & ~pl.col("_actief_volgend_jaar")
+        ).alias("_dr_noemer")
+    ).with_columns(
+        # Diploma zonder formeel zesjaarsvenster: benadering, zie #119.
+        (pl.col("_dr_noemer") & pl.col("DIP_DatumResultaat").is_not_null()).alias(
+            "_dr_teller"
         )
-        .with_columns(
-            # Diploma zonder formeel zesjaarsvenster: benadering, zie #119.
-            (pl.col("_dr_noemer") & pl.col("DIP_DatumResultaat").is_not_null()).alias(
-                "_dr_teller"
-            )
-        )
+    )
+
+
+def _voeg_entree_toe(df: pl.DataFrame) -> pl.DataFrame:
+    """Entree-populatie en haar uitkomst in ``t+1`` (#306)."""
+    is_entree = (_niveau_numeriek(pl.col("Niveau")) == _ENTREE_NIVEAU).fill_null(False)
+    doorstroom = (pl.col("_niveau_volgend_jaar") > _ENTREE_NIVEAU).fill_null(False)
+    uitstroom = ~pl.col("_actief_volgend_jaar")
+    return df.with_columns(
+        (
+            pl.col(HOOFDINSCHRIJVING)
+            & is_entree
+            & pl.col("_waarneembaar_volgend_jaar")
+            & (doorstroom | uitstroom)
+        ).alias("_entree_noemer")
+    ).with_columns(
+        (pl.col("_entree_noemer") & doorstroom).alias("_entree_doorstroom"),
+        (pl.col("_entree_noemer") & uitstroom).alias("_entree_uitstroom"),
     )
 
 
@@ -331,7 +368,8 @@ def bouw_inschrijving_schooljaar(
         perioden = perioden.with_columns(
             pl.lit(None, dtype=pl.Date).alias("DIP_DatumResultaat")
         )
-    df = _voeg_dr_toe(
+    df = _voeg_volgend_jaar_toe(
         _voeg_jr_toe(_voeg_hoofdinschrijving_toe(_per_schooljaar(perioden)))
     )
+    df = _voeg_entree_toe(_voeg_dr_toe(df))
     return df.select(_KOLOMMEN).sort(GRAIN)
