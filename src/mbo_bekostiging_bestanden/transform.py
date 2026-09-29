@@ -7,7 +7,8 @@ Zeven output-tabellen (nul informatieverlies):
   detail_kzd_amo      KZD en AMO volledig, kolom _bron geeft herkomst aan
   detail_bekostiging  BII (GRONDSLAG) + TBGI-Teldatum per
                       inschrijving × teldatum
-  detail_bekostiging_diploma  TBGI-Diploma per inschrijving × diploma
+  detail_bekostiging_diploma  BID (GRONDSLAG) + TBGI-Diploma per
+                      inschrijving × diploma
   detail_geo          GEO in long format, grain: inschrijving × onderdeel
   meta_leveringen     VLP + SLR per bronbestand
 
@@ -148,10 +149,19 @@ _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 _PERIODE_ID = "_inschrijving_periode_id"
 # Herkomst van een rij in de centrale inschrijvingstabel (#196): een ISP-periode
-# (RO/GRONDSLAG) of een TBGI-inschrijving zonder ISP-perioden.
+# (RO/GRONDSLAG) of een TBGI-inschrijving zonder ISP-perioden. In de
+# bekostigingsfeiten het recordtype waar de rij vandaan komt (BII/BID/TBGI).
 BRON = "Bron"
 BRON_ISP = "ISP"
 BRON_TBGI = "TBGI"
+# Een GRONDSLAG-BID mist inschrijving, opleiding en behaaldatum; die staan op
+# het DIP-record van hetzelfde diploma (PvE §17.5). Namen zoals TBG-i (#208).
+_JOIN_DIPLOMA = ["levering", "BRIN", "_persoon_id", "Resultaatvolgnummer"]
+_BID_VAN_DIP = {
+    "Inschrijvingvolgnummer": "Inschrijvingvolgnummer",
+    "Opleidingcode": "Opleidingcode",
+    "DatumResultaat": "DatumBehaald",
+}
 # Eén inschrijving binnen een levering: haar ISP-perioden sluiten op elkaar aan.
 # Een periode loopt t/m DatumEind (GRONDSLAG), anders tot de volgende (#144).
 _PERIODE_INSCHRIJVING = ("levering", "BRIN", "_persoon_id", "Inschrijvingvolgnummer")
@@ -1383,34 +1393,59 @@ def _bouw_detail_bekostiging(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     if "BII" in stacked and not stacked["BII"].is_empty():
         bii = _add_persoon_id(stacked["BII"])
         bii = _drop(bii, "Recordsoort")
-        bii = bii.with_columns(pl.lit("BII").alias("_bron"))
-        frames.append(bii)
+        frames.append(bii.with_columns(pl.lit("BII").alias(BRON)))
 
     if "Teldatum" in stacked and not stacked["Teldatum"].is_empty():
         # BSN/ONr staan al op de rij (read_tbgi); het volgnummer alleen is niet
         # uniek genoeg om de persoon via de Inschrijving-tabel terug te zoeken.
         td = _add_persoon_id(stacked["Teldatum"])
-        td = td.with_columns(pl.lit("TBGI").alias("_bron"))
-        frames.append(td)
+        frames.append(td.with_columns(pl.lit(BRON_TBGI).alias(BRON)))
 
     if not frames:
         return pl.DataFrame()
     return pl.concat(frames, how="diagonal_relaxed")
 
 
-def _bouw_detail_bekostiging_diploma(
-    stacked: dict[str, pl.DataFrame],
+def _bid_met_dip(
+    stacked: dict[str, pl.DataFrame], koppelingen: Koppelingen
 ) -> pl.DataFrame:
-    """TBGI-Diploma bekostigingsbijdragen; één rij per inschrijving × diploma.
+    """GRONDSLAG-BID met inschrijving, opleiding en behaaldatum van zijn DIP.
+
+    Zonder DIP blijven die leeg: de rij wordt dan een onverklaarde wees (#258).
+    """
+    bid = _drop(_add_persoon_id(stacked["BID"]), "Recordsoort")
+    dip = stacked.get("DIP", pl.DataFrame())
+    if dip.is_empty():
+        return bid
+    van_dip = _add_persoon_id(dip).select(
+        *_JOIN_DIPLOMA, *(pl.col(k).alias(v) for k, v in _BID_VAN_DIP.items())
+    )
+    return koppelingen.links(
+        bid, van_dip, on=_JOIN_DIPLOMA, naam="BID.DIP", voorkeur=["DatumBehaald"]
+    )
+
+
+def _bouw_detail_bekostiging_diploma(
+    stacked: dict[str, pl.DataFrame], koppelingen: Koppelingen
+) -> pl.DataFrame:
+    """BID (GRONDSLAG) + TBGI-Diploma; één rij per inschrijving × diploma.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
     """
-    if "Diploma" not in stacked or stacked["Diploma"].is_empty():
+    frames: list[pl.DataFrame] = []
+
+    if "BID" in stacked and not stacked["BID"].is_empty():
+        frames.append(
+            _bid_met_dip(stacked, koppelingen).with_columns(pl.lit("BID").alias(BRON))
+        )
+
+    if "Diploma" in stacked and not stacked["Diploma"].is_empty():
+        diploma = _add_persoon_id(stacked["Diploma"])
+        frames.append(diploma.with_columns(pl.lit(BRON_TBGI).alias(BRON)))
+
+    if not frames:
         return pl.DataFrame()
-    dip = stacked["Diploma"].clone()
-    dip = _add_persoon_id(dip)
-    dip = _drop(dip, *_PERSOON_COLS)
-    return dip
+    return _drop(pl.concat(frames, how="diagonal_relaxed"), *_PERSOON_COLS)
 
 
 def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -1553,7 +1588,9 @@ def _bouw_analysetabellen(stacked: dict[str, pl.DataFrame]) -> dict[str, pl.Data
             "detail_bpv": _bouw_detail_bpv(stacked),
             "detail_kzd_amo": _bouw_detail_kzd_amo(stacked),
             "detail_bekostiging": _bouw_detail_bekostiging(stacked),
-            "detail_bekostiging_diploma": _bouw_detail_bekostiging_diploma(stacked),
+            "detail_bekostiging_diploma": _bouw_detail_bekostiging_diploma(
+                stacked, koppelingen
+            ),
             "detail_geo": _bouw_detail_geo(stacked),
         }.items()
     }

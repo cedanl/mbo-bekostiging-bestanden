@@ -184,12 +184,13 @@ def test_quality_report_telt_elk_geschonden_contract_als_error():
 # --- Relatiecontract: optionele parent (issue #196) -------------------------
 
 
-def _star_met_wees(feit: str) -> dict[str, pl.DataFrame]:
-    """Eén rij in ``feit`` die bij geen enkele inschrijving hoort."""
+def _star_met_wees(feit: str, bron: str = "TBGI") -> dict[str, pl.DataFrame]:
+    """Eén rij in ``feit`` uit recordtype ``bron`` die bij geen inschrijving hoort."""
     return {
         "fact_inschrijving": pl.DataFrame({"levering": ["T"], SLEUTEL: ["a"]}),
         feit: pl.DataFrame(
-            {"levering": ["T"], SLEUTEL: [None]}, schema_overrides={SLEUTEL: pl.Utf8}
+            {"levering": ["T"], SLEUTEL: [None], "Bron": [bron]},
+            schema_overrides={SLEUTEL: pl.Utf8},
         ),
     }
 
@@ -203,6 +204,14 @@ def test_tbgi_diploma_zonder_inschrijving_is_verklaard_en_geen_fout():
     assert wees["explanation"]
     assert rapport["summary"]["total_errors"] == 0
     assert rapport["summary"]["total_warnings"] == 0
+
+
+def test_grondslag_diploma_zonder_inschrijving_blijft_error():
+    """Een BID koppelt via zijn DIP in dezelfde levering; zonder is het een bronfout."""
+    rapport = compile_quality_report(_star_met_wees("fact_bekostiging_diploma", "BID"))
+    wees = rapport["star"]["orphaned_facts"]["fact_bekostiging_diploma"]
+    assert (wees["orphaned_rows"], wees["explained_rows"]) == (1, 0)
+    assert rapport["summary"]["total_errors"] == 1
 
 
 def test_wees_bekostiging_blijft_error():

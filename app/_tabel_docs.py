@@ -143,7 +143,11 @@ TABEL_DOCS: dict[str, dict[str, str]] = {
             "De diploma-gebonden bekostigingsbijdragen per inschrijving: de "
             "waarde die een behaald diploma oplevert."
         ),
-        "bron": "De Diploma-records uit h16 (TBGI). **Leeg** zonder h16.",
+        "bron": (
+            "De BID-records uit h17 (GRONDSLAG) én de Diploma-records uit h16 "
+            "(TBGI); kolom `Bron` zegt welke. **Leeg** als je geen h16 "
+            "verwerkte én je h17 geen BID-regels bevat."
+        ),
     },
     "meta_leveringen": {
         "titel": "Leveringen (metadata)",

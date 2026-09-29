@@ -92,7 +92,6 @@ _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 # (PGN, BSN, ONr) staan nog rechtstreeks in de brondata en moeten weg.
 _PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
-_BEKOSTIGING_DROP = _PII_DROP
 
 # Interne tussenstap-kolommen, niet bedoeld voor het exporteerbare star schema.
 # List aggregaat uit _bepaal_actief_per_schooljaar (transform.py).
@@ -129,8 +128,8 @@ def build_star(
           ``fact_kzd``                   — Keuzedelen per inschrijving
           ``fact_amo``                   — AMO-onderdelen per inschrijving
           ``fact_geo``                   — GEO-examenresultaten in long format
-          ``fact_bekostiging``           — TBGI Teldatum-grondslagen per inschrijving
-          ``fact_bekostiging_diploma``   — TBGI diplomawaarde-bijdragen per inschrijving
+          ``fact_bekostiging``           — BII/TBGI-grondslagen per inschrijving
+          ``fact_bekostiging_diploma``   — BID/TBGI-diplomawaarde per inschrijving
 
         Metadata:
           ``meta_leveringen``            — VLP + SLR per bronbestand (per levering)
@@ -235,33 +234,32 @@ def _build_fact_amo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 
 def _build_fact_bekostiging(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """fact_bekostiging: TBGI bekostigingsgrondslagen per inschrijving.
+    """fact_bekostiging: GRONDSLAG-BII en TBGI-Teldatum per inschrijving.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Teldatum).
     Joinbaar met fact_inschrijving via _inschrijving_periode_id en met
-    dim_instelling via BRIN.  BSN en Onderwijsnummer worden verwijderd.
+    dim_instelling via BRIN; ``Bron`` is het recordtype (``BII``/``TBGI``).
     """
-    detail = tables.get("detail_bekostiging", pl.DataFrame())
-    if detail.is_empty():
-        return pl.DataFrame()
-    drop = [c for c in _BEKOSTIGING_DROP if c in detail.columns]
-    return detail.drop(drop)
+    return _zonder_persoonsidentifiers(tables.get("detail_bekostiging"))
 
 
 def _build_fact_bekostiging_diploma(
     tables: dict[str, pl.DataFrame],
 ) -> pl.DataFrame:
-    """fact_bekostiging_diploma: TBGI diplomawaarde-bijdragen per inschrijving.
+    """fact_bekostiging_diploma: GRONDSLAG-BID en TBGI-Diploma per diploma.
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Resultaatvolgnummer).
-    Joinbaar met fact_inschrijving via _inschrijving_periode_id.
-    BSN en Onderwijsnummer worden verwijderd.
+    Joinbaar met fact_inschrijving via _inschrijving_periode_id; ``Bron`` is
+    het recordtype (``BID``/``TBGI``), want alleen bij TBGI is een diploma
+    zonder inschrijving verklaard (#258).
     """
-    detail = tables.get("detail_bekostiging_diploma", pl.DataFrame())
-    if detail.is_empty():
+    return _zonder_persoonsidentifiers(tables.get("detail_bekostiging_diploma"))
+
+
+def _zonder_persoonsidentifiers(detail: pl.DataFrame | None) -> pl.DataFrame:
+    if detail is None or detail.is_empty():
         return pl.DataFrame()
-    drop = [c for c in _BEKOSTIGING_DROP if c in detail.columns]
-    return detail.drop(drop)
+    return detail.drop(_PERSON_IDENTIFIER_COLS, strict=False)
 
 
 def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:

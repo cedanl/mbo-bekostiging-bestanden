@@ -58,10 +58,10 @@ geschreven.
 | `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving; `Behaald` (bool) is exact bepaald uit de waardenlijst (`Behaald`/`Niet behaald`), null bij een onbekende waarde |
 | `fact_amo` | AMO-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
 | `fact_geo` | GEO-examenonderdeel | `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | Eindcijfers IE/CE per onderdeel in long format |
-| `fact_bekostiging` | TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2) |
-| `fact_bekostiging_diploma` | TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma |
+| `fact_bekostiging` | GRONDSLAG BII, TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2); `Bron` = `BII` of `TBGI` |
+| `fact_bekostiging_diploma` | GRONDSLAG BID, TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma; `Bron` = `BID` of `TBGI`. Een BID neemt `Inschrijvingvolgnummer`, `Opleidingcode` en `DatumBehaald` (= `DatumResultaat`) over van het DIP-record met hetzelfde `Resultaatvolgnummer` (#258) |
 | `meta_leveringen` | Leveringsbestand | `levering` | Elke verwerkte levering, met VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) waar het bestand die heeft; bij TBGI (XML) zijn die velden leeg. Observatievenster (#211): `Peilgrens` (laatste waarneembare datum), `Peilgrens_bron` (`DatumEindePeriode`, `DatumAanmaak` of bij TBGI `Teldatum`) en `Laatste_peildatum` (laatste 1 oktober die de levering kan waarnemen). Zelfde `levering`-labels als in de feiten en `quality.json` |
-| `meta_koppelkeuzes` | Koppeling | `koppeling` | Per links-join (PER, ISG, VLP, ISE, DIP, GEO, meta_leveringen): hoeveel sleutels meer dan één kandidaat hadden en hoeveel rijen daardoor wegvielen. De keuze hangt nooit af van de rijvolgorde; bij DIP wint de meest recente `DatumResultaat` (#209) |
+| `meta_koppelkeuzes` | Koppeling | `koppeling` | Per links-join (PER, ISG, VLP, ISE, DIP, GEO, BID.DIP, meta_leveringen): hoeveel sleutels meer dan één kandidaat hadden en hoeveel rijen daardoor wegvielen. De keuze hangt nooit af van de rijvolgorde; bij DIP wint de meest recente `DatumResultaat` (#209) |
 | `meta_canonicalisatie` | Leveringspaar | `levering`, `vervangen_door`, `reden` | Vervangen leveringen: aantal inschrijvingen en ISP-perioden dat door een recentere levering is vervangen; leeg zonder overlap |
 
 **S-BB-attributen in `dim_opleiding`.** `Opleiding_geldig_van`/`Opleiding_geldig_tot` zijn de
@@ -109,7 +109,7 @@ schooljaren van haar 1-oktober-teldata (#197).
 |---|---|---|
 | `fact_bpv`, `fact_kzd`, `fact_amo`, `fact_geo` | ISP-periode via `_inschrijving_periode_id` | error |
 | `fact_bekostiging` | inschrijving (ISP of TBGI) waarin de `Teldatum` valt | error |
-| `fact_bekostiging_diploma` | inschrijving van het diploma, **optioneel** | **verklaard** (geen error): TBG-i voor bekostigingsjaar T levert de diploma's van kalenderjaar T-2 los van de inschrijvingen van studiejaar T-2 (PvE §16.1); een diploma zonder inschrijving in de levering is normaal |
+| `fact_bekostiging_diploma` | inschrijving van het diploma, **optioneel bij `Bron` = `TBGI`** | `BID`: error (het DIP-record ontbreekt). `TBGI`: **verklaard** (geen error): TBG-i voor bekostigingsjaar T levert de diploma's van kalenderjaar T-2 los van de inschrijvingen van studiejaar T-2 (PvE §16.1); een diploma zonder inschrijving in de levering is normaal |
 | `fact_inschrijving_schooljaar` | periode via `_inschrijving_periode_id` | error |
 
 Uniciteitscontracten (elke schending is een error in `quality.json` → `star.key_duplicates`, en een melding
