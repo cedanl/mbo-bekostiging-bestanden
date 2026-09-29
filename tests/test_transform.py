@@ -5,7 +5,9 @@ from datetime import date
 import polars as pl
 import pytest
 
+from mbo_bekostiging_bestanden.koppelingen import Koppelingen
 from mbo_bekostiging_bestanden.transform import (
+    BRON,
     _add_persoon_id,
     _bouw_analysetabellen,
     _bouw_detail_bekostiging,
@@ -77,7 +79,7 @@ def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():
     result = _bouw_analysetabellen({"Inschrijving": inschrijving, "Teldatum": teldatum})
     detail = result["detail_bekostiging"]
     assert detail.height == 1
-    assert "TBGI" in detail["_bron"].to_list()
+    assert "TBGI" in detail[BRON].to_list()
 
 
 # ---------------------------------------------------------------------------
@@ -220,12 +222,12 @@ def test_detail_bekostiging_bevat_bii_indien_aanwezig():
         }
     )
     detail = _bouw_detail_bekostiging({"BII": bii})
-    assert "BII" in detail["_bron"].unique().to_list()
+    assert "BII" in detail[BRON].unique().to_list()
 
 
 def test_detail_bekostiging_bevat_tbgi(demo_tabellen):
     detail = demo_tabellen["detail_bekostiging"]
-    assert "TBGI" in detail["_bron"].unique().to_list()
+    assert "TBGI" in detail[BRON].unique().to_list()
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +237,7 @@ def test_detail_bekostiging_bevat_tbgi(demo_tabellen):
 
 def test_detail_bekostiging_diploma_leeg_zonder_diploma():
     """Zonder Diploma-sleutel geeft de functie een leeg DataFrame."""
-    assert _bouw_detail_bekostiging_diploma({}).is_empty()
+    assert _bouw_detail_bekostiging_diploma({}, Koppelingen()).is_empty()
 
 
 def test_detail_bekostiging_diploma_persoon_id_aanwezig():
@@ -251,7 +253,7 @@ def test_detail_bekostiging_diploma_persoon_id_aanwezig():
             "Bekostigingsstatus": ["true"],
         }
     )
-    result = _bouw_detail_bekostiging_diploma({"Diploma": dip})
+    result = _bouw_detail_bekostiging_diploma({"Diploma": dip}, Koppelingen())
     assert "_persoon_id" in result.columns
     assert "Burgerservicenummer" not in result.columns
     expected_pseudoniem = pseudoniem("BSN", "900000001")

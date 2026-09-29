@@ -65,8 +65,8 @@ Alle prepared-mappen worden gecombineerd tot Parquet-bestanden in `data/03-outpu
 | `fact_kzd.parquet` | Keuzedeel-resultaat | KZD-resultaten per inschrijving |
 | `fact_amo.parquet` | AMO-resultaat | AMvB-onderdelen per inschrijving |
 | `fact_geo.parquet` | GEO-examenonderdeel | Eindcijfers IE/CE in long format |
-| `fact_bekostiging.parquet` | TBGI Teldatum | Bekostigingsgrondslagen per teldatum |
-| `fact_bekostiging_diploma.parquet` | TBGI Diploma | Diplomawaarde-bijdragen per diploma |
+| `fact_bekostiging.parquet` | GRONDSLAG BII, TBGI Teldatum | Bekostigingsgrondslagen per teldatum |
+| `fact_bekostiging_diploma.parquet` | GRONDSLAG BID, TBGI Diploma | Diplomawaarde-bijdragen per diploma |
 | `meta_leveringen.parquet` | Leveringsbestand | VLP + SLR metadata (één rij per bronbestand) |
 | `meta_canonicalisatie.parquet` | Leveringspaar | Vervangen leveringen bij overlap (aantallen + reden) |
 | `meta_koppelkeuzes.parquet` | Koppeling | Per koppeling hoeveel sleutels meer dan één kandidaat hadden, en hoeveel rijen daardoor zijn weggelaten |

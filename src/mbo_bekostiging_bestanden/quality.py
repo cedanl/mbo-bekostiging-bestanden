@@ -33,6 +33,7 @@ from mbo_bekostiging_bestanden.schooljaar import (
     HOOFDINSCHRIJVING,
     HOOFDINSCHRIJVING_GROEP,
 )
+from mbo_bekostiging_bestanden.transform import BRON, BRON_TBGI
 
 # Icoon per SLR-status voor de app-weergave.
 _SLR_STATUS_ICONS = {
@@ -297,14 +298,16 @@ _META_KOPPELKEUZES = "meta_koppelkeuzes"
 SCENARIO_ONBEKEND = "unknown"
 
 
-# Detail-feiten waarvan de parent in fact_inschrijving optioneel is (#196), met
-# de reden. Hun wees-rijen zijn verklaard: geen error, wel zichtbaar.
+# Detail-feiten waarvan de parent in fact_inschrijving optioneel is (#196): welke
+# wees-rijen verklaard zijn, en waarom. Alleen TBG-i: een GRONDSLAG-BID zonder
+# inschrijving mist zijn DIP en is een bronfout (#258).
 _OPTIONELE_PARENT = {
     # PvE §16.1: TBG-i voor bekostigingsjaar T bevat de diploma's behaald in
     # kalenderjaar T-2, los van de inschrijvingen in studiejaar T-2.
     "fact_bekostiging_diploma": (
+        pl.col(BRON) == BRON_TBGI,
         "TBG-i levert diploma's van het kalenderjaar los van de inschrijvingen "
-        "in het bestand (PvE §16.1)"
+        "in het bestand (PvE §16.1)",
     ),
 }
 
@@ -324,12 +327,12 @@ def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str,
         if wees.is_empty():
             continue
 
-        reden = _OPTIONELE_PARENT.get(naam)
+        verklaard, reden = _OPTIONELE_PARENT.get(naam, (pl.lit(False), None))
         orphaned_facts[naam] = {
             "total_rows": feit.height,
             "orphaned_rows": wees.height,
             "orphaned_pct": round(wees.height / feit.height, 4),
-            "explained_rows": wees.height if reden else 0,
+            "explained_rows": wees.filter(verklaard).height,
             "explanation": reden,
         }
 
