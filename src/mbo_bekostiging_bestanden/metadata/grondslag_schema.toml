@@ -13,9 +13,10 @@ int_fields  = ["Studiejaar"]
 domeinen = { BRIN = "brin", Studiejaar = "studiejaar" }
 
 [PER]
-# Posities 19-21 staan niet in de PvE-spec maar wel in echte leveringen: ze herhalen
-# Postcodecijfers/Verblijfstitel/Nationaliteit1. Ze worden niet ingelezen; de
-# ingest controleert wel dat ze gelijk zijn (quality.json → regelinventaris, #120).
+# Posities 19-21 staan niet in de PvE-spec maar wel in echte leveringen: meestal
+# gelijk aan Postcodecijfers/Verblijfstitel/Nationaliteit1, niet altijd. Hun
+# betekenis is onbekend; ze worden bewaard als <veld>_positie<n> (alleen in de
+# brondata, #260) en verschillen staan in quality.json → regelinventaris (#120).
 spiegelvelden = ["Postcodecijfers", "Verblijfstitel", "Nationaliteit1"]
 fields = [
     "Recordsoort", "PseudoNummer",

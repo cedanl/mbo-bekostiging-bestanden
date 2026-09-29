@@ -84,7 +84,10 @@ def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
 _REGELINVENTARIS_MELDINGEN = {
     "onbekende_recordtypes": "Regels met onbekend recordtype niet ingelezen",
     "velden_voorbij_schema": "Regels met gevulde velden voorbij het schema",
-    "spiegel_afwijkingen": "Extra posities wijken af van het veld dat ze herhalen",
+    "spiegel_afwijkingen": (
+        "Posities buiten het PvE verschillen van het veld dat ze meestal "
+        "herhalen; betekenis onbekend, waarde bewaard in de brondata"
+    ),
 }
 
 

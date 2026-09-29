@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.metadata import load_schema
+from mbo_bekostiging_bestanden.metadata import extra_kolommen, load_schema
 
 _XSI_NIL = "{http://www.w3.org/2001/XMLSchema-instance}nil"
 
@@ -45,9 +45,8 @@ def _velden_voorbij_schema(
 ) -> list[str]:
     """Gevulde velden voorbij schema + gedeclareerde spiegelvelden (#257).
 
-    Spiegelvelden (extra posities die een bestaand veld herhalen, zie
-    schema-TOML) tellen niet mee: hun aanwezigheid is verwacht, alleen hun
-    *waarde* wordt elders (``inventariseer_regels``) beoordeeld.
+    Spiegelvelden (posities buiten het PvE, zie schema-TOML) tellen niet mee:
+    ze worden als eigen kolom ingelezen (#260).
     """
     return fields[len(kolommen) + len(spiegelvelden) :]
 
@@ -128,7 +127,7 @@ def read_multi_record_csv(
     for rt, rows in rows_by_type.items():
         if not rows:
             continue
-        cols = schema[rt]["fields"]
+        cols = [*schema[rt]["fields"], *extra_kolommen(schema[rt])]
         n = len(cols)
         normalized = [_normalize_row(row, n) for row in rows]
         result[rt] = pl.DataFrame(
@@ -154,9 +153,9 @@ def inventariseer_regels(path: str | Path, schema_name: str) -> dict:
         ``onbekende_recordtypes``: recordtype → aantal regels buiten het schema.
         ``velden_voorbij_schema``: recordtype → aantal regels met een gevuld
         veld voorbij de schemabreedte (na eventuele spiegelvelden).
-        ``spiegel_afwijkingen``: recordtype → veld → aantal regels waarin een
-        spiegelveld (``spiegelvelden`` in het schema: extra posities die een
-        bestaand veld herhalen) níet gelijk is aan dat veld.
+        ``spiegel_afwijkingen``: recordtype → kolom (:func:`extra_kolommen`)
+        → aantal regels waarin die positie níet gelijk is aan het veld dat ze
+        lijkt te herhalen.
     """
     schema = load_schema(schema_name)
     onbekend: dict[str, int] = {}
@@ -168,13 +167,14 @@ def inventariseer_regels(path: str | Path, schema_name: str) -> dict:
             onbekend[rt] = onbekend.get(rt, 0) + 1
             continue
         kolommen = schema[rt]["fields"]
-        spiegelvelden = schema[rt].get("spiegelvelden", [])
+        spiegelkolommen = extra_kolommen(schema[rt])
+        rij = dict(zip(kolommen, _normalize_row(fields, len(kolommen)), strict=True))
         extra = fields[len(kolommen) :]
-        for veld, waarde in zip(spiegelvelden, extra, strict=False):
-            if waarde != _normalize_row(fields, len(kolommen))[kolommen.index(veld)]:
-                per_veld = spiegel.setdefault(rt, {})
-                per_veld[veld] = per_veld.get(veld, 0) + 1
-        if any(extra[len(spiegelvelden) :]):
+        for (kolom, veld), waarde in zip(spiegelkolommen.items(), extra, strict=False):
+            if waarde != rij[veld]:
+                per_kolom = spiegel.setdefault(rt, {})
+                per_kolom[kolom] = per_kolom.get(kolom, 0) + 1
+        if any(extra[len(spiegelkolommen) :]):
             voorbij[rt] = voorbij.get(rt, 0) + 1
     return {
         "onbekende_recordtypes": dict(sorted(onbekend.items())),
