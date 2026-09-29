@@ -35,6 +35,9 @@ from mbo_bekostiging_bestanden.schooljaar import (
 )
 from mbo_bekostiging_bestanden.transform import (
     BRON,
+    BRON_BID,
+    BRON_BII,
+    BRON_ISP,
     BRON_TBGI,
     VEROUDERD_TOT,
     VEROUDERDE_KOLOMMEN,
@@ -525,6 +528,7 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
     leveringen zonder waarneembare peildatum (#211).
     Info: verklaarde wees-rijen (#196), vervangen leveringen (#174),
     verouderde kolommen (#201).
+    Dekkingsgaten (#295) hebben hun ernst al in de dekkingstabel.
     """
     meldingen: list[Melding] = []
 
@@ -590,6 +594,17 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
             f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
             f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
         )
+    for rij in star.get("dekking", []):
+        if rij["ernst"]:
+            doel = f"0 in {rij['feit']}" if rij["feit"] else rij["verklaring"]
+            meldingen.append(
+                Melding(
+                    rij["ernst"],
+                    rij["levering"],
+                    f"{rij['recordtype']}: {rij['ingelezen']} records ingelezen, "
+                    f"{doel}",
+                )
+            )
     return meldingen
 
 
@@ -618,6 +633,7 @@ def compile_quality_report(
     star: dict[str, pl.DataFrame],
     deliveries: dict[str, QualityReport] | None = None,
     scenario: str = SCENARIO_ONBEKEND,
+    invoer: dict[str, pl.DataFrame] | None = None,
 ) -> dict[str, Any]:
     """Stel ``quality.json`` samen voor een ster-run (``docs/quality.schema.json``).
 
@@ -625,6 +641,8 @@ def compile_quality_report(
         star:       Tabellen van :func:`~mbo_bekostiging_bestanden.star.build_star`.
         deliveries: Rapport per levering (label zoals in de ster).
         scenario:   Label voor de run, bijv. ``"demo"`` of ``"prod"``.
+        invoer:     Gestapelde prepared-tabellen waaruit de ster is gebouwd;
+                    zonder invoer blijft de dekkingstabel leeg.
     """
     deliveries_list = []
     if deliveries:
@@ -640,6 +658,7 @@ def compile_quality_report(
         **_check_join_keuzes_structured(star),
         **_check_leveringen_zonder_schooljaar(star),
         **_check_verouderde_kolommen(star),
+        "dekking": controleer_dekking(invoer or {}, star),
     }
 
     total_warnings = 0
@@ -768,6 +787,106 @@ def _check_leveringen_zonder_schooljaar(
             jaren.select("levering").unique(), on="levering", how="anti"
         )
     return {"leveringen_zonder_schooljaar": per_levering.sort("levering").to_dicts()}
+
+
+@dataclass(frozen=True)
+class _Doorvertaling:
+    """Het feit waarin de records van een recordtype landen (#295)."""
+
+    feit: str
+    # Recordtype in de ``Bron``-kolom, als het feit meerdere bronnen combineert.
+    bron: str | None = None
+    # Een gat in de bekostiging is een error, anders een warning.
+    bekostiging: bool = False
+
+
+_DOORVERTALING = {
+    "ISP": _Doorvertaling(_CENTRAAL_FEIT, BRON_ISP),
+    "BPV": _Doorvertaling("fact_bpv"),
+    "KZD": _Doorvertaling("fact_kzd"),
+    "AMO": _Doorvertaling("fact_amo"),
+    "GEO": _Doorvertaling("fact_geo"),
+    "BII": _Doorvertaling("fact_bekostiging", BRON_BII, bekostiging=True),
+    "Teldatum": _Doorvertaling("fact_bekostiging", BRON_TBGI, bekostiging=True),
+    "BID": _Doorvertaling("fact_bekostiging_diploma", BRON_BID, bekostiging=True),
+    "Diploma": _Doorvertaling("fact_bekostiging_diploma", BRON_TBGI, bekostiging=True),
+}
+# Recordtypes zonder eigen feit, bewust: hun rijtelling zegt niets over dekking.
+_NIET_DOORVERTAALD = {
+    "VLP": "leveringsmetadata in meta_leveringen",
+    "SLR": "controletotalen in meta_leveringen en slr_details",
+    "PER": "persoonskenmerken in dim_deelnemer",
+    "ISG": "kolommen van fact_inschrijving",
+    "ISE": "kolommen van fact_inschrijving",
+    "DIP": "kolommen van fact_inschrijving en fact_bekostiging_diploma (BID)",
+    "Inschrijving": (
+        "context van Teldatum en Diploma; eigen rij in fact_inschrijving alleen "
+        "zonder ISP-periode (#196)"
+    ),
+    "Signaal": "alleen in de brondata (02-prepared)",
+    "BekostigingsrelevanteBPV": "alleen in de brondata (02-prepared)",
+}
+
+
+def _per_levering(df: pl.DataFrame | None) -> dict[str, int]:
+    if df is None or df.is_empty() or "levering" not in df.columns:
+        return {}
+    return dict(df.group_by("levering").len().iter_rows())
+
+
+def controleer_dekking(
+    invoer: dict[str, pl.DataFrame], star: dict[str, pl.DataFrame]
+) -> list[dict[str, Any]]:
+    """Per levering × recordtype: ingelezen records en rijen in het analysemodel.
+
+    Alleen een volledig gat krijgt een ernst: de aantallen hoeven niet gelijk te
+    zijn (canonicalisatie, koppelingen), maar nul rijen uit een gevulde levering
+    betekent dat het recordtype niet wordt doorvertaald (#258, #295). Een levering
+    die helemaal vervangen is door een recentere, is verklaard (#174).
+
+    Args:
+        invoer: Gestapelde prepared-tabellen (:func:`~.stack.stack_prepared`).
+        star:   Tabellen van :func:`~mbo_bekostiging_bestanden.star.build_star`.
+    """
+    canonicalisatie = star.get(_META_CANONICALISATIE, pl.DataFrame())
+    vervangen_door = (
+        dict(canonicalisatie.select("levering", "vervangen_door").iter_rows())
+        if not canonicalisatie.is_empty()
+        else {}
+    )
+    in_model = set(_per_levering(star.get(_CENTRAAL_FEIT)))
+
+    rijen = []
+    for recordtype, records in sorted(invoer.items()):
+        doel = _DOORVERTALING.get(recordtype)
+        bereikt: dict[str, int] = {}
+        if doel is not None:
+            feit = star.get(doel.feit, pl.DataFrame())
+            if doel.bron is not None and BRON in feit.columns:
+                feit = feit.filter(pl.col(BRON) == doel.bron)
+            bereikt = _per_levering(feit)
+        for levering, ingelezen in sorted(_per_levering(records).items()):
+            rij = {
+                "levering": levering,
+                "recordtype": recordtype,
+                "feit": doel.feit if doel else None,
+                "ingelezen": ingelezen,
+                "bereikt": bereikt.get(levering, 0) if doel else None,
+                "ernst": None,
+                "verklaring": _NIET_DOORVERTAALD.get(recordtype),
+            }
+            if doel is None and rij["verklaring"] is None:
+                rij["ernst"] = ERNST_WARNING
+                rij["verklaring"] = "geen doorvertaling naar het analysemodel bekend"
+            elif doel is not None and rij["bereikt"] == 0:
+                if levering in vervangen_door and levering not in in_model:
+                    rij["verklaring"] = (
+                        f"levering vervangen door {vervangen_door[levering]}"
+                    )
+                else:
+                    rij["ernst"] = ERNST_ERROR if doel.bekostiging else ERNST_WARNING
+            rijen.append(rij)
+    return rijen
 
 
 def _check_verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:

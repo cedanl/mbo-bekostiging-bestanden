@@ -155,6 +155,8 @@ _PERIODE_ID = "_inschrijving_periode_id"
 BRON = "Bron"
 BRON_ISP = "ISP"
 BRON_TBGI = "TBGI"
+BRON_BII = "BII"
+BRON_BID = "BID"
 # Een GRONDSLAG-BID mist inschrijving, opleiding en behaaldatum; die staan op
 # het DIP-record van hetzelfde diploma (PvE §17.5). Namen zoals TBG-i (#208).
 _JOIN_DIPLOMA = ["levering", "BRIN", "_persoon_id", "Resultaatvolgnummer"]
@@ -1367,10 +1369,10 @@ def _bouw_detail_bekostiging(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """BII (GRONDSLAG) + TBGI-Teldatum; één rij per inschrijving × teldatum."""
     frames: list[pl.DataFrame] = []
 
-    if "BII" in stacked and not stacked["BII"].is_empty():
-        bii = _add_persoon_id(stacked["BII"])
+    if BRON_BII in stacked and not stacked[BRON_BII].is_empty():
+        bii = _add_persoon_id(stacked[BRON_BII])
         bii = _drop(bii, "Recordsoort")
-        frames.append(bii.with_columns(pl.lit("BII").alias(BRON)))
+        frames.append(bii.with_columns(pl.lit(BRON_BII).alias(BRON)))
 
     if "Teldatum" in stacked and not stacked["Teldatum"].is_empty():
         # BSN/ONr staan al op de rij (read_tbgi); het volgnummer alleen is niet
@@ -1390,7 +1392,7 @@ def _bid_met_dip(
 
     Zonder DIP blijven die leeg: de rij wordt dan een onverklaarde wees (#258).
     """
-    bid = _drop(_add_persoon_id(stacked["BID"]), "Recordsoort")
+    bid = _drop(_add_persoon_id(stacked[BRON_BID]), "Recordsoort")
     dip = stacked.get("DIP", pl.DataFrame())
     if dip.is_empty():
         return bid
@@ -1411,9 +1413,11 @@ def _bouw_detail_bekostiging_diploma(
     """
     frames: list[pl.DataFrame] = []
 
-    if "BID" in stacked and not stacked["BID"].is_empty():
+    if BRON_BID in stacked and not stacked[BRON_BID].is_empty():
         frames.append(
-            _bid_met_dip(stacked, koppelingen).with_columns(pl.lit("BID").alias(BRON))
+            _bid_met_dip(stacked, koppelingen).with_columns(
+                pl.lit(BRON_BID).alias(BRON)
+            )
         )
 
     if "Diploma" in stacked and not stacked["Diploma"].is_empty():

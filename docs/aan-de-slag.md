@@ -136,6 +136,8 @@ Naast de tabellen schrijft elke run een `quality.json` in de doelmap:
 | `domeinafwijkingen` | Per recordtype en veld het aantal (`aantal`) gevulde waarden buiten hun waardedomein (patroon of waardenlijst uit `metadata/waardenlijsten.toml`, per veld gekoppeld via `domeinen` in het schema) en de ernst (`ernst`: `error` of `warning`, per domein ingesteld). Een afwijking wijst vaak op een verschoven veldindeling, bijv. een DUO-versie die een positie weglaat; voor structurele velden (BRIN, Studiejaar) staat de ernst op `error` (#238) |
 | `warnings` / `errors` | Leesbare meldingen; de app toont ze op Home |
 
+De `quality.json` van `run_star` bevat daarnaast `star.dekking`: per levering en recordtype het aantal ingelezen records (`ingelezen`) tegen het aantal rijen in het analysemodel (`bereikt`, in `feit`). De aantallen hoeven niet gelijk te zijn: canonicalisatie en koppelingen halen rijen weg. Maar een gevuld recordtype waarvan niets het model bereikt, wordt niet doorvertaald. Dat is een `error` voor bekostigingsrecords (BII, BID, TBG-i Teldatum en Diploma) en anders een `warning` (#295). Recordtypes zonder eigen feit (VLP, SLR, PER, ISG, ISE, DIP, TBG-i Inschrijving/Signaal/BekostigingsrelevanteBPV) staan er met een `verklaring` in plaats van een telling. Een onbekend recordtype krijgt een `warning`.
+
 ### Star schema bouwen
 
 ```python
