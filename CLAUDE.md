@@ -71,11 +71,14 @@ Alleen via een tag op `main`; `.github/workflows/release.yml` is de gate.
 
 De workflow controleert dat de tag op `main` staat, gelijk is aan de
 pyproject-versie en dat CI én Docs voor die commit groen zijn, en maakt dan
-de GitHub Release met notes gegenereerd uit de gemergde PR's.
-De gate faalt ook als een `#NNN` in de gegenereerde notes niet bestaat, of als
-een issue dat een PR in de notes sluit nog openstaat (#190).
-**Nooit** zelf `gh release create` draaien of handmatig release-notes met
-cijfers/issuenummers schrijven — dat omzeilt de gate.
+de GitHub Release. Notes komen uit `release-notes/<tag>.md` (bijv.
+`release-notes/v3.2.0.md`; eerste regel `# Titel` wordt de release-titel, de
+rest de body) en anders uit
+de gemergde PR's. In beide gevallen faalt de gate als een `#NNN` in de notes
+niet bestaat, of als een issue dat een PR in de notes sluit nog openstaat
+(#190, `scripts/controleer_release_notes.py`).
+**Nooit** zelf `gh release create` draaien of release-notes buiten de gate om
+publiceren — dat omzeilt de controle.
 
 Een gepubliceerde release is een historisch feit. Een correctie komt als
 **toevoeging met datum** bovenaan; de oorspronkelijke tekst blijft staan

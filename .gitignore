@@ -40,6 +40,9 @@ data/external/
 # Gegenereerde documentatiesite
 site/
 
+# Release-notes die de gate in de workspace schrijft (bron staat in release-notes/)
+release-notes.md
+
 # Tijdelijke bestanden en lokale referentiedocumenten
 afbeelding*.png
 toelichting_onderwijsresultaten*.txt
