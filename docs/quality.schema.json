@@ -155,6 +155,27 @@
             "items": {
               "type": "string"
             }
+          },
+          "bronbestand": {
+            "type": ["object", "null"],
+            "description": "Het ruwe leveringsbestand: naam (geen pad), sha256 en de PvE-versie van het schema waarmee het is ingelezen (#300). Null in prepared-rapporten van vóór #300",
+            "properties": {
+              "naam": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              },
+              "pve_versie": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "naam",
+              "sha256",
+              "pve_versie"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -166,10 +187,34 @@
           "regelinventaris",
           "domeinafwijkingen",
           "warnings",
-          "errors"
+          "errors",
+          "bronbestand"
         ],
         "additionalProperties": false
       }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Waarmee deze run is gemaakt (#300); de bronbestanden staan per levering onder deliveries[].bronbestand. Geen paden of persoonsgegevens",
+      "properties": {
+        "pakketversie": {
+          "type": ["string", "null"]
+        },
+        "git_commit": {
+          "type": ["string", "null"],
+          "description": "Commit van de checkout; null bij een installatie buiten een checkout van dit project"
+        },
+        "referentiemanifest_sha256": {
+          "type": "string",
+          "description": "sha256 van metadata/referentiedata.json (#132)"
+        }
+      },
+      "required": [
+        "pakketversie",
+        "git_commit",
+        "referentiemanifest_sha256"
+      ],
+      "additionalProperties": false
     },
     "star": {
       "type": "object",
@@ -620,6 +665,7 @@
   "required": [
     "timestamp",
     "scenario",
+    "provenance",
     "deliveries",
     "star",
     "summary"
