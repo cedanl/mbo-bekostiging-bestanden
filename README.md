@@ -48,8 +48,11 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 ### Stap 1 — Bestanden verwerken
 
-Open de app, bekijk de ontdekte bestanden en klik **Verwerk alles**. De pipeline
-normaliseert alle ruwe DUO-bestanden naar Parquet en bouwt het star schema.
+Open de app en bekijk de ontdekte bestanden. De twee producten zijn aparte stappen:
+
+1. **Verwerk bestanden** — normaliseert alle ruwe DUO-bestanden naar brondata (Parquet per levering).
+2. **Bouw analysemodel** — stapelt de brondata en bouwt het star schema. Dit kan los
+   opnieuw, zonder de ruwe bestanden opnieuw te verwerken.
 
 ![Home — bestanden verwerken](docs/assets/home.gif)
 

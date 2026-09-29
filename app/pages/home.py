@@ -1,6 +1,12 @@
-"""Home — auto-ontdek en verwerk alle bestanden in één stap."""
+"""Home — ontdek de bestanden en maak de twee producten, elk in een eigen stap.
+
+1. Brondata: ruw → per levering en recordtype (``mbo verwerk``).
+2. Analysemodel: brondata → star schema (``mbo star``), uit de brondata op
+   schijf, zodat de dure ster los opnieuw te bouwen is (#264).
+"""
 
 import json
+import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -8,7 +14,7 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from _utils import prepared_dir, raw_dir, scenario, star_dir
+from _utils import prepared_dir, raw_dir, scenario, star_dir, vind_star_dir
 
 from mbo_bekostiging_bestanden.pipeline import (
     detect_bestandstype,
@@ -63,16 +69,88 @@ def _prepared_subdir(raw_file: Path, raw: Path, prepared: Path) -> Path:
     return prepared / groep / raw_file.stem
 
 
-def _reset_verwerking() -> None:
-    """Wis de verwerkings-state zodat een nieuwe run schoon begint."""
-    for sleutel in (
-        "alles_verwerkt",
-        "star_pad",
-        "prepared_dirs",
-        "star_summary",
-        "fouten",
-    ):
-        st.session_state.pop(sleutel, None)
+def _prepared_dirs_op_schijf(
+    groepen: dict[str, list[Path]], raw: Path, prepared: Path
+) -> list[Path]:
+    """Brondata-mappen van de huidige ruwe bestanden die al verwerkt zijn.
+
+    Alleen mappen van bestanden die nu in de invoermap staan: een verwijderd
+    bestand mag niet via achtergebleven brondata in de ster belanden.
+    """
+    kandidaten = (
+        _prepared_subdir(raw_file, raw, prepared)
+        for bestanden in groepen.values()
+        for raw_file in bestanden
+    )
+    return [d for d in kandidaten if any(d.glob("*.parquet"))]
+
+
+def _verwerk_bestanden(
+    groepen: dict[str, list[Path]], raw: Path, prepared: Path
+) -> list[str]:
+    """Stap 1: elk ruw bestand naar brondata; geeft de fouten terug."""
+    bestanden = [f for periode in sorted(groepen) for f in groepen[periode]]
+    voortgang = st.progress(0, text="Start…")
+    fouten: list[str] = []
+    for stap, raw_file in enumerate(bestanden, start=1):
+        voortgang.progress(
+            (stap - 1) / len(bestanden), text=f"Verwerk `{raw_file.name}`…"
+        )
+        target = _prepared_subdir(raw_file, raw, prepared)
+        target.mkdir(parents=True, exist_ok=True)
+        try:
+            run_auto_pipeline(raw_file, target)
+        except Exception as exc:
+            # Geen halve of verouderde brondata: die zou stil in de ster belanden.
+            shutil.rmtree(target)
+            fouten.append(f"{raw_file.name}: {exc}")
+    voortgang.empty()
+    return fouten
+
+
+def _bouw_analysemodel(prep_dirs: list[Path], prepared: Path) -> tuple[dict, list[str]]:
+    """Stap 2: stapel de brondata en bouw de ster; ``(samenvatting, fouten)``."""
+    star_output = star_dir()
+    star_output.mkdir(parents=True, exist_ok=True)
+    try:
+        with st.spinner("Stapel alle leveringen en bouw het analysemodel…"):
+            star = run_star(
+                prep_dirs, star_output, relative_to=prepared, scenario=scenario()
+            )
+    except Exception as exc:
+        melding = str(exc)
+        if "ISP- of Inschrijving" in melding:
+            melding = (
+                "Geen inschrijvingen (ISP) in de verwerkte bestanden. Het "
+                "star schema wordt rond inschrijvingen gebouwd en vereist "
+                "een RO-bestand (h15). De brondata van deze bestanden staat "
+                "wél onder Resultaten."
+            )
+        return {}, [f"Star schema: {melding}"]
+    return {
+        "isp_rijen": star["fact_inschrijving"].height,
+        "bekostiging_rijen": star["fact_bekostiging"].height,
+        "bpv_rijen": star["fact_bpv"].height,
+        "leveringen": sorted(
+            {
+                lev
+                for tbl in star.values()
+                if "levering" in tbl.columns and not tbl.is_empty()
+                for lev in tbl["levering"].drop_nulls().unique().to_list()
+            }
+        ),
+        "instelling_per_levering": _instelling_per_levering(star),
+        "wees_feiten": controleer_koppelingen(star),
+        "dubbele_sleutels": controleer_sleuteluniciteit(star),
+        "niveau_onbekend": controleer_niveau(star),
+    }, []
+
+
+def _toon_fouten(fouten: list[str]) -> None:
+    if fouten:
+        with st.expander(f"⚠️ {len(fouten)} fout(en)"):
+            for f in fouten:
+                st.write(f"• {f}")
 
 
 def _instelling_per_levering(star: dict) -> dict[str, str]:
@@ -207,160 +285,78 @@ for periode in sorted(groepen):
 
 st.write("")
 
-# ── Verwerk alles ────────────────────────────────────────────────────────────
-done = st.session_state.get("alles_verwerkt", False)
+prepared = prepared_dir()
 
-if not done:
-    if st.button("Verwerk alles", type="primary", width="stretch"):
-        prepared = prepared_dir()
+# ── Stap 1: Brondata ─────────────────────────────────────────────────────────
+st.subheader("1. Brondata", divider="gray")
+st.caption(
+    "Ruwe bestanden → per levering en recordtype, getrouw aan de levering "
+    "(`data/02-prepared`)."
+)
+if st.button("Verwerk bestanden", type="primary", width="stretch"):
+    fouten_brondata = _verwerk_bestanden(groepen, raw, prepared)
+    prep_dirs = _prepared_dirs_op_schijf(groepen, raw, prepared)
+    st.session_state["prepared_dirs"] = [str(d) for d in prep_dirs]
+    st.session_state["fouten_brondata"] = fouten_brondata
 
-        # +1 voor de star-schema-stap aan het eind
-        totaal_stappen = totaal_bestanden + 1
-        voortgang = st.progress(0, text="Start…")
-        status = st.empty()
-        stap = 0
-        fouten: list[str] = []
-        alle_prep_dirs: list[Path] = []
+_toon_fouten(st.session_state.get("fouten_brondata", []))
+prep_dirs = _prepared_dirs_op_schijf(groepen, raw, prepared)
+if prep_dirs:
+    st.success(f"Brondata klaar — {len(prep_dirs)} levering(en)")
+    quality_reports = _load_quality_reports(prep_dirs)
+    if quality_reports:
+        with st.expander("📊 Datakwaliteit per levering (SLR-reconciliatie)"):
+            for levering, report in sorted(quality_reports.items()):
+                with st.container(border=True):
+                    st.subheader(levering, divider="gray")
+                    _show_quality_report(report)
 
-        # Stap 1: verwerk ieder ruw bestand naar prepared
-        for periode in sorted(groepen):
-            for raw_file in groepen[periode]:
-                target = _prepared_subdir(raw_file, raw, prepared)
-                target.mkdir(parents=True, exist_ok=True)
-                status.info(f"Verwerk `{raw_file.name}`…")
-                try:
-                    run_auto_pipeline(raw_file, target)
-                    alle_prep_dirs.append(target)
-                except Exception as exc:
-                    fouten.append(f"{raw_file.name}: {exc}")
-                stap += 1
-                voortgang.progress(
-                    stap / totaal_stappen, text=f"{stap}/{totaal_stappen}"
-                )
+# ── Stap 2: Analysemodel ─────────────────────────────────────────────────────
+st.subheader("2. Analysemodel", divider="gray")
+st.caption(
+    "Brondata → star schema met inhoudelijke keuzes (zie Ontwerpkeuzes in de "
+    "documentatie). Gebouwd uit de brondata hierboven; de ruwe bestanden "
+    "worden niet opnieuw verwerkt."
+)
+if st.button(
+    "Bouw analysemodel",
+    type="primary",
+    width="stretch",
+    disabled=not prep_dirs,
+    help=None if prep_dirs else "Verwerk eerst de bestanden (stap 1).",
+):
+    star_summary, fouten_ster = _bouw_analysemodel(prep_dirs, prepared)
+    st.session_state["star_pad"] = str(star_dir())
+    st.session_state["star_summary"] = star_summary
+    st.session_state["fouten_ster"] = fouten_ster
 
-        # Stap 2: alle prepared dirs stapelen en star schema bouwen
-        status.info("Stapel alle leveringen en bouw star schema…")
-        prep_dirs_met_data = [
-            d for d in alle_prep_dirs if d.exists() and any(d.glob("*.parquet"))
-        ]
-        star_output = star_dir()
-        star_output.mkdir(parents=True, exist_ok=True)
+_toon_fouten(st.session_state.get("fouten_ster", []))
+star_summary: dict = st.session_state.get("star_summary", {})
+if star_summary:
+    st.success("Analysemodel klaar — star schema gebouwd")
+    for sleutel, toelichting in _KWALITEITSMELDINGEN.items():
+        _toon_kwaliteitsmeldingen(toelichting, star_summary.get(sleutel, []))
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Inschrijvingen (ISP)", star_summary.get("isp_rijen", "—"))
+    col2.metric("Bekostiging detail", star_summary.get("bekostiging_rijen", "—"))
+    col3.metric("BPV detail", star_summary.get("bpv_rijen", "—"))
 
-        try:
-            star = run_star(
-                prep_dirs_met_data,
-                star_output,
-                relative_to=prepared,
-                scenario=scenario(),
-            )
-            star_summary = {
-                "isp_rijen": star["fact_inschrijving"].height,
-                "bekostiging_rijen": star["fact_bekostiging"].height,
-                "bpv_rijen": star["fact_bpv"].height,
-                "leveringen": sorted(
-                    {
-                        lev
-                        for tbl in star.values()
-                        if "levering" in tbl.columns and not tbl.is_empty()
-                        for lev in tbl["levering"].drop_nulls().unique().to_list()
-                    }
-                ),
-                "instelling_per_levering": _instelling_per_levering(star),
-                "wees_feiten": controleer_koppelingen(star),
-                "dubbele_sleutels": controleer_sleuteluniciteit(star),
-                "niveau_onbekend": controleer_niveau(star),
-            }
-        except Exception as exc:
-            melding = str(exc)
-            if "ISP- of Inschrijving" in melding:
-                melding = (
-                    "Geen inschrijvingen (ISP) in de verwerkte bestanden. Het "
-                    "star schema wordt rond inschrijvingen gebouwd en vereist "
-                    "een RO-bestand (h15). De losse verwerkte tabellen van dit "
-                    "bestand staan wél onder Resultaten."
-                )
-            fouten.append(f"Star schema: {melding}")
-            star_summary = {}
+    with st.expander("Leveringen opgenomen"):
+        inst_per_lev = star_summary.get("instelling_per_levering", {})
+        for lev in star_summary.get("leveringen", []):
+            instelling = inst_per_lev.get(lev)
+            st.write(f"• `{lev}` — {instelling}" if instelling else f"• `{lev}`")
 
-        stap += 1
-        voortgang.progress(1.0, text="Klaar")
-        status.empty()
-        st.session_state["alles_verwerkt"] = True
-        st.session_state["star_pad"] = str(star_output)
-        st.session_state["prepared_dirs"] = [str(d) for d in prep_dirs_met_data]
-        st.session_state["star_summary"] = star_summary
-        if fouten:
-            st.session_state["fouten"] = fouten
-        quality_reports = _load_quality_reports(prep_dirs_met_data)
-        if quality_reports:
-            st.session_state["quality_reports"] = quality_reports
-        st.rerun()
+elif vind_star_dir(st.session_state):
+    st.info(
+        "Er staat een eerder gebouwd analysemodel op schijf. Bouw het opnieuw "
+        "om nieuwe of gewijzigde brondata mee te nemen."
+    )
 
-if done:
-    star_pad = st.session_state.get("star_pad", "")
-    star_summary: dict = st.session_state.get("star_summary", {})
-    fouten: list[str] = st.session_state.get("fouten", [])
-
-    if fouten:
-        with st.expander(f"⚠️ {len(fouten)} fout(en)"):
-            for f in fouten:
-                st.write(f"• {f}")
-
-    if star_summary:
-        st.success("Verwerkt — star schema klaar")
-        for sleutel, toelichting in _KWALITEITSMELDINGEN.items():
-            _toon_kwaliteitsmeldingen(toelichting, star_summary.get(sleutel, []))
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Inschrijvingen (ISP)", star_summary.get("isp_rijen", "—"))
-        col2.metric("Bekostiging detail", star_summary.get("bekostiging_rijen", "—"))
-        col3.metric("BPV detail", star_summary.get("bpv_rijen", "—"))
-
-        with st.expander("Leveringen opgenomen"):
-            inst_per_lev = star_summary.get("instelling_per_levering", {})
-            for lev in star_summary.get("leveringen", []):
-                instelling = inst_per_lev.get(lev)
-                if instelling:
-                    st.write(f"• `{lev}` — {instelling}")
-                else:
-                    st.write(f"• `{lev}`")
-
-        quality_reports = st.session_state.get("quality_reports", {})
-        if quality_reports:
-            with st.expander("📊 Datakwaliteit (SLR-reconciliatie)"):
-                for levering, report in sorted(quality_reports.items()):
-                    with st.container(border=True):
-                        st.subheader(levering, divider="gray")
-                        _show_quality_report(report)
-
-        st.write("")
-        col_bekijk, col_opnieuw = st.columns(2)
-        with col_bekijk:
-            if st.button("Bekijk resultaten →", type="primary", width="stretch"):
-                st.session_state["resultaten_dir"] = star_pad
-                st.switch_page("pages/resultaten.py")
-        with col_opnieuw:
-            if st.button("Opnieuw verwerken", width="stretch"):
-                _reset_verwerking()
-                st.rerun()
-    elif st.session_state.get("prepared_dirs"):
-        # Geen star schema, maar de losse tabellen zijn wel verwerkt.
-        st.info(
-            "Geen star schema gebouwd, maar de bestanden zijn wél verwerkt. "
-            "Bekijk de losse tabellen per bestand onder Resultaten."
-        )
-        col_bekijk, col_opnieuw = st.columns(2)
-        with col_bekijk:
-            if st.button(
-                "Bekijk verwerkte tabellen →",
-                type="primary",
-                width="stretch",
-            ):
-                st.session_state["resultaten_dir"] = star_pad
-                st.switch_page("pages/resultaten.py")
-        with col_opnieuw:
-            if st.button("Opnieuw verwerken", width="stretch"):
-                _reset_verwerking()
-                st.rerun()
+if prep_dirs:
+    st.write("")
+    if st.button("Bekijk resultaten →", width="stretch"):
+        st.switch_page("pages/resultaten.py")
 
 st.divider()
 st.caption(
