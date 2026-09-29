@@ -26,7 +26,8 @@ Regels:
   ``t+1`` waarneembaar is (de peildatum 1-10-(t+1) ligt vóór de laatste
   peildatum van een levering van de eigen BRIN). Een overstap naar een
   instelling buiten de dataset blijft uitstroom (``quality.json`` →
-  ``dr_scope``).
+  ``dr_scope``). Teller: een diploma op niveau >= 2 van de eigen instelling,
+  behaald vanaf 1-8-(t-5) en vóór de peildatum 1-10-(t+1) (#119).
 - Entree (#306): een niveau-1-hoofdinschrijving in ``t`` die Entree verlaat,
   met ``t+1`` waarneembaar. Doorstroom = in ``t+1`` niveau >= 2, bij welke
   instelling in de dataset ook; uitstroom = in ``t+1`` nergens meer
@@ -47,6 +48,7 @@ from mbo_bekostiging_bestanden.transform import (
     BRON_TBGI,
     _niveau_numeriek,
     _voeg_periode_einde_toe,
+    _vul_niveau_aan,
 )
 
 FEIT = "fact_inschrijving_schooljaar"
@@ -58,6 +60,12 @@ HOOFDINSCHRIJVING_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
 HOOFDINSCHRIJVING = "_hoofdinschrijving"
 # DR en Entree zoeken de persoon in t+1 over alle instellingen in de dataset (#118).
 VOLGEND_JAAR_GROEP = ["_persoon_id"]
+# DR-teller (#119): een diploma van de instelling die de student verlaat, behaald
+# vanaf het vijfde schooljaar vóór het uitstroomjaar (zie _in_dr_diplomavenster).
+DIPLOMA_GROEP = ["BRIN", "_persoon_id"]
+DR_DIPLOMAVENSTER_JAREN = 6
+_DIPLOMA_DATUM = "DIP_DatumResultaat"
+_DIPLOMA_OPLEIDING = "DIP_Opleidingcode"
 _PEILGRENS = "_peilgrens"
 _TELDATUM = "Teldatum"
 PEILGRENS = "Peilgrens"
@@ -213,8 +221,24 @@ def _in_schooljaar(datum: pl.Expr) -> pl.Expr:
     return (datum >= begin) & (datum <= eind)
 
 
+def _in_dr_diplomavenster(datum: pl.Expr) -> pl.Expr:
+    """Waar als ``datum`` in het diplomavenster van uitstroom in ``t`` valt (#119).
+
+    Van het begin van schooljaar ``t - 5`` tot de peildatum 1-10-(t+1), waarop
+    de uitstroom vaststaat: een diploma in augustus of september na het
+    uitstroomjaar is er een waarmee de student vertrok.
+    """
+    jaar = pl.col(SCHOOLJAAR)
+    begin = pl.date(
+        jaar - (DR_DIPLOMAVENSTER_JAREN - 1),
+        _STUDIEJAAR_START_MONTH,
+        _STUDIEJAAR_START_DAG,
+    )
+    return (datum >= begin) & (datum < _peildatum(jaar + 1))
+
+
 def _voeg_jr_toe(df: pl.DataFrame) -> pl.DataFrame:
-    gediplomeerd = _in_schooljaar(pl.col("DIP_DatumResultaat")).fill_null(False)
+    gediplomeerd = _in_schooljaar(pl.col(_DIPLOMA_DATUM)).fill_null(False)
     return df.with_columns(
         pl.col(HOOFDINSCHRIJVING).alias("_telling"),
         (pl.col("IndicatieBekostigbaar") == _BEKOSTIGBAAR)
@@ -257,21 +281,61 @@ def _voeg_volgend_jaar_toe(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _voeg_dr_toe(df: pl.DataFrame) -> pl.DataFrame:
+def _diplomas(perioden: pl.DataFrame) -> pl.DataFrame:
+    """Eén rij per diploma: instelling, persoon, datum en niveau (numeriek).
+
+    Het niveau komt van de opleiding van het diploma (CREBO, dan S-BB), niet van
+    de inschrijving; zonder bekend niveau telt een diploma niet voor DR.
+    """
+    diplomas = (
+        perioden.select(
+            *DIPLOMA_GROEP,
+            _DIPLOMA_DATUM,
+            pl.col(_DIPLOMA_OPLEIDING).alias("Opleidingcode"),
+            pl.lit(None, dtype=pl.Utf8).alias("Niveau"),
+        )
+        .drop_nulls(_DIPLOMA_DATUM)
+        .unique()
+    )
+    return _vul_niveau_aan(diplomas).select(
+        *DIPLOMA_GROEP,
+        _DIPLOMA_DATUM,
+        _niveau_numeriek(pl.col("Niveau")).alias("_diploma_niveau"),
+    )
+
+
+def _voeg_dr_toe(df: pl.DataFrame, diplomas: pl.DataFrame) -> pl.DataFrame:
+    """DR-noemer en -teller; één uitkomst per rij, ook bij meerdere diploma's."""
     niveau_ok = (_niveau_numeriek(pl.col("Niveau")) >= _JR_DR_MIN_NIVEAU).fill_null(
         False
     )
-    return df.with_columns(
-        (
-            pl.col(HOOFDINSCHRIJVING)
-            & niveau_ok
-            & pl.col("_waarneembaar_volgend_jaar")
-            & ~pl.col("_actief_volgend_jaar")
-        ).alias("_dr_noemer")
-    ).with_columns(
-        # Diploma zonder formeel zesjaarsvenster: benadering, zie #119.
-        (pl.col("_dr_noemer") & pl.col("DIP_DatumResultaat").is_not_null()).alias(
-            "_dr_teller"
+    sleutel = [*DIPLOMA_GROEP, SCHOOLJAAR]
+    met_diploma = (
+        df.select(sleutel)
+        .unique()
+        .join(diplomas, on=DIPLOMA_GROEP)
+        .filter(
+            _in_dr_diplomavenster(pl.col(_DIPLOMA_DATUM)),
+            pl.col("_diploma_niveau") >= _JR_DR_MIN_NIVEAU,
+        )
+        .select(sleutel)
+        .unique()
+        .with_columns(pl.lit(True).alias("_diploma_in_venster"))
+    )
+    return (
+        df.with_columns(
+            (
+                pl.col(HOOFDINSCHRIJVING)
+                & niveau_ok
+                & pl.col("_waarneembaar_volgend_jaar")
+                & ~pl.col("_actief_volgend_jaar")
+            ).alias("_dr_noemer")
+        )
+        .join(met_diploma, on=sleutel, how="left")
+        .with_columns(
+            (
+                pl.col("_dr_noemer") & pl.col("_diploma_in_venster").fill_null(False)
+            ).alias("_dr_teller")
         )
     )
 
@@ -336,7 +400,8 @@ def bouw_inschrijving_schooljaar(
     Args:
         inschrijvingen: Analysetabel op periode-grain (na canonicalisatie), met
                         ``DatumBegin``, ``Niveau``, ``Opleidingcode``,
-                        ``IndicatieBekostigbaar`` en ``DIP_DatumResultaat``.
+                        ``IndicatieBekostigbaar``, ``DIP_DatumResultaat`` en
+                        ``DIP_Opleidingcode``.
                         Rijen met ``Bron == "TBGI"`` zijn inschrijvingen
                         zonder ISP-periode.
         leveringen:     ``meta_leveringen`` (peildatum per levering).
@@ -372,12 +437,11 @@ def bouw_inschrijving_schooljaar(
     for kolom in ("Niveau", "Opleidingcode", "Leertraject", "IndicatieBekostigbaar"):
         if kolom not in perioden.columns:
             perioden = perioden.with_columns(pl.lit(None, dtype=pl.Utf8).alias(kolom))
-    if "DIP_DatumResultaat" not in perioden.columns:
-        perioden = perioden.with_columns(
-            pl.lit(None, dtype=pl.Date).alias("DIP_DatumResultaat")
-        )
+    for kolom, dtype in ((_DIPLOMA_DATUM, pl.Date), (_DIPLOMA_OPLEIDING, pl.Utf8)):
+        if kolom not in perioden.columns:
+            perioden = perioden.with_columns(pl.lit(None, dtype=dtype).alias(kolom))
     df = _voeg_volgend_jaar_toe(
         _voeg_jr_toe(_voeg_hoofdinschrijving_toe(_per_schooljaar(perioden)))
     )
-    df = _voeg_entree_toe(_voeg_dr_toe(df))
+    df = _voeg_entree_toe(_voeg_dr_toe(df, _diplomas(perioden)))
     return df.select(_KOLOMMEN).sort(GRAIN)
