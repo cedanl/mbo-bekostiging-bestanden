@@ -310,74 +310,58 @@ def bereken_oordeel(
 # ---------------------------------------------------------------------------
 
 
-_ENTREE_CATEGORIEEN = [
-    "Doorstroom met diploma",
-    "Doorstroom zonder diploma",
-    "Uitstroom met diploma",
-    "Uitstroom zonder diploma",
-]
+_ENTREE_NOEMER = "_entree_noemer"
+_ENTREE_SCHEMA = {"Categorie": pl.Utf8, "Aantal": pl.Int64, "Aandeel (%)": pl.Float64}
 
 
-def entree_indicatoren(df: pl.DataFrame) -> pl.DataFrame:
+def entree_indicatoren(jaren: pl.DataFrame) -> pl.DataFrame:
     """Entree-uitstroom/doorstroom in vier categorieën (hoofdstuk 5).
 
-    Categorieën per niveau-1-inschrijving, uitgesplitst naar het
-    behalen van een diploma binnen het cursusjaar:
-    doorstroom met/zonder diploma en uitstroom met/zonder diploma.
-    De vier aandelen tellen samen op tot 100% van de niveau-1-populatie.
+    ``jaren`` is ``fact_inschrijving_schooljaar``: de populatie
+    (``_entree_noemer``) zijn de entree-hoofdinschrijvingen die Entree na het
+    schooljaar verlaten (#306). Uitgesplitst naar doorstroom/uitstroom en een
+    diploma in dat schooljaar; de vier aandelen tellen op tot 100%.
     """
-    vereist = {"Niveau", "_entree_doorstroom", "_entree_uitstroom"}
-    if not vereist.issubset(df.columns):
-        return pl.DataFrame(
-            schema={
-                "Categorie": pl.Utf8,
-                "Aantal": pl.Int64,
-                "Aandeel (%)": pl.Float64,
-            }
-        )
-
-    entree = df.filter(_niveau_num(pl.col("Niveau")) == 1)
-
+    vereist = {
+        _ENTREE_NOEMER,
+        "_entree_doorstroom",
+        "_gediplomeerd_in_jaar",
+    }
+    if not vereist.issubset(jaren.columns):
+        return pl.DataFrame(schema=_ENTREE_SCHEMA)
+    entree = jaren.filter(pl.col(_ENTREE_NOEMER))
     if entree.is_empty():
-        return pl.DataFrame(
-            schema={
-                "Categorie": pl.Utf8,
-                "Aantal": pl.Int64,
-                "Aandeel (%)": pl.Float64,
-            }
-        )
+        return pl.DataFrame(schema=_ENTREE_SCHEMA)
 
     gediplomeerd = pl.col("_gediplomeerd_in_jaar").fill_null(False)
-    doorstroom = pl.col("_entree_doorstroom").fill_null(False)
-    uitstroom = pl.col("_entree_uitstroom").fill_null(False)
-
-    cats = (
-        entree.with_columns(
-            pl.when(doorstroom & gediplomeerd)
-            .then(pl.lit("Doorstroom met diploma"))
-            .when(doorstroom & ~gediplomeerd)
-            .then(pl.lit("Doorstroom zonder diploma"))
-            .when(uitstroom & gediplomeerd)
-            .then(pl.lit("Uitstroom met diploma"))
-            .otherwise(pl.lit("Uitstroom zonder diploma"))
-            .alias("Categorie")
-        )
-        .group_by("Categorie")
-        .agg(pl.len().alias("Aantal"))
+    richting = (
+        pl.when(pl.col("_entree_doorstroom"))
+        .then(pl.lit("Doorstroom"))
+        .otherwise(pl.lit("Uitstroom"))
     )
-
-    totaal = cats["Aantal"].sum()
+    diploma = (
+        pl.when(gediplomeerd)
+        .then(pl.lit(" met diploma"))
+        .otherwise(pl.lit(" zonder diploma"))
+    )
+    cats = (
+        entree.with_columns((richting + diploma).alias("Categorie"))
+        .group_by("Categorie")
+        .agg(pl.len().cast(pl.Int64).alias("Aantal"))
+    )
     return (
         cats.with_columns(
-            (pl.col("Aantal") / totaal * 100).round(1).alias("Aandeel (%)")
+            (pl.col("Aantal") / pl.col("Aantal").sum() * 100)
+            .round(1)
+            .alias("Aandeel (%)")
         )
         .sort("Categorie")
-        .select(["Categorie", "Aantal", "Aandeel (%)"])
+        .select(list(_ENTREE_SCHEMA))
     )
 
 
-def entree_totaal(df: pl.DataFrame) -> int:
-    """Aantal niveau-1-inschrijvingen (noemer voor de Entree-indicatoren)."""
-    if "Niveau" not in df.columns:
+def entree_totaal(jaren: pl.DataFrame) -> int:
+    """Omvang van de Entree-populatie (noemer van :func:`entree_indicatoren`)."""
+    if _ENTREE_NOEMER not in jaren.columns:
         return 0
-    return int(df.filter(_niveau_num(pl.col("Niveau")) == 1).height)
+    return int(jaren[_ENTREE_NOEMER].sum())

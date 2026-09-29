@@ -113,8 +113,8 @@ fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe
 | Tellingen | `_telling` | `Boolean` | `_actief_1_oktober AND _hoofdinschrijving` — telt de deelnemer mee voor bekostiging |
 | Rendement | `_jr_noemer` | `Boolean` | = `_telling`; noemer van het Jaarresultaat |
 | | `_jr_teller` | `Boolean` | Noemer AND gediplomeerd_in_jaar (teller van het Jaarresultaat) |
-| Entree | `_entree_uitstroom` | `Boolean` | MBO-1 + uitgeschreven (geen actieve ISP meer) |
-| | `_entree_doorstroom` | `Boolean` | MBO-1 + een hogere inschrijving bij dezelfde instelling |
+| Entree | `_entree_uitstroom` | `Boolean` | MBO-1 + uitgeschreven (geen actieve ISP meer). Verouderd: gebruik `_entree_*` in `fact_inschrijving_schooljaar` (#306) |
+| | `_entree_doorstroom` | `Boolean` | MBO-1 + een hogere inschrijving bij dezelfde instelling. Verouderd, zie hierboven |
 | Afgeleid | `Niveau_gecombineerd` | `Utf8` | Niveau + spatie + Leertraject (bijv. `MBO-4 BOL`) |
 
 #### Verrijking via decodeertabellen

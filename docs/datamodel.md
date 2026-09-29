@@ -53,7 +53,7 @@ geschreven.
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
 | `fact_inschrijving` | ISP-inschrijvingsperiode, of TBGI-inschrijving zonder ISP | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. `Bron` = `ISP` (RO/GRONDSLAG-periode) of `TBGI` (inschrijving die alleen in TBG-i staat, #196). De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |
-| `fact_inschrijving_schooljaar` | Persoon × instelling × inschrijving × schooljaar | `BRIN` + `_persoon_id` + `Inschrijvingvolgnummer` + `Schooljaar` | Eén rij per schooljaar waarin een inschrijving op de peildatum (1 oktober) actief is, met hoofdinschrijving, telling, bekostigd, JR en DR. FK `_inschrijving_periode_id` wijst de periode aan die de peildatum dekt |
+| `fact_inschrijving_schooljaar` | Persoon × instelling × inschrijving × schooljaar | `BRIN` + `_persoon_id` + `Inschrijvingvolgnummer` + `Schooljaar` | Eén rij per schooljaar waarin een inschrijving op de peildatum (1 oktober) actief is, met hoofdinschrijving, telling, bekostigd, JR, DR en Entree. FK `_inschrijving_periode_id` wijst de periode aan die de peildatum dekt |
 | `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
 | `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving; `Behaald` (bool) is exact bepaald uit de waardenlijst (`Behaald`/`Niet behaald`), null bij een onbekende waarde |
 | `fact_amo` | AMO-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
@@ -208,7 +208,7 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
 | `_gediplomeerd_in_jaar` | Diploma behaald in het studiejaar |
 | `_jr_noemer` / `_jr_teller` | Populatie en teller voor Jaarresultaat (JR) |
 | `_dr_noemer` / `_dr_teller` | Populatie en teller voor Diplomaresultaat (DR) |
-| `_entree_doorstroom` / `_entree_uitstroom` | Niveau-1 doorstroom- en uitstroomcategorieën |
+| `_entree_doorstroom` / `_entree_uitstroom` | Niveau-1 doorstroom- en uitstroomcategorieën op periode-grain (een student met meerdere perioden telt meermaals); in `fact_inschrijving_schooljaar` staan `_entree_noemer`/`_entree_doorstroom`/`_entree_uitstroom` op schooljaar-grain (#306) |
 | `_hoogste_niveau` / `_laagste_CREBO` | Hoogste niveau (en daarbinnen laagste CREBO) per levering × BRIN × persoon **over de hele historiek**, niet per schooljaar |
 | `_niveau_herkomst` | Waar `Niveau` vandaan komt: `bron`, `crebo` (`crebo.csv`), `sbb` (S-BB-koppeltabel), `sbb_nvt` (S-BB kent de code zonder niveau) of `onbekend`. Rijen zonder niveau vallen buiten JR/DR; Home meldt ze (`quality.controleer_niveau`). |
 
