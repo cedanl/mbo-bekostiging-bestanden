@@ -201,6 +201,12 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
     tussenliggende schooljaren (#193) en gebruiken een verschoven diplomavenster (#194). Gebruik
     `fact_inschrijving_schooljaar`.
 
+    **Besluit (#201):** `fact_inschrijving_schooljaar` is de enige bron voor jaargebonden vlaggen en indicatoren;
+    `fact_inschrijving` blijft periode-grain. Migratiepad: de eerstvolgende release markeert de kolommen
+    (`transform.VEROUDERDE_KOLOMMEN`, in `quality.json` → `star.verouderde_kolommen` en als info-melding) en de app
+    leest ze niet meer; v4.0.0 verwijdert ze, samen met hun berekening in `transform.py`. Dat geldt ook voor de
+    run-afhankelijke opbrengstjaar-kolommen (`Opbrengstjaar_*`, `_driejaars_teljaar`, `_num_opbrengstjaar_3jr`).
+
 | Vlag | Definitie |
 |---|---|
 | `_actief_1_oktober` | De **ISP-periode** dekt 1 oktober van het studiejaar: `DatumBegin ≤ 1-10 ≤ _periode_einde`, met `_periode_einde` = vroegste van volgende `DatumBegin` − 1, `DatumEind` en `DatumUitschrijvingWerkelijk` (#163) |

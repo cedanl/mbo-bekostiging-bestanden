@@ -11,7 +11,11 @@ TBGI-only jaren wegvallen.
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.transform import _STUDIEJAAR_START_MONTH
+from mbo_bekostiging_bestanden.transform import (
+    _STUDIEJAAR_START_MONTH,
+    _TELDATUM_DAG,
+    _TELDATUM_MONTH,
+)
 
 _SCHOOLJAAR = "Schooljaar"
 _TELDATUM = "Teldatum"
@@ -24,10 +28,15 @@ _PERIODE_SLEUTEL = ["_inschrijving_periode_id"]
 _INSCHRIJVING_SLEUTEL = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
 
-def _schooljaar_van(datum: pl.Expr) -> pl.Expr:
+def schooljaar_van(datum: pl.Expr) -> pl.Expr:
     """Schooljaar *t* loopt van 1-8-t t/m 31-7-(t+1)."""
     datum = datum.cast(pl.Date, strict=False)
     return datum.dt.year() - (datum.dt.month() < _STUDIEJAAR_START_MONTH).cast(pl.Int32)
+
+
+def peildatum(schooljaar: pl.Expr) -> pl.Expr:
+    """1 oktober van ``schooljaar``: de teldatum van de bekostiging."""
+    return pl.date(schooljaar, _TELDATUM_MONTH, _TELDATUM_DAG)
 
 
 def beschikbare_schooljaren(
@@ -39,7 +48,7 @@ def beschikbare_schooljaren(
         reeksen.append(jaren[_SCHOOLJAAR].cast(pl.Int64))
     if _TELDATUM in fact_bekostiging.columns:
         reeksen.append(
-            fact_bekostiging.select(_schooljaar_van(pl.col(_TELDATUM)))
+            fact_bekostiging.select(schooljaar_van(pl.col(_TELDATUM)))
             .to_series()
             .cast(pl.Int64)
         )
@@ -66,7 +75,7 @@ def filter_bekostiging_op_schooljaren(
     if _TELDATUM not in fact_bekostiging.columns:
         return fact_bekostiging.clear()
     return fact_bekostiging.filter(
-        _schooljaar_van(pl.col(_TELDATUM)).is_in(geselecteerd)
+        schooljaar_van(pl.col(_TELDATUM)).is_in(geselecteerd)
     )
 
 

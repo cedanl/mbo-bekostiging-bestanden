@@ -33,7 +33,12 @@ from mbo_bekostiging_bestanden.schooljaar import (
     HOOFDINSCHRIJVING,
     HOOFDINSCHRIJVING_GROEP,
 )
-from mbo_bekostiging_bestanden.transform import BRON, BRON_TBGI
+from mbo_bekostiging_bestanden.transform import (
+    BRON,
+    BRON_TBGI,
+    VEROUDERD_TOT,
+    VEROUDERDE_KOLOMMEN,
+)
 
 # Icoon per SLR-status voor de app-weergave.
 _SLR_STATUS_ICONS = {
@@ -518,7 +523,8 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
     die na canonicalisatie (#174) in de ster blijft (telt dubbel).
     Warning: onbekend niveau, meervoudige matches bij koppelingen (#209),
     leveringen zonder waarneembare peildatum (#211).
-    Info: verklaarde wees-rijen (#196), vervangen leveringen (#174).
+    Info: verklaarde wees-rijen (#196), vervangen leveringen (#174),
+    verouderde kolommen (#201).
     """
     meldingen: list[Melding] = []
 
@@ -578,6 +584,12 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
             ERNST_INFO,
             f"{vervangen} inschrijvingen vervangen door een recentere levering",
         )
+    for tabel, kolommen in star.get("verouderde_kolommen", {}).items():
+        melding(
+            ERNST_INFO,
+            f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
+            f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
+        )
     return meldingen
 
 
@@ -627,6 +639,7 @@ def compile_quality_report(
         **_check_canonicalisatie_structured(star),
         **_check_join_keuzes_structured(star),
         **_check_leveringen_zonder_schooljaar(star),
+        **_check_verouderde_kolommen(star),
     }
 
     total_warnings = 0
@@ -755,3 +768,10 @@ def _check_leveringen_zonder_schooljaar(
             jaren.select("levering").unique(), on="levering", how="anti"
         )
     return {"leveringen_zonder_schooljaar": per_levering.sort("levering").to_dicts()}
+
+
+def _check_verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Verouderde kolommen per tabel die ze nog heeft (#201, release N)."""
+    inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    aanwezig = [k for k in VEROUDERDE_KOLOMMEN if k in inschrijvingen.columns]
+    return {"verouderde_kolommen": {_CENTRAAL_FEIT: aanwezig} if aanwezig else {}}

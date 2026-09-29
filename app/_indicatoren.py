@@ -23,6 +23,7 @@ import tomllib
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.filters import peildatum, schooljaar_van
 from mbo_bekostiging_bestanden.metadata import SCHEMA_DIR
 
 _METADATA = SCHEMA_DIR
@@ -42,6 +43,9 @@ _RENDEMENT_VLAGGEN = {
 _RENDEMENT_GROEP = ["Schooljaar", "Niveau"]
 # JR en DR worden vanaf niveau 2 beoordeeld; niveau 1 heeft entree-indicatoren.
 _RENDEMENT_MIN_NIVEAU = 2
+
+# Een inschrijving: persoon × instelling × volgnummer (PvE §16.5.1).
+_INSCHRIJVING = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer"]
 
 # Korte indicatornamen → sleutels in normen.toml.
 _INDICATOR_SLEUTELS = {
@@ -365,3 +369,22 @@ def entree_totaal(jaren: pl.DataFrame) -> int:
     if _ENTREE_NOEMER not in jaren.columns:
         return 0
     return int(jaren[_ENTREE_NOEMER].sum())
+
+
+def ingeschreven_na_peildatum(perioden: pl.DataFrame, schooljaren: list[int]) -> int:
+    """Inschrijvingen die in een van ``schooljaren`` ná 1 oktober begonnen.
+
+    Die tellen dat schooljaar niet mee op de peildatum. Uit ``DatumInschrijving``
+    en per inschrijving één keer, dus onafhankelijk van haar aantal perioden;
+    vervangt de legacy-periodevlag ``_ingeschreven_jaar_later`` (#201).
+    """
+    if not {"DatumInschrijving", *_INSCHRIJVING} <= set(perioden.columns):
+        return 0
+    datum = pl.col("DatumInschrijving").cast(pl.Date, strict=False)
+    schooljaar = schooljaar_van(datum)
+    return (
+        perioden.filter(schooljaar.is_in(schooljaren) & (datum > peildatum(schooljaar)))
+        .select(_INSCHRIJVING)
+        .unique()
+        .height
+    )
