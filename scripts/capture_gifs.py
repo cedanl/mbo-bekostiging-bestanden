@@ -68,7 +68,7 @@ async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
     frames.append((p, 2.0))
 
     # Frame 3: scroll naar knop
-    btn = page.locator("button:has-text('Verwerk alles')").first
+    btn = page.locator("button:has-text('Verwerk bestanden')").first
     await btn.scroll_into_view_if_needed()
     await asyncio.sleep(0.5)
     p = tmp / "home_02.png"
@@ -82,8 +82,12 @@ async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.0))
 
-    # Frame 5: wacht op success en toon metrics
-    await page.wait_for_selector("text=Verwerkt", timeout=120_000)
+    # Frame 5: brondata klaar, bouw daarna het analysemodel
+    await page.wait_for_selector("text=Brondata klaar", timeout=120_000)
+    ster_btn = page.locator("button:has-text('Bouw analysemodel')").first
+    await ster_btn.scroll_into_view_if_needed()
+    await ster_btn.click()
+    await page.wait_for_selector("text=Analysemodel klaar", timeout=120_000)
     await asyncio.sleep(1.5)
     p = tmp / "home_04.png"
     await page.screenshot(path=str(p), full_page=False)
@@ -143,16 +147,16 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     await wait_streamlit(page)
     await asyncio.sleep(1)
 
-    # Controleer of de done-state actief is; zo niet: verwerk opnieuw
-    bekijk_btn = page.locator("button:has-text('Bekijk resultaten')")
-    if await bekijk_btn.count() == 0:
-        verwerk_btn = page.locator("button:has-text('Verwerk alles')")
-        if await verwerk_btn.count() > 0:
-            await verwerk_btn.first.click()
-            await page.wait_for_selector("text=Verwerkt", timeout=120_000)
-            await asyncio.sleep(1.5)
+    # Zonder analysemodel in deze sessie: beide stappen uitvoeren
+    if await page.locator("text=Analysemodel klaar").count() == 0:
+        await page.locator("button:has-text('Verwerk bestanden')").first.click()
+        await page.wait_for_selector("text=Brondata klaar", timeout=120_000)
+        await page.locator("button:has-text('Bouw analysemodel')").first.click()
+        await page.wait_for_selector("text=Analysemodel klaar", timeout=120_000)
+        await asyncio.sleep(1.5)
 
-    # Klik "Bekijk resultaten →" — zet resultaten_dir in session_state + navigeert
+    # Klik "Bekijk resultaten →"; Resultaten vindt de ster via vind_star_dir
+    bekijk_btn = page.locator("button:has-text('Bekijk resultaten')")
     await bekijk_btn.first.wait_for(state="visible", timeout=10_000)
     await bekijk_btn.first.click()
     await wait_streamlit(page)

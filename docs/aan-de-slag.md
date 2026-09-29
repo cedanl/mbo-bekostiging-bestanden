@@ -62,12 +62,14 @@ uv run streamlit run app/main.py
     <!-- /pii-patronen -->
 
 Open daarna `http://localhost:8501`. Zet ruwe bestanden in `data/01-raw/` (in een submap
-per half jaar, bijv. `h15/`, `h16/`, `h17/`) en klik op **Verwerk alles**. De app:
+per half jaar, bijv. `h15/`, `h16/`, `h17/`). De app detecteert automatisch alle herkenbare
+bestanden in `data/01-raw/` en maakt de twee producten in aparte stappen (#264):
 
-1. Detecteert automatisch alle herkenbare bestanden in `data/01-raw/`.
-2. Verwerkt elk bestand naar `data/02-prepared/`.
-3. Stapelt alle leveringen en bouwt het star schema.
-4. Schrijft de star-schema-tabellen als Parquet naar `data/03-output/star/datamodel/`.
+1. **Verwerk bestanden** (brondata): elk bestand naar `data/02-prepared/`, zoals `mbo verwerk`.
+   Faalt een bestand, dan blijft er van dat bestand geen (oude) brondata staan.
+2. **Bouw analysemodel** (ster): stapelt de brondata van de huidige bestanden en schrijft het
+   star schema naar `data/03-output/star/datamodel/`, zoals `mbo star`. Beschikbaar zodra er
+   brondata is, ook na een herstart; de ruwe bestanden worden niet opnieuw verwerkt.
 
 Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
 
