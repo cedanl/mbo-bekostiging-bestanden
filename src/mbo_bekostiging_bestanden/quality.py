@@ -23,6 +23,11 @@ from mbo_bekostiging_bestanden.filters import (
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
 from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
 from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
+from mbo_bekostiging_bestanden.referentiedata import (
+    OPLEIDINGSREFERENTIES,
+    bekende_opleidingscodes,
+)
+from mbo_bekostiging_bestanden.referentiedata import TABEL as _META_REFERENTIEDATA
 from mbo_bekostiging_bestanden.schooljaar import (
     FEIT as SCHOOLJAAR_FEIT,
 )
@@ -525,7 +530,8 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
     Error: onverklaarde wees-feiten, elk geschonden uniciteitscontract, overlap
     die na canonicalisatie (#174) in de ster blijft (telt dubbel).
     Warning: onbekend niveau, meervoudige matches bij koppelingen (#209),
-    leveringen zonder waarneembare peildatum (#211).
+    leveringen zonder waarneembare peildatum (#211), een referentie die afwijkt
+    van haar manifest of die de data niet meer dekt (#132).
     Info: verklaarde wees-rijen (#196), vervangen leveringen (#174),
     verouderde kolommen (#201), de instellingen waarbinnen uitstroom bepaald
     is (#118).
@@ -604,6 +610,24 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
             f"({', '.join(brins)}); een overstap naar een instelling buiten de "
             "dataset telt als uitstroom (#118)",
         )
+    referentie = star.get("referentiedata", {})
+    afwijkend = [
+        r["bestand"] for r in referentie.get("bestanden", []) if r["afwijkend"]
+    ]
+    if afwijkend:
+        melding(
+            ERNST_WARNING,
+            "referentiebestanden wijken af van metadata/referentiedata.json: "
+            + ", ".join(afwijkend),
+        )
+    na_dekking = referentie.get("onbekende_codes_na_dekking") or {}
+    if na_dekking.get("codes"):
+        melding(
+            ERNST_WARNING,
+            f"opleidingscodes {', '.join(na_dekking['codes'])} onbekend in de "
+            f"referentie, in inschrijvingen na haar dekking "
+            f"({na_dekking['dekking_tot']}): werk de referentie bij (#132)",
+        )
     for rij in star.get("dekking", []):
         if rij["ernst"]:
             doel = f"0 in {rij['feit']}" if rij["feit"] else rij["verklaring"]
@@ -669,6 +693,7 @@ def compile_quality_report(
         **_check_leveringen_zonder_schooljaar(star),
         **_check_verouderde_kolommen(star),
         **_check_dr_scope(star),
+        **_check_referentiedata(star),
         "dekking": controleer_dekking(invoer or {}, star),
     }
 
@@ -914,6 +939,43 @@ def _check_dr_scope(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
         else []
     )
     return {"dr_scope": {"brins": brins, "mbo_breed": False}}
+
+
+def _check_referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Herkomst van de referenties, en of de data voorbij hun dekking loopt (#132).
+
+    Een opleidingscode die geen referentie kent, in een inschrijving die begint
+    na de dekking van de opleidingsreferenties, wijst op een verouderde
+    referentie. Binnen de dekking is de code zelf onbekend (``niveau_issues``).
+    """
+    meta = star.get(_META_REFERENTIEDATA, pl.DataFrame())
+    if meta.is_empty():
+        return {"referentiedata": {"bestanden": [], "onbekende_codes_na_dekking": None}}
+    dekking_tot = (
+        meta.filter(pl.col("bestand").is_in(OPLEIDINGSREFERENTIES))
+        .select(pl.col("dekking_tot").max())
+        .item()
+    )
+    na_dekking = None
+    inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
+    if dekking_tot is not None and {"Opleidingcode", "DatumBegin"} <= set(
+        inschrijvingen.columns
+    ):
+        codes = (
+            inschrijvingen.filter(pl.col("DatumBegin") > dekking_tot)["Opleidingcode"]
+            .drop_nulls()
+            .unique()
+        )
+        onbekend = sorted(set(codes) - bekende_opleidingscodes())
+        na_dekking = {"dekking_tot": dekking_tot.isoformat(), "codes": onbekend}
+    return {
+        "referentiedata": {
+            "bestanden": meta.with_columns(
+                pl.col("opgenomen", "dekking_tot").dt.to_string()
+            ).to_dicts(),
+            "onbekende_codes_na_dekking": na_dekking,
+        }
+    }
 
 
 def _check_verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:

@@ -57,7 +57,7 @@ python-version = "3.13"
 extra-paths = ["app"]
 
 [tool.vulture]
-paths = ["src", "app"]
+paths = ["src", "app", "scripts"]
 min_confidence = 60
 # Bewuste uitzonderingen (#199):
 # - main:       console entry point (project.scripts: mbo = "...cli:main")

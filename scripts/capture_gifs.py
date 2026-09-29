@@ -23,12 +23,6 @@ async def wait_streamlit(page):
     await asyncio.sleep(1.5)
 
 
-async def scroll_to(page, selector):
-    el = page.locator(selector).first
-    await el.scroll_into_view_if_needed()
-    await asyncio.sleep(0.4)
-
-
 async def click_tab(page, label):
     tab = page.locator(f"button[role='tab']:has-text('{label}')")
     await tab.wait_for(state="visible", timeout=15_000)
