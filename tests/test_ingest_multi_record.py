@@ -62,19 +62,37 @@ def test_read_multi_record_csv_gevuld_veld_voorbij_schema_faalt(tmp_path):
         read_multi_record_csv(bron, "ro")
 
 
-def test_read_multi_record_csv_korte_regel_wordt_nog_gepad(tmp_path):
-    """Buiten scope van #257: optionele achtervelden zijn nog niet expliciet
-    gemarkeerd in het schema, dus korte regels worden (nog) gepad, niet
-    afgekeurd — zie vervolgissue over optionele-veldmarkering."""
+def _ro(tmp_path, *regels: str):
     bron = tmp_path / "RO_99XX_20250801_20260731.csv"
-    bron.write_text(
-        "VLP|99XX|2025-08-01|2026-07-31|2026-08-01\nISG|BSN1||1|2025-08-01\n",
-        encoding="utf-8",
-    )
+    bron.write_text("\n".join(regels) + "\n", encoding="utf-8")
+    return bron
+
+
+_RO_VLP = "VLP|99XX|2025-08-01|2026-07-31|2026-08-01"
+
+
+def test_korte_regel_zonder_verplicht_achterveld_faalt(tmp_path):
+    """Afgeknipt na DatumInschrijving: DatumUitschrijvingGepland is verplicht (#281)."""
+    bron = _ro(tmp_path, _RO_VLP, "ISG|BSN1||1|2025-08-01")
+    with pytest.raises(ValueError, match="DatumUitschrijvingGepland"):
+        read_multi_record_csv(bron, "ro")
+
+
+def test_korte_regel_zonder_optionele_achtervelden_wordt_gepad(tmp_path):
+    """Nog ingeschreven: DatumUitschrijvingWerkelijk en RedenUitschrijving leeg."""
     from mbo_bekostiging_bestanden.metadata import load_schema
 
+    bron = _ro(tmp_path, _RO_VLP, "ISG|BSN1||1|2025-08-01|2027-07-31")
     result = read_multi_record_csv(bron, "ro")
     assert result["ISG"].width == len(load_schema("ro")["ISG"]["fields"])
+    assert result["ISG"]["RedenUitschrijving"].to_list() == [""]
+
+
+def test_vlp_zonder_laatste_velden_faalt(tmp_path):
+    """Audit F-04: een afgeknipte VLP gaf geen exception en geen parseverlies."""
+    bron = _ro(tmp_path, "VLP|99XX|2025-08-01")
+    with pytest.raises(ValueError, match="VLP"):
+        read_multi_record_csv(bron, "ro")
 
 
 def test_read_multi_record_csv_grondslag_spiegelvelden_zijn_toegestaan(tmp_path):
