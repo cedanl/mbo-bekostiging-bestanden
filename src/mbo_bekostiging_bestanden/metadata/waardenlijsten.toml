@@ -36,6 +36,9 @@ waarden = ["MBO-1", "MBO-2", "MBO-3", "MBO-4"]
 
 [domein.leertraject]
 waarden = ["BOL", "BOL_DT", "BBL", "OVO", "EX", "ODT"]
+# Bijlage 3 van de toelichting onderwijsresultaten: alleen bol, bol-dt, bbl en
+# ex tellen mee in de indicatorpopulatie (JR/DR). OVO en ODT niet (#286).
+buiten_indicatorpopulatie = ["OVO", "ODT"]
 
 [domein.certificaat]
 waarden = ["J", "N", "1", "0"]

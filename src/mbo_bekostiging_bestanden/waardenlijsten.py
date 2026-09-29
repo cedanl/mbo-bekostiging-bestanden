@@ -57,6 +57,16 @@ def indicatie_bekostigbaar(waarde: pl.Expr) -> pl.Expr:
     )
 
 
+def waardedomein(naam: str) -> dict:
+    """Definitie van ``[domein.<naam>]`` uit ``waardenlijsten.toml``."""
+    return _laad()["domein"][naam]
+
+
+def leertrajecten_buiten_indicatorpopulatie() -> list[str]:
+    """Leertrajecten die niet meetellen in de indicatorpopulatie (bijlage 3)."""
+    return waardedomein("leertraject")["buiten_indicatorpopulatie"]
+
+
 def _binnen_domein(waarde: pl.Expr, domein: dict) -> pl.Expr:
     if domein.get("leeg"):
         return pl.lit(False)

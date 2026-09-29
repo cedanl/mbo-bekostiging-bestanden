@@ -7,8 +7,8 @@ bestanden onderwijsresultaten voor het bekostigd MBO" (31 mei 2024):
   gelezen uit ``metadata/normen.toml``.
 - Berekend oordeel per opleiding (tabel 3), inclusief omgang met
   ontbrekende indicatoren en te kleine noemers (minimaal 12).
-- Populatieregels: alleen leerwegen bol/dt-bol/bbl/ex (ov en od
-  buiten beschouwing) en niveau >= 2 (bijlage 3).
+- Populatieregels: alleen leerwegen bol/bol-dt/bbl/ex (OVO en ODT
+  buiten beschouwing, zie ``waardenlijsten.toml``) en niveau >= 2 (bijlage 3).
 - Entree-uitstroom/doorstroom in vier categorieën (hoofdstuk 5).
 
 Deze module is bewust onafhankelijk van Streamlit, zodat de logica
@@ -25,12 +25,11 @@ import polars as pl
 
 from mbo_bekostiging_bestanden.filters import peildatum, schooljaar_van
 from mbo_bekostiging_bestanden.metadata import SCHEMA_DIR
+from mbo_bekostiging_bestanden.waardenlijsten import (
+    leertrajecten_buiten_indicatorpopulatie,
+)
 
 _METADATA = SCHEMA_DIR
-
-# Leerwegen die in de indicator-populatie vallen (bijlage 3). Alleen
-# 'ov' en 'od' blijven expliciet buiten beschouwing.
-_POPULATIE_UITSLUIT_LEERWEGEN = {"ov", "od"}
 
 # Minimale omvang van de noemer voordat een indicator beoordeeld kan worden.
 _MIN_NOEMER = 12
@@ -108,13 +107,15 @@ def populatie_regele_filter(
 ) -> pl.DataFrame:
     """Filter de inschrijvingen op de indicator-populatie (bijlage 3).
 
-    Behoudt alleen leerwegen anders dan 'ov'/'od' en niveaus vanaf
-    ``min_niveau``.  Kolommen die ontbreken worden genegeerd.
+    Laat de leertrajecten buiten de populatie weg (``waardenlijsten.toml``,
+    ``domein.leertraject``) en houdt niveaus vanaf ``min_niveau``. Kolommen
+    die ontbreken worden genegeerd.
     """
     if "Leertraject" in df.columns:
-        leerweg = pl.col("Leertraject").str.to_lowercase()
+        leerweg = pl.col("Leertraject").str.strip_chars().str.to_uppercase()
         df = df.filter(
-            leerweg.is_not_null() & ~leerweg.is_in(_POPULATIE_UITSLUIT_LEERWEGEN)
+            leerweg.is_not_null()
+            & ~leerweg.is_in(leertrajecten_buiten_indicatorpopulatie())
         )
 
     if "Niveau" in df.columns:

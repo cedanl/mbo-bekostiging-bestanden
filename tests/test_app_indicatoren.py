@@ -253,17 +253,30 @@ def test_bepaal_oordeel_twee_ontbreken():
 
 
 def _inschrijvingen_met_leerweg_niveau():
+    """Alleen codes uit ``domein.leertraject`` (#286: eerder verzonnen OV/OD)."""
     return pl.DataFrame(
         {
-            "Leertraject": ["BOL", "BBL", "ODT", "OV", "OD"],
-            "Niveau": ["MBO-2", "MBO-3", "MBO-4", "MBO-2", "MBO-2"],
+            "Leertraject": ["OVO", "ODT", "EX", "BOL", "BBL", "BOL_DT"],
+            "Niveau": ["MBO-2", "MBO-4", "MBO-3", "MBO-2", "MBO-3", "MBO-4"],
         }
     )
 
 
-def test_populatie_filter_verwijdert_ov_od():
+def test_populatie_filter_verwijdert_ovo_en_odt():
+    """Bijlage 3: OVO en ODT vallen buiten de indicatorpopulatie; EX niet."""
     result = populatie_regele_filter(_inschrijvingen_met_leerweg_niveau())
-    assert result["Leertraject"].to_list() == ["BOL", "BBL", "ODT"]
+    assert result["Leertraject"].to_list() == ["EX", "BOL", "BBL", "BOL_DT"]
+
+
+def test_uitgesloten_leertrajecten_bestaan_in_het_waardedomein():
+    from mbo_bekostiging_bestanden.waardenlijsten import (
+        leertrajecten_buiten_indicatorpopulatie,
+        waardedomein,
+    )
+
+    uitgesloten = leertrajecten_buiten_indicatorpopulatie()
+    assert uitgesloten
+    assert set(uitgesloten) <= set(waardedomein("leertraject")["waarden"])
 
 
 def test_populatie_filter_verwijdert_niveau_1():
@@ -297,7 +310,7 @@ def test_populatie_filter_ontbrekende_kolommen_geen_crash():
 def test_populatie_filter_leerweg_case_insensitief():
     df = pl.DataFrame(
         {
-            "Leertraject": ["bol", "OV"],
+            "Leertraject": ["bol", "ovo"],
             "Niveau": ["MBO-2", "MBO-2"],
         }
     )
@@ -380,7 +393,7 @@ def test_entree_die_in_entree_blijft_telt_niet_mee():
 def test_normen_en_populatie_in_demo_tabellen(demo_tabellen):
     df = demo_tabellen["inschrijvingen"]
     populatie = populatie_regele_filter(df)
-    assert "OV" not in populatie["Leertraject"].to_list()
+    assert "OVO" not in populatie["Leertraject"].to_list()
     assert "MBO-1" not in populatie["Niveau"].to_list()
 
     entree = entree_indicatoren(df)
@@ -409,7 +422,7 @@ def test_rendement_jr_per_schooljaar_en_niveau():
     jaren = _jaren(
         (2024, "MBO-2", "BOL", True, True, False, False),
         (2024, "MBO-2", "BBL", True, False, False, False),
-        (2024, "MBO-2", "OV", True, True, False, False),  # buiten populatie
+        (2024, "MBO-2", "OVO", True, True, False, False),  # buiten populatie
         (2024, "MBO-1", "BOL", True, True, False, False),  # niveau 1
         (2024, "MBO-3", "BOL", False, False, True, True),  # geen JR-noemer
     )
