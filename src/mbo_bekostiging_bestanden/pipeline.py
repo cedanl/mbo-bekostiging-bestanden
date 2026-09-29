@@ -14,6 +14,7 @@ from mbo_bekostiging_bestanden.ingest import (
     read_ro,
     read_tbgi,
 )
+from mbo_bekostiging_bestanden.provenance import bronbestand, met_bronbestanden
 from mbo_bekostiging_bestanden.quality import (
     SCENARIO_ONBEKEND,
     check_slr_reconciliation,
@@ -102,6 +103,7 @@ def _run(
     quality_report = check_slr_reconciliation(frames, levering, schema_naam=schema_naam)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
     quality_report.meld_domeinafwijkingen(controleer_waardedomeinen(ruw, schema_naam))
+    quality_report.bronbestand = bronbestand(source_path, schema_naam)
     if positioneel:
         quality_report.meld_regelinventaris(
             inventariseer_regels(source_path, schema_naam)
@@ -217,13 +219,16 @@ def run_star(
     labels = leveringslabels(sources, relative_to)
     invoer = stack_prepared(sources, labels=labels)
     star_tables = build_star(invoer)
-    export_frames(star_tables, target / "datamodel")
-    # Per-levering SLR + parseverlies, onder hetzelfde label als in de ster.
+    # Per-levering SLR, parseverlies en bronbestand, onder het label uit de ster.
     deliveries = {
         label: lees_leveringsrapport(Path(source) / "quality.json", label)
         for source, label in zip(sources, labels, strict=True)
     }
 
+    star_tables["meta_leveringen"] = met_bronbestanden(
+        star_tables["meta_leveringen"], deliveries
+    )
+    export_frames(star_tables, target / "datamodel")
     quality_report = compile_quality_report(
         star_tables, deliveries=deliveries, scenario=scenario, invoer=invoer
     )

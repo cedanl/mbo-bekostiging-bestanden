@@ -8,6 +8,20 @@ SCHEMA_DIR = Path(__file__).parent
 
 
 @lru_cache
+def _lees_schema(name: str) -> dict:
+    schema_path = SCHEMA_DIR / f"{name}_schema.toml"
+    if not schema_path.exists():
+        raise FileNotFoundError(f"Schema niet gevonden: {schema_path}")
+    with open(schema_path, "rb") as f:
+        return tomllib.load(f)
+
+
+def schema_versie(name: str) -> str:
+    """PvE-versie waarop het schema gebaseerd is (``schema_version``, #300)."""
+    return _lees_schema(name)["schema_version"]
+
+
+@lru_cache
 def load_schema(name: str = "ro") -> dict[str, dict]:
     """Laad een schema-TOML en geef de recordtype-entries terug.
 
@@ -23,12 +37,7 @@ def load_schema(name: str = "ro") -> dict[str, dict]:
     Raises:
         FileNotFoundError: Als het gevraagde schema-bestand niet bestaat.
     """
-    schema_path = SCHEMA_DIR / f"{name}_schema.toml"
-    if not schema_path.exists():
-        raise FileNotFoundError(f"Schema niet gevonden: {schema_path}")
-    with open(schema_path, "rb") as f:
-        data = tomllib.load(f)
-    return {k: v for k, v in data.items() if isinstance(v, dict)}
+    return {k: v for k, v in _lees_schema(name).items() if isinstance(v, dict)}
 
 
 def extra_kolommen(recordschema: dict) -> dict[str, str]:

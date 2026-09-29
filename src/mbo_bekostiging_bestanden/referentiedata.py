@@ -40,9 +40,13 @@ _SCHEMA = {
 }
 
 
+def manifest_pad() -> Path:
+    return METADATA / _MANIFEST
+
+
 def laad_manifest() -> dict[str, dict[str, Any]]:
     """Het manifest: bestandsnaam → herkomst (zie moduledocstring)."""
-    return json.loads((METADATA / _MANIFEST).read_text(encoding="utf-8"))
+    return json.loads(manifest_pad().read_text(encoding="utf-8"))
 
 
 def werk_manifest_bij(bestand: str, **velden: Any) -> None:
@@ -55,7 +59,7 @@ def werk_manifest_bij(bestand: str, **velden: Any) -> None:
         "sha256": sha256(pad),
         "rijen": rijen(pad),
     }
-    (METADATA / _MANIFEST).write_text(
+    manifest_pad().write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
 

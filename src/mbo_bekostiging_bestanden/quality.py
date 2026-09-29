@@ -23,6 +23,7 @@ from mbo_bekostiging_bestanden.filters import (
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
 from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
 from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
+from mbo_bekostiging_bestanden.provenance import run_provenance
 from mbo_bekostiging_bestanden.referentiedata import (
     OPLEIDINGSREFERENTIES,
     bekende_opleidingscodes,
@@ -119,6 +120,9 @@ class QualityReport:
     )
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Naam, sha256 en PvE-versie van het ruwe bestand (#300); None in rapporten
+    # van vóór #300.
+    bronbestand: dict[str, str] | None = None
 
     def meld_parseverlies(self, verlies: dict[str, dict[str, int]]) -> None:
         """Neem parseverlies (zie :func:`tel_parseverlies`) op, met waarschuwing."""
@@ -178,6 +182,7 @@ class QualityReport:
             "domeinafwijkingen": self.domeinafwijkingen,
             "warnings": self.warnings,
             "errors": self.errors,
+            "bronbestand": self.bronbestand,
         }
 
 
@@ -236,6 +241,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         domeinafwijkingen=data.get("domeinafwijkingen", {}),
         warnings=data.get("warnings", []),
         errors=data.get("errors", []),
+        bronbestand=data.get("bronbestand"),
     )
 
 
@@ -715,6 +721,7 @@ def compile_quality_report(
     return {
         "timestamp": datetime.now(UTC).isoformat(),
         "scenario": scenario,
+        "provenance": run_provenance(),
         "deliveries": deliveries_list,
         "star": star_checks,
         "summary": {
