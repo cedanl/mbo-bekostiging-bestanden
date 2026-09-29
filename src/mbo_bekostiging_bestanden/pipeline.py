@@ -215,7 +215,8 @@ def run_star(
     """
     target = Path(target)
     labels = leveringslabels(sources, relative_to)
-    star_tables = build_star(stack_prepared(sources, labels=labels))
+    invoer = stack_prepared(sources, labels=labels)
+    star_tables = build_star(invoer)
     export_frames(star_tables, target / "datamodel")
     # Per-levering SLR + parseverlies, onder hetzelfde label als in de ster.
     deliveries = {
@@ -224,7 +225,7 @@ def run_star(
     }
 
     quality_report = compile_quality_report(
-        star_tables, deliveries=deliveries, scenario=scenario
+        star_tables, deliveries=deliveries, scenario=scenario, invoer=invoer
     )
     write_quality_json(quality_report, target / "quality.json")
 
