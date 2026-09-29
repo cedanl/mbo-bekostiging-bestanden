@@ -188,6 +188,19 @@ _PERIODE_REFERENTIEDATUM = {
 # lukt koppelen binnen de eigen levering niet, dan — alleen als er een passende
 # inschrijving is — via instelling, persoon en inschrijving.
 _JOIN_INSTELLING_INSCHRIJVING = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer"]
+# Waarom een detailrij aan haar periode hangt (#121). Alleen binnen_periode is
+# de periode waarin de referentiedatum valt; datum_leeg, voor_eerste_periode en
+# geen_datumkolom vallen terug op de eerste periode van de inschrijving.
+KOPPELSTATUS = "_periode_koppel_status"
+KOPPELSTATUS_BINNEN = "binnen_periode"
+KOPPELSTATUS_GEEN_INSCHRIJVING = "geen_inschrijving"
+KOPPELSTATUSSEN = (
+    KOPPELSTATUS_BINNEN,
+    "datum_leeg",
+    "voor_eerste_periode",
+    "geen_datumkolom",
+    KOPPELSTATUS_GEEN_INSCHRIJVING,
+)
 _PERIODE_KOPPELSLEUTELS = {
     "detail_bekostiging": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
     "detail_bekostiging_diploma": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
@@ -357,14 +370,15 @@ def _koppel_periode_id(
     datum_kolom: str,
     sleutel: list[str] = _JOIN_INSCHRIJVING,
 ) -> pl.DataFrame:
-    """Voeg ``_inschrijving_periode_id`` toe: de periode van elke detailrij.
+    """Voeg ``_inschrijving_periode_id`` en de ``KOPPELSTATUS`` toe per detailrij.
 
     Een detailrij hoort bij de periode van dezelfde inschrijving (volgens
     ``sleutel``) met de laatste begindatum (zie :func:`_periode_begin_kolom`)
     op of vóór ``datum_kolom``.  Valt de datum vóór de eerste periode, of
-    ontbreekt hij, dan wordt de eerste periode gekozen.  Rijen zonder
-    bijbehorende inschrijving (of zonder koppelkolommen) krijgen een lege
-    sleutel.  Rijvolgorde en rijtal blijven behouden.
+    ontbreekt hij, dan wordt de eerste periode gekozen; de status zegt welk
+    geval (#121).  Rijen zonder bijbehorende inschrijving (of zonder
+    koppelkolommen) krijgen een lege sleutel.  Rijvolgorde en rijtal blijven
+    behouden.
 
     Zonder ``levering`` in ``sleutel`` kan dezelfde periode in meerdere
     leveringen voorkomen; dan wint de levering die alfabetisch als laatste komt
@@ -373,7 +387,10 @@ def _koppel_periode_id(
     if detail.is_empty() or _PERIODE_ID not in inschrijvingen.columns:
         return detail
     if not set(sleutel) <= set(detail.columns) & set(inschrijvingen.columns):
-        return detail.with_columns(pl.lit(None, dtype=pl.Utf8).alias(_PERIODE_ID))
+        return detail.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias(_PERIODE_ID),
+            pl.lit(KOPPELSTATUS_GEEN_INSCHRIJVING).alias(KOPPELSTATUS),
+        )
 
     perioden = (
         inschrijvingen.select(
@@ -405,10 +422,24 @@ def _koppel_periode_id(
         check_sortedness=False,  # beide kanten zijn hierboven gesorteerd
     ).select(rij, _PERIODE_ID)
 
+    status = (
+        pl.when(pl.col("_eerste_periode").is_null())
+        .then(pl.lit(KOPPELSTATUS_GEEN_INSCHRIJVING))
+        .when(pl.col(_PERIODE_ID).is_not_null())
+        .then(pl.lit(KOPPELSTATUS_BINNEN))
+        .when(pl.lit(datum_kolom not in detail.columns))
+        .then(pl.lit("geen_datumkolom"))
+        .when(pl.col("_referentie").is_null())
+        .then(pl.lit("datum_leeg"))
+        .otherwise(pl.lit("voor_eerste_periode"))
+    )
     return (
         links.join(binnen, on=rij, how="left")
         .join(eerste, on=sleutel, how="left")
-        .with_columns(pl.coalesce(_PERIODE_ID, "_eerste_periode").alias(_PERIODE_ID))
+        .with_columns(
+            status.alias(KOPPELSTATUS),
+            pl.coalesce(_PERIODE_ID, "_eerste_periode").alias(_PERIODE_ID),
+        )
         .sort(rij)
         .drop(rij, "_referentie", "_eerste_periode")
     )
@@ -420,15 +451,30 @@ def _koppel_periode_id_met_terugval(
     datum_kolom: str,
     sleutels: tuple[list[str], ...],
 ) -> pl.DataFrame:
-    """Koppel via de eerste sleutel die voor een rij een periode oplevert."""
-    kandidaten: list[pl.Series] = []
+    """Koppel via de eerste sleutel die voor een rij een periode oplevert.
+
+    De koppelstatus is die van dezelfde sleutel; lukt geen enkele, dan
+    ``geen_inschrijving``.
+    """
+    perioden: list[pl.Series] = []
+    statussen: list[pl.Series] = []
     for sleutel in sleutels:
         gekoppeld = _koppel_periode_id(detail, inschrijvingen, datum_kolom, sleutel)
         if _PERIODE_ID in gekoppeld.columns:
-            kandidaten.append(gekoppeld[_PERIODE_ID])
-    if not kandidaten:
+            perioden.append(gekoppeld[_PERIODE_ID])
+            statussen.append(
+                gekoppeld.select(
+                    pl.when(pl.col(_PERIODE_ID).is_not_null()).then(KOPPELSTATUS)
+                ).to_series()
+            )
+    if not perioden:
         return detail
-    return detail.with_columns(pl.coalesce(kandidaten).alias(_PERIODE_ID))
+    return detail.with_columns(
+        pl.coalesce(perioden).alias(_PERIODE_ID),
+        pl.coalesce(*statussen, pl.lit(KOPPELSTATUS_GEEN_INSCHRIJVING)).alias(
+            KOPPELSTATUS
+        ),
+    )
 
 
 def _geo_pivot(

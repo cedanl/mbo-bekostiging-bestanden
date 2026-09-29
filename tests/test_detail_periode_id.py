@@ -11,9 +11,15 @@ from datetime import date
 import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.transform import _koppel_periode_id
+from mbo_bekostiging_bestanden.quality import compile_quality_report
+from mbo_bekostiging_bestanden.transform import (
+    KOPPELSTATUSSEN,
+    _koppel_periode_id,
+    _koppel_periode_id_met_terugval,
+)
 
 SLEUTEL = "_inschrijving_periode_id"
+STATUS = "_periode_koppel_status"
 INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 DETAIL_FEITEN = [
     "fact_bpv",
@@ -93,7 +99,7 @@ def test_datum_voor_eerste_periode_of_leeg_valt_terug_op_eerste_periode():
 def test_rijvolgorde_en_rijtal_blijven_behouden():
     detail = _detail(date(2025, 3, 1), None, date(2024, 9, 1))
     result = _koppel_periode_id(detail, _perioden(), "Datum")
-    assert result.drop(SLEUTEL).equals(detail)
+    assert result.drop(SLEUTEL, STATUS).equals(detail)
 
 
 def test_detail_zonder_inschrijving_krijgt_lege_sleutel():
@@ -136,3 +142,65 @@ def test_tekstdatum_koppelt_zonder_deprecation_warning():
         result = _koppel_periode_id(detail, _perioden(), "Datum")
     assert result[SLEUTEL].to_list() == ["eerste", "tweede"]
     assert not [w for w in gevangen if issubclass(w.category, DeprecationWarning)]
+
+
+# ---------------------------------------------------------------------------
+# Koppelstatus (#121): waarom een detailrij aan haar periode hangt
+# ---------------------------------------------------------------------------
+def test_koppelstatus_onderscheidt_elke_toewijzing():
+    detail = pl.concat(
+        [
+            _detail(date(2025, 3, 1), None, date(2020, 1, 1)),
+            _detail(date(2024, 9, 1)).with_columns(
+                pl.lit("onbekend").alias("Inschrijvingvolgnummer")
+            ),
+        ]
+    )
+    result = _koppel_periode_id(detail, _perioden(), "Datum")
+    assert result.select(SLEUTEL, STATUS).rows() == [
+        ("tweede", "binnen_periode"),
+        ("eerste", "datum_leeg"),
+        ("eerste", "voor_eerste_periode"),
+        (None, "geen_inschrijving"),
+    ]
+
+
+def test_koppelstatus_zonder_datumkolom():
+    result = _koppel_periode_id(_detail(date(2024, 9, 1)), _perioden(), "Bestaat")
+    assert result.select(SLEUTEL, STATUS).rows() == [("eerste", "geen_datumkolom")]
+
+
+def test_koppelstatus_zonder_koppelkolommen():
+    detail = _detail(date(2024, 9, 1)).drop("Inschrijvingvolgnummer")
+    result = _koppel_periode_id(detail, _perioden(), "Datum")
+    assert result[STATUS].to_list() == ["geen_inschrijving"]
+
+
+def test_koppelstatus_volgt_de_sleutel_die_koppelde():
+    """Bij terugval (#112) telt de status van de sleutel die de periode gaf."""
+    detail = _detail(date(2025, 3, 1), None).with_columns(
+        pl.lit("andere").alias("levering")
+    )
+    zonder_levering = ["_persoon_id", "Inschrijvingvolgnummer"]
+    result = _koppel_periode_id_met_terugval(
+        detail, _perioden(), "Datum", (INSCHRIJVING, zonder_levering)
+    )
+    assert result.select(SLEUTEL, STATUS).rows() == [
+        ("tweede", "binnen_periode"),
+        ("eerste", "datum_leeg"),
+    ]
+
+
+@pytest.mark.parametrize("naam", DETAIL_FEITEN)
+def test_detail_feit_heeft_koppelstatus(demo_star, naam):
+    statussen = set(demo_star[naam][STATUS])
+    assert statussen <= set(KOPPELSTATUSSEN)
+    gekoppeld = demo_star[naam].filter(pl.col(STATUS) != "geen_inschrijving")
+    assert gekoppeld[SLEUTEL].null_count() == 0
+
+
+def test_quality_telt_koppelstatus_per_detailfeit(demo_star):
+    telling = compile_quality_report(demo_star)["star"]["periode_koppelstatus"]
+    assert set(telling) == set(DETAIL_FEITEN)
+    for naam, per_status in telling.items():
+        assert sum(per_status.values()) == demo_star[naam].height

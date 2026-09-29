@@ -76,6 +76,10 @@ Die sleutel wijst per detailrij de ISP-periode aan waarin de referentiedatum val
 (`DatumBegin` voor BPV, `DatumResultaat` voor KZD/AMO/GEO, `Teldatum` voor bekostiging,
 `DatumBehaald` voor bekostiging_diploma); valt die datum vóór de eerste periode of ontbreekt
 hij, dan geldt de eerste periode. Rijen zonder bijbehorende inschrijving hebben een lege sleutel.
+Waarom een rij aan haar periode hangt, staat in `_periode_koppel_status` (#121): `binnen_periode`
+(de datum valt in de periode), `datum_leeg`, `voor_eerste_periode` of `geen_datumkolom` (de eerste
+periode, als terugval) en `geen_inschrijving` (lege sleutel). Filter op `binnen_periode` voor
+analyses die op de juiste periode leunen; `quality.json` → `star.periode_koppelstatus` telt ze.
 Bij TBGI-only input (geen ISP) is elke TBGI-inschrijving één periode vanaf `DatumInschrijving`;
 de sleutel en de koppelregel zijn verder gelijk, zodat het schema in beide routes uniform is.
 

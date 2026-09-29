@@ -476,6 +476,19 @@
             }
           }
         },
+        "periode_koppelstatus": {
+          "type": "object",
+          "description": "Per detail-feit het aantal rijen per _periode_koppel_status (#121): binnen_periode (referentiedatum valt in de periode), datum_leeg / voor_eerste_periode / geen_datumkolom (teruggevallen op de eerste periode van de inschrijving), geen_inschrijving (lege sleutel)",
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "enum": ["binnen_periode", "datum_leeg", "voor_eerste_periode", "geen_datumkolom", "geen_inschrijving"]
+            },
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        },
         "dr_scope": {
           "type": "object",
           "description": "Instellingen (BRIN) in fact_inschrijving_schooljaar waarbinnen DR- en Entree-uitstroom bepaald zijn (#118). Uitstroom zoekt de persoon in t+1 bij al deze instellingen; een overstap naar een instelling buiten de dataset telt als uitstroom. mbo_breed is false: de dataset bevat alleen eigen leveringen",
@@ -620,6 +633,7 @@
         "join_keuzes",
         "leveringen_zonder_schooljaar",
         "verouderde_kolommen",
+        "periode_koppelstatus",
         "dr_scope",
         "referentiedata",
         "dekking"
