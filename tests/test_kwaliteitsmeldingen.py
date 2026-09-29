@@ -152,3 +152,19 @@ def test_verouderde_kolommen_staan_als_info_in_quality_json(demo_star):
     ]
     assert melding.ernst == ERNST_INFO
     assert "fact_inschrijving_schooljaar" in melding.tekst
+
+
+def test_resultaten_filtert_detailfeit_op_koppelstatus(demo_star_dir):
+    """Rijen die op de eerste periode terugvielen, apart te bekijken (#121)."""
+    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
+    app.session_state["resultaten_dir"] = demo_star_dir
+    app.run()
+    [tabelkeuze] = [s for s in app.selectbox if "fact_bpv" in s.options]
+    tabelkeuze.select("fact_bpv").run()
+
+    [filter_] = [m for m in app.multiselect if m.label == "Koppelstatus"]
+    filter_.select("binnen_periode").run()
+
+    assert not app.exception
+    [tabel] = [t for t in app.dataframe if "_periode_koppel_status" in t.value.columns]
+    assert set(tabel.value["_periode_koppel_status"]) == {"binnen_periode"}

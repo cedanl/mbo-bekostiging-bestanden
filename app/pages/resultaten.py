@@ -17,6 +17,11 @@ from _tabel_docs import PAGINA_INTRO, tabel_help
 from _utils import groepeer_prepared, vind_prepared_dirs, vind_star_dir
 
 from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
+from mbo_bekostiging_bestanden.transform import (
+    KOPPELSTATUS,
+    KOPPELSTATUS_BINNEN,
+    KOPPELSTATUSSEN,
+)
 
 _MAX_WEERGAVE_RIJEN = 1_000  # rijen in de tabelweergave; de download is volledig
 _SECTIE_ANALYSEMODEL = "Analysemodel (star schema)"
@@ -39,6 +44,27 @@ def _tabel_csv(pad: str, mtime: float, drop_pii: bool = False) -> str:
 def _heeft_pii(df: pl.DataFrame) -> bool:
     """Detecteer of tabel PII-gevoelige kolommen bevat."""
     return bool(detect_pii_columns(df.columns))
+
+
+def _filter_koppelstatus(df: pl.DataFrame, tabel: str) -> pl.DataFrame:
+    """Filter een detail-feit op waarom een rij aan haar periode hangt (#121).
+
+    Alleen de preview: de download blijft de volledige tabel.
+    """
+    if KOPPELSTATUS not in df.columns:
+        return df
+    gekozen = st.multiselect(
+        "Koppelstatus",
+        [s for s in KOPPELSTATUSSEN if s in set(df[KOPPELSTATUS])],
+        placeholder="Alle statussen",
+        help=(
+            f"`{KOPPELSTATUS_BINNEN}`: de referentiedatum valt in de periode. "
+            "De andere statussen hangen aan de eerste periode van hun "
+            "inschrijving, of aan geen (`geen_inschrijving`)."
+        ),
+        key=f"koppelstatus_{tabel}",
+    )
+    return df.filter(pl.col(KOPPELSTATUS).is_in(gekozen)) if gekozen else df
 
 
 def _toon_tabel_sectie(titel: str, tabellen: dict[str, Path], help_fn=None):
@@ -83,6 +109,7 @@ def _toon_tabel_sectie(titel: str, tabellen: dict[str, Path], help_fn=None):
             drop_pii = False
         zichtbaar = zichtbare_kolommen(df.columns, verberg_pii=drop_pii)
 
+        df = _filter_koppelstatus(df, gekozen)
         kolommen = st.multiselect(
             "Toon kolommen",
             zichtbaar,

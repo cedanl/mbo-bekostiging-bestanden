@@ -45,6 +45,9 @@ from mbo_bekostiging_bestanden.transform import (
     BRON_BII,
     BRON_ISP,
     BRON_TBGI,
+    KOPPELSTATUS,
+    KOPPELSTATUS_BINNEN,
+    KOPPELSTATUS_GEEN_INSCHRIJVING,
     VEROUDERD_TOT,
     VEROUDERDE_KOLOMMEN,
 )
@@ -540,7 +543,7 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
     van haar manifest of die de data niet meer dekt (#132).
     Info: verklaarde wees-rijen (#196), vervangen leveringen (#174),
     verouderde kolommen (#201), de instellingen waarbinnen uitstroom bepaald
-    is (#118).
+    is (#118), detailrijen die op de eerste periode terugvielen (#121).
     Dekkingsgaten (#295) hebben hun ernst al in de dekkingstabel.
     """
     meldingen: list[Melding] = []
@@ -607,6 +610,20 @@ def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
             f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
             f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
         )
+    for naam, per_status in star.get("periode_koppelstatus", {}).items():
+        terugval = {
+            status: n
+            for status, n in per_status.items()
+            if status not in (KOPPELSTATUS_BINNEN, KOPPELSTATUS_GEEN_INSCHRIJVING)
+        }
+        if terugval:
+            details = ", ".join(f"{s}: {n}" for s, n in terugval.items())
+            melding(
+                ERNST_INFO,
+                f"{naam}: {sum(terugval.values())} rijen aan de eerste periode van "
+                f"hun inschrijving gehangen ({details}); filter op {KOPPELSTATUS} "
+                "(#121)",
+            )
     brins = star.get("dr_scope", {}).get("brins", [])
     if brins:
         melding(
@@ -699,6 +716,7 @@ def compile_quality_report(
         **_check_leveringen_zonder_schooljaar(star),
         **_check_verouderde_kolommen(star),
         **_check_dr_scope(star),
+        **_check_periode_koppelstatus(star),
         **_check_referentiedata(star),
         "dekking": controleer_dekking(invoer or {}, star),
     }
@@ -930,6 +948,17 @@ def controleer_dekking(
                     rij["ernst"] = ERNST_ERROR if doel.bekostiging else ERNST_WARNING
             rijen.append(rij)
     return rijen
+
+
+def _check_periode_koppelstatus(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+    """Per detail-feit het aantal rijen per koppelstatus (#121)."""
+    return {
+        "periode_koppelstatus": {
+            naam: dict(sorted(feit.group_by(KOPPELSTATUS).len().iter_rows()))
+            for naam, feit in sorted(star.items())
+            if KOPPELSTATUS in feit.columns
+        }
+    }
 
 
 def _check_dr_scope(star: dict[str, pl.DataFrame]) -> dict[str, Any]:

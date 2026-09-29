@@ -141,6 +141,8 @@ De `quality.json` van `run_star` legt in `provenance` vast waarmee de run is gem
 
 De `quality.json` van `run_star` bevat daarnaast `star.dekking`: per levering en recordtype het aantal ingelezen records (`ingelezen`) tegen het aantal rijen in het analysemodel (`bereikt`, in `feit`). De aantallen hoeven niet gelijk te zijn: canonicalisatie en koppelingen halen rijen weg. Maar een gevuld recordtype waarvan niets het model bereikt, wordt niet doorvertaald. Dat is een `error` voor bekostigingsrecords (BII, BID, TBG-i Teldatum en Diploma) en anders een `warning` (#295). Recordtypes zonder eigen feit (VLP, SLR, PER, ISG, ISE, DIP, TBG-i Inschrijving/Signaal/BekostigingsrelevanteBPV) staan er met een `verklaring` in plaats van een telling. Een onbekend recordtype krijgt een `warning`.
 
+`star.periode_koppelstatus` telt per detail-feit hoe de rijen aan hun inschrijvingsperiode hangen (#121). Rijen die op de eerste periode terugvielen (datum leeg, vóór de eerste periode of geen datumkolom) geven een `info`-melding. In Resultaten kun je een detail-feit filteren op `_periode_koppel_status`.
+
 `star.referentiedata` noemt per referentietabel de bron, de datum van opname, de dekking en de sha256 (#132). Er komt een `warning` als een bestand afwijkt van `metadata/referentiedata.json`. Er komt er ook een als de data opleidingscodes bevat die de referentie niet kent, in inschrijvingen die beginnen ná de dekking van de referentie. Dan is de referentie waarschijnlijk verouderd: werk haar bij met `uv run python scripts/update_sbb_koppeltabel.py`, dat ook het manifest bijwerkt.
 
 ### Star schema bouwen
