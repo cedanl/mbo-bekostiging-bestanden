@@ -4,9 +4,11 @@ name: Release
 # - de tag-commit op main staat,
 # - de tag gelijk is aan de versie in pyproject.toml,
 # - CI én Docs op main voor precies die commit groen zijn.
-# De release-notes worden gegenereerd uit de gemergde PR's sinds de vorige tag,
-# en pas gepubliceerd als elke #NNN erin bestaat en elk issue dat een PR in de
-# notes sluit, ook echt gesloten is (#190, scripts/controleer_release_notes.py).
+# De release-notes komen uit release-notes/<versie>.md als dat bestand bestaat
+# (eerste regel "# ..." is de titel), anders uit de gemergde PR's sinds de
+# vorige tag. In beide gevallen pas gepubliceerd als elke #NNN erin bestaat en
+# elk issue dat een PR in de notes sluit, ook echt gesloten is
+# (#190, scripts/controleer_release_notes.py).
 
 on:
   push:
@@ -63,12 +65,27 @@ jobs:
             gh run watch "$run_id" --exit-status
           done
 
-      - name: Release-notes genereren
+      - name: Release-notes samenstellen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$GITHUB_REF_NAME" --jq .body > release-notes.md
+          bestand="release-notes/$GITHUB_REF_NAME.md"
+          if [ -f "$bestand" ]; then
+            echo "Notes uit $bestand."
+            if head -n1 "$bestand" | grep -q '^# '; then
+              # Eerste regel "# ..." levert de release-titel, de rest is de body.
+              printf 'RELEASE_TITLE=%s\n' "$(head -n1 "$bestand" | sed 's/^# //')" >> "$GITHUB_ENV"
+              tail -n +2 "$bestand" > release-notes.md
+            else
+              printf 'RELEASE_TITLE=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+              cp "$bestand" release-notes.md
+            fi
+          else
+            echo "Geen $bestand; notes gegenereerd uit de gemergde PR's."
+            printf 'RELEASE_TITLE=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$GITHUB_REF_NAME" --jq .body > release-notes.md
+          fi
 
       - name: Verwijzingen in de notes kloppen
         env:
@@ -80,4 +97,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --verify-tag \
-            --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+            --notes-file release-notes.md --title "$RELEASE_TITLE"
