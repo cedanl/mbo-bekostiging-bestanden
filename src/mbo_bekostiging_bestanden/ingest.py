@@ -51,6 +51,16 @@ def _velden_voorbij_schema(
     return fields[len(kolommen) + len(spiegelvelden) :]
 
 
+def _ontbrekende_verplichte_velden(fields: list[str], recordschema: dict) -> list[str]:
+    """Velden achter het einde van de regel die niet optioneel zijn (#281).
+
+    Lege achtervelden vallen bij het inlezen weg (zie :func:`_lees_regels`),
+    dus "ontbreekt" betekent hier: afwezig of leeg.
+    """
+    optioneel = set(recordschema.get("optionele_achtervelden", []))
+    return [v for v in recordschema["fields"][len(fields) :] if v not in optioneel]
+
+
 def _lees_regels(path: Path) -> list[list[str]]:
     """Niet-lege regels van een multi-record CSV, gesplitst op het scheidingsteken.
 
@@ -83,13 +93,12 @@ def read_multi_record_csv(
 
     Geschikt voor elk DUO-bestandstype dat de multi-record CSV-structuur
     gebruikt (RO, GRONDSLAG IP MBO, …). Kolomnamen komen uit het opgegeven
-    schema-TOML. Fail-closed (#257): een onbekend recordtype of een gevuld
-    veld voorbij de schemabreedte (incl. gedeclareerde spiegelvelden) is een
-    teken dat het bestand niet is wat het zegt te zijn, en breekt de ingest
-    in plaats van stil te worden genegeerd/afgeknipt. Een regel die *korter*
-    is dan het schema wordt (nog) gepad: optionele achtervelden zijn niet
-    per-recordtype gemarkeerd in het schema, dus dat is vooralsnog niet te
-    onderscheiden van een echte fout.
+    schema-TOML. Fail-closed (#257, #281): een onbekend recordtype, een
+    gevuld veld voorbij de schemabreedte (incl. gedeclareerde spiegelvelden)
+    of een ontbrekend verplicht achterveld is een teken dat het bestand niet
+    is wat het zegt te zijn, en breekt de ingest in plaats van stil te worden
+    genegeerd, afgeknipt of aangevuld. Alleen de ``optionele_achtervelden``
+    van een recordtype mogen aan het eind ontbreken; die worden leeg aangevuld.
 
     Args:
         path:        Pad naar het bronbestand.
@@ -102,7 +111,7 @@ def read_multi_record_csv(
         FileNotFoundError: Als het bronbestand of schema niet bestaat.
         ValueError: Als het bestand leeg is, een regel een onbekend
             recordtype heeft, of een regel een gevuld veld heeft voorbij de
-            schemabreedte.
+            schemabreedte, of een regel een verplicht achterveld mist.
     """
     schema = load_schema(schema_name)
 
@@ -120,6 +129,12 @@ def read_multi_record_csv(
             raise ValueError(
                 f"{path}: regel {regelnr} ({rt}) heeft gevulde velden voorbij "
                 f"de schemabreedte: {extra}"
+            )
+        ontbrekend = _ontbrekende_verplichte_velden(fields, schema[rt])
+        if ontbrekend:
+            raise ValueError(
+                f"{path}: regel {regelnr} ({rt}) mist verplichte velden aan het "
+                f"eind (afwezig of leeg): {ontbrekend}"
             )
         rows_by_type[rt].append(fields)
 

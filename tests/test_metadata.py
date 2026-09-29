@@ -42,3 +42,24 @@ def test_load_schema_single_row_vlag_aanwezig_in_schema():
 def test_load_schema_is_cached():
     """Herhaalde aanroep geeft hetzelfde object terug (geen herhaalde schijflezing)."""
     assert load_schema("ro") is load_schema("ro")
+
+
+@pytest.mark.parametrize("schema", ["ro", "grondslag"])
+def test_optionele_achtervelden_zijn_een_staart_van_de_velden(schema):
+    """Alleen achteraan mag een veld ontbreken (#281); elders is het verschuiving."""
+    for rt, definitie in load_schema(schema).items():
+        velden = definitie["fields"]
+        staart = definitie.get("optionele_achtervelden", [])
+        assert velden[len(velden) - len(staart) :] == staart, rt
+
+
+@pytest.mark.parametrize("schema", ["ro", "grondslag"])
+def test_elk_brin_veld_heeft_het_brin_domein(schema):
+    """BRIN is structureel: een verschoven veld valt daar als eerste op (#238, #281)."""
+    zonder = [
+        rt
+        for rt, definitie in load_schema(schema).items()
+        if "BRIN" in definitie["fields"]
+        and definitie.get("domeinen", {}).get("BRIN") != "brin"
+    ]
+    assert zonder == []

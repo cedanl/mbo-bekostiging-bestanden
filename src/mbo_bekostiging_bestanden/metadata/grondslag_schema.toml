@@ -2,6 +2,9 @@
 # Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §17.5
 # (bestandsbeschrijving_beknopt.pdf). Positioneel getoetst in tests/test_grondslag_pve.py.
 # Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
+# optionele_achtervelden: de staart van velden die het PvE niet verplicht stelt
+# ("Verplicht: Nee"). Alleen die mogen aan het eind van een regel ontbreken; mist
+# een verplicht veld, dan faalt de ingest (#281).
 schema_version = "4.8.2"
 
 [VLP]
@@ -27,6 +30,12 @@ fields = [
     "CodeLandWaarnaarVertrokken", "Verblijfstitel",
     "Nationaliteit1", "Nationaliteit2",
 ]
+optionele_achtervelden = [
+    "DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland",
+    "CodeGeboorteland", "CodeGeboortelandOuder1", "CodeGeboortelandOuder2",
+    "CodeLandWaarnaarVertrokken", "Verblijfstitel", "Nationaliteit1",
+    "Nationaliteit2",
+]
 date_fields = ["DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland"]
 int_fields  = ["Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4"]
 
@@ -36,6 +45,7 @@ fields = [
     "Inschrijvingvolgnummer", "DatumInschrijving",
     "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
 ]
+optionele_achtervelden = ["DatumUitschrijvingWerkelijk", "RedenUitschrijving"]
 date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields  = []
 domeinen = { BRIN = "brin" }
@@ -48,6 +58,9 @@ fields = [
     "IndicatieBekostigbaar", "Onderwijsaanbieder", "Onderwijslocatie",
     "Leerroute", "Leerroutefase",
 ]
+optionele_achtervelden = [
+    "Onderwijsaanbieder", "Onderwijslocatie", "Leerroute", "Leerroutefase",
+]
 date_fields = ["DatumBegin", "DatumEind"]
 int_fields  = []
 domeinen = { BRIN = "brin", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject" }
@@ -57,8 +70,10 @@ fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
     "Inschrijvingvolgnummer", "DatumBeginExtraOndersteuning", "DatumEindExtraOndersteuning",
 ]
+optionele_achtervelden = ["DatumEindExtraOndersteuning"]
 date_fields = ["DatumBeginExtraOndersteuning", "DatumEindExtraOndersteuning"]
 int_fields  = []
+domeinen = { BRIN = "brin" }
 
 [BPV]
 fields = [
@@ -67,8 +82,10 @@ fields = [
     "Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk",
     "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
 ]
+optionele_achtervelden = ["Opleidingcode", "CodeKeuzedeel"]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
 int_fields  = ["Omvang"]
+domeinen = { BRIN = "brin" }
 
 [BII]
 # Niet aanwezig in demo-data; aangemaakt na bekostigingsberekening door DUO.
@@ -83,14 +100,22 @@ fields = [
 ]
 # Namen en typering gelijk aan TBG-i (tbgi_schema.toml [Teldatum]), zoals het
 # PvE ze in §16 en §17 noemt: één concept, één kolom in fact_bekostiging (#208).
+optionele_achtervelden = [
+    "BBLBOLFactor", "PrijsfactorMBO", "AantalBekostigdeVerblijfsjarenMBO",
+    "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde",
+]
 date_fields  = ["Teldatum"]
 int_fields   = ["AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
+domeinen = { BRIN = "brin" }
 
 [DIP]
 fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
     "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
+    "IndicatieBekostigbaar", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+optionele_achtervelden = [
     "IndicatieBekostigbaar", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
 date_fields = ["DatumResultaat"]
@@ -106,9 +131,11 @@ fields = [
     "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
     "Bekostigingsstatus", "BijdrageDiplomawaarde",
 ]
+optionele_achtervelden = ["Bekostigingsstatus", "BijdrageDiplomawaarde"]
 date_fields  = []
 int_fields   = []
 float_fields = ["BijdrageDiplomawaarde"]
+domeinen = { BRIN = "brin" }
 
 [AMO]
 # Niet aanwezig in demo-data (subset); aanwezig in volledig bestand.
@@ -118,9 +145,12 @@ fields = [
     "ResultaatvolgnummerDiploma", "Resultaatvolgnummer", "CodeAMvBOnderdeel",
     "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+optionele_achtervelden = [
+    "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
 date_fields = ["DatumResultaat"]
 int_fields  = []
-domeinen = { Certificaat = "certificaat" }
+domeinen = { BRIN = "brin", Certificaat = "certificaat" }
 
 [GEO]
 fields = [
@@ -131,9 +161,15 @@ fields = [
     "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
     "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+optionele_achtervelden = [
+    "Eindcijfer", "VrijstellingGeneriekExamenonderdeel", "CijferIE",
+    "VrijstellingIE", "CijferCE", "VrijstellingCE", "DatumResultaat",
+    "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
 date_fields = ["DatumResultaat"]
 # Komma-cijfers zijn geldig volgens het PvE (bv. "6,5"); float, geen int (#208, #259).
 float_fields = ["Eindcijfer", "CijferIE", "CijferCE"]
+domeinen = { BRIN = "brin" }
 
 [KZD]
 # Certificaat vóór DatumResultaat, anders dan RO (§15) (#127).
@@ -143,9 +179,13 @@ fields = [
     "CodeKeuzedeel", "Resultaat", "Certificaat",
     "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+optionele_achtervelden = [
+    "Resultaat", "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer",
+    "Onderwijsaanbieder",
+]
 date_fields = ["DatumResultaat"]
 int_fields  = []
-domeinen = { Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
+domeinen = { BRIN = "brin", Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
 
 [SLR]
 single_row = true
