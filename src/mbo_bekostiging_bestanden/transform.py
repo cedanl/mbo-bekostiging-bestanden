@@ -44,6 +44,7 @@ from mbo_bekostiging_bestanden.enrich import (
     enrich_inschrijvingen,
 )
 from mbo_bekostiging_bestanden.koppelingen import Koppelingen
+from mbo_bekostiging_bestanden.metadata import alle_extra_kolommen
 from mbo_bekostiging_bestanden.niveau import BRON as _NIVEAU_BRON
 from mbo_bekostiging_bestanden.niveau import CREBO as _NIVEAU_CREBO
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
@@ -1249,7 +1250,8 @@ def _bouw_inschrijvingen(
 
     # ── PER: persoonskenmerken ────────────────────────────────────────────────
     per = _add_persoon_id(stacked["PER"])
-    per = _drop(per, "Recordsoort", *_PERSOON_COLS)
+    # Posities buiten het PvE horen bij de brondata, niet bij het model (#260).
+    per = _drop(per, "Recordsoort", *_PERSOON_COLS, *alle_extra_kolommen())
     df = koppelingen.links(df, per, on=_JOIN_PERSOON, naam="PER")
 
     # ── ISG: inschrijvingsdatums en reden uitschrijving ───────────────────────

@@ -22,7 +22,8 @@ bouwt verder op de brondata.
 |---|---|---|---|---|---|
 | Veldindeling per recordtype uit het PvE (`metadata/*_schema.toml`), positioneel | DUO-bestanden hebben geen kolomkoppen | — | Een verschoven veld valt niet op door parsen; daarom de controles hieronder | `ingest.py` | #127 |
 | Afwijkingen van het PvE die echte leveringen hebben, volgen de data: VLP-`BRIN`, RO-DIP positie 7 | Echte bestanden wijken af van de spec | Strikt het PvE volgen | Gedocumenteerd per recordtype | `*_schema.toml` | #127 |
-| Onbekende recordtypes en velden voorbij het schema worden **niet ingelezen, wel geteld** | Hun betekenis staat niet in het PvE | Bewaren als extra kolommen | `quality.json` → `regelinventaris` | `ingest.inventariseer_regels` | #120 |
+| Onbekende recordtypes en velden voorbij het schema **breken de ingest** | Hun betekenis staat niet in het PvE; stil afknippen verbergt een verkeerd bestand | Niet inlezen, wel tellen | Fail-closed | `ingest.read_multi_record_csv` | #120, #257 |
+| Posities buiten het PvE die in echte leveringen staan (GRONDSLAG-PER 19–21) worden **bewaard als `<veld>_positie<n>`**, niet geïnterpreteerd | Kopie of eerdere waarde? Het PvE zegt het niet | Niet inlezen (verlies) of als vorige waarde benoemen | Verschillen in `quality.json` → `regelinventaris`; niet in het analysemodel | `metadata.extra_kolommen` | #260 |
 | Waardedomein per veld (patroon of waardenlijst) wordt gecontroleerd | Een verschoven veld is vaak alleen aan zijn waarden te zien | Geen controle | `quality.json` → `domeinafwijkingen` | `waardenlijsten.py` | #205 |
 | Datum met onbekende dag/maand (`00`) → 1e van maand/jaar + `_precisie` | Het PvE staat `00` toe bij `Geboortedatum` | Null (verlies van het jaar) | Kolom `Geboortedatum_precisie` | `decode.py` | #206 |
 | Decimaalteken punt én komma bij bedragen/factoren | Het PvE noemt het teken niet | Alleen punt | — | `decode._to_float_expr` | #208 |

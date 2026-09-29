@@ -29,3 +29,25 @@ def load_schema(name: str = "ro") -> dict[str, dict]:
     with open(schema_path, "rb") as f:
         data = tomllib.load(f)
     return {k: v for k, v in data.items() if isinstance(v, dict)}
+
+
+def extra_kolommen(recordschema: dict) -> dict[str, str]:
+    """Kolomnaam → veld dat hij lijkt te herhalen, voor de ``spiegelvelden``.
+
+    Die posities staan achter de PvE-velden en niet in het PvE; of ze een kopie
+    of een eerdere waarde zijn, is onbekend (#260). De naam draagt daarom de
+    positie, geen betekenis: ``Postcodecijfers_positie19``.
+    """
+    spiegelvelden = recordschema.get("spiegelvelden", [])
+    eerste = len(recordschema["fields"]) + 1
+    return {f"{veld}_positie{eerste + i}": veld for i, veld in enumerate(spiegelvelden)}
+
+
+def alle_extra_kolommen() -> set[str]:
+    """Alle :func:`extra_kolommen` over alle schema's in ``metadata/``."""
+    return {
+        kolom
+        for pad in SCHEMA_DIR.glob("*_schema.toml")
+        for recordschema in load_schema(pad.stem.removesuffix("_schema")).values()
+        for kolom in extra_kolommen(recordschema)
+    }

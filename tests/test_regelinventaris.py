@@ -13,8 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from mbo_bekostiging_bestanden.ingest import inventariseer_regels
+from mbo_bekostiging_bestanden.ingest import (
+    inventariseer_regels,
+    read_multi_record_csv,
+)
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
+from mbo_bekostiging_bestanden.quality import QualityReport
 
 DEMO = Path("data/01-raw/demo")
 
@@ -59,7 +63,7 @@ def test_spiegelvelden_die_kloppen_zijn_geen_afwijking(tmp_path):
 def test_spiegelveld_dat_afwijkt_wordt_geteld(tmp_path):
     pad = _bestand(tmp_path, "GRONDSLAG_IP_MBO_99XX_1_2.csv", GRONDSLAG_AFWIJKEND)
     inv = inventariseer_regels(pad, "grondslag")
-    assert inv["spiegel_afwijkingen"] == {"PER": {"Postcodecijfers": 1}}
+    assert inv["spiegel_afwijkingen"] == {"PER": {"Postcodecijfers_positie19": 1}}
 
 
 def test_pipeline_faalt_bij_onbekend_recordtype(tmp_path):
@@ -103,4 +107,45 @@ def test_demo_grondslag_positie_19_is_niet_altijd_een_spiegel():
     andere postcode dan ``Postcodecijfers``. Afknippen verloor die stil."""
     bron = DEMO / "h17" / "GRONDSLAG_IP_MBO_27DV_20251119_2025.csv"
     inv = inventariseer_regels(bron, "grondslag")
-    assert inv["spiegel_afwijkingen"] == {"PER": {"Postcodecijfers": 1}}
+    assert inv["spiegel_afwijkingen"] == {"PER": {"Postcodecijfers_positie19": 1}}
+
+
+# --- Posities buiten het PvE bewaren (#260) ---------------------------------
+# Of positie 19 een verschoven postcode is of een eerdere waarde, staat niet in
+# het PvE. Zolang dat open is: bewaren onder hun positie, niet interpreteren.
+_EXTRA_POSITIES = {
+    "Postcodecijfers_positie19": "9999",
+    "Verblijfstitel_positie20": "01",
+    "Nationaliteit1_positie21": "0001",
+}
+
+
+def test_extra_posities_worden_bewaard_in_de_brondata(tmp_path):
+    pad = _bestand(tmp_path, "GRONDSLAG_IP_MBO_99XX_1_2.csv", GRONDSLAG_AFWIJKEND)
+    per = read_multi_record_csv(pad, "grondslag")["PER"].row(0, named=True)
+    assert {k: per[k] for k in _EXTRA_POSITIES} == _EXTRA_POSITIES
+    assert per["Postcodecijfers"] == "1234"
+
+
+def test_extra_posities_zijn_leeg_als_de_regel_ze_niet_heeft(tmp_path):
+    pad = _bestand(
+        tmp_path, "GRONDSLAG_IP_MBO_99XX_1_2.csv", f"VLP;99XX;2025;20251119;V\n{_PER}\n"
+    )
+    per = read_multi_record_csv(pad, "grondslag")["PER"].row(0, named=True)
+    assert all(per[k] == "" for k in _EXTRA_POSITIES)
+
+
+def test_extra_posities_blijven_buiten_het_analysemodel(demo_star):
+    """Onbekende betekenis is geen analysekeuze; bovendien persoonsgegevens."""
+    for naam, tabel in demo_star.items():
+        assert not set(_EXTRA_POSITIES) & set(tabel.columns), naam
+
+
+def test_melding_suggereert_geen_verschuiving():
+    rapport = QualityReport(levering="L", schema_type="grondslag")
+    rapport.meld_regelinventaris(
+        {"spiegel_afwijkingen": {"PER": {"Postcodecijfers_positie19": 1}}}
+    )
+    [melding] = rapport.warnings
+    assert "verschoven" not in melding
+    assert "Postcodecijfers_positie19" in melding
