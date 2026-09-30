@@ -1,5 +1,6 @@
 """Metadata: veldindelingen en codeboeken voor de bekostigingsbestanden."""
 
+import json
 import tomllib
 from functools import lru_cache
 from pathlib import Path
@@ -19,6 +20,17 @@ def _lees_schema(name: str) -> dict:
 def schema_versie(name: str) -> str:
     """PvE-versie waarop het schema gebaseerd is (``schema_version``, #300)."""
     return _lees_schema(name)["schema_version"]
+
+
+@lru_cache
+def pve_bron() -> dict[str, str]:
+    """De PvE-bron waarop de schema's zijn gebaseerd (``pve_bron.json``, #299).
+
+    ``versie`` en ``sha256`` (van ``bestand``, de beknopte extractie in de repo)
+    zijn het ijkpunt voor de consistentiecontrole in CI.
+    """
+    with open(SCHEMA_DIR / "pve_bron.json", encoding="utf-8") as f:
+        return json.load(f)
 
 
 @lru_cache
