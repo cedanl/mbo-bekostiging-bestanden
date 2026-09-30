@@ -5,9 +5,13 @@
 # optionele_achtervelden: de staart van velden die het PvE niet verplicht stelt
 # ("Verplicht: Nee"). Alleen die mogen aan het eind van een regel ontbreken; mist
 # een verplicht veld, dan faalt de ingest (#281).
+# verplicht = true op een recordtype: het bestand moet minstens één regel van dit
+# type bevatten (PvE: geen optioneel recordtype); ontbreekt het, dan faalt de
+# ingest (#322). Recordtypes zonder vlag (DIP, GEO, ...) mogen ontbreken.
 schema_version = "4.8.2"
 
 [VLP]
+verplicht = true
 single_row  = true
 fields      = ["Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 date_fields = ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
@@ -15,6 +19,7 @@ int_fields  = []
 domeinen = { BRIN = "brin" }
 
 [PER]
+verplicht = true
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht"]
 date_fields = ["Geboortedatum"]
 # PvE §15.5.2: dag of dag+maand mag 00 zijn (onbekend) (#206).
@@ -22,6 +27,7 @@ partial_date_fields = ["Geboortedatum"]
 int_fields  = []
 
 [ISG]
+verplicht = true
 fields = [
     "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
     "Inschrijvingvolgnummer", "DatumInschrijving", "DatumUitschrijvingGepland",
@@ -32,6 +38,7 @@ date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrij
 int_fields  = []
 
 [ISP]
+verplicht = true
 fields = [
     "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
     "Inschrijvingvolgnummer", "DatumBegin", "Opleidingcode",
@@ -122,6 +129,7 @@ int_fields  = []
 domeinen = { Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
 
 [SLR]
+verplicht = true
 single_row  = true
 fields = [
     "Recordsoort", "AantalPER", "AantalISG", "AantalISP",

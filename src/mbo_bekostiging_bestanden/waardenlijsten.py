@@ -81,7 +81,7 @@ def _binnen_domein(waarde: pl.Expr, domein: dict) -> pl.Expr:
 def controleer_waardedomeinen(
     frames: dict[str, pl.DataFrame], schema_name: str
 ) -> dict[str, dict[str, dict[str, int | str]]]:
-    """Tel per recordtype en veld de gevulde waarden buiten het domein.
+    """Tel per recordtype en veld de waarden buiten het domein.
 
     Args:
         frames:      Ruwe (tekst)frames per recordtype.
@@ -91,7 +91,9 @@ def controleer_waardedomeinen(
         Recordtype → veld → ``{"aantal": .., "ernst": ..}``; alleen niet-nul.
         ``ernst`` komt uit ``domein.<naam>.ernst`` in ``waardenlijsten.toml``
         (``"error"`` voor structurele velden zoals BRIN en Studiejaar,
-        anders ``"warning"``, #238).
+        anders ``"warning"``, #238). Bij een domein met ``verplicht = true``
+        telt een lege waarde ook mee in ``aantal`` en staat het aantal lege
+        waarden apart in ``leeg`` (#320); anders tellen lege waarden niet.
     """
     schema = load_schema(schema_name)
     domeinen = _laad()["domein"]
@@ -103,10 +105,18 @@ def controleer_waardedomeinen(
             domein = domeinen[naam]
             waarde = pl.col(veld).cast(pl.Utf8)
             gevuld = waarde.is_not_null() & (waarde.str.strip_chars() != "")
-            n = df.select((gevuld & ~_binnen_domein(waarde, domein)).sum()).item()
-            if n:
-                afwijkingen.setdefault(rt, {})[veld] = {
-                    "aantal": n,
+            buiten, leeg = df.select(
+                (gevuld & ~_binnen_domein(waarde, domein)).sum().alias("buiten"),
+                (~gevuld).sum().alias("leeg")
+                if domein.get("verplicht")
+                else pl.lit(0).alias("leeg"),
+            ).row(0)
+            if buiten or leeg:
+                afwijking: dict[str, int | str] = {
+                    "aantal": buiten + leeg,
                     "ernst": domein.get("ernst", ernst.WARNING),
                 }
+                if leeg:
+                    afwijking["leeg"] = leeg
+                afwijkingen.setdefault(rt, {})[veld] = afwijking
     return afwijkingen

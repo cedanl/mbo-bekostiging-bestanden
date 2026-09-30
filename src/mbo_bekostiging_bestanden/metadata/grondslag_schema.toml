@@ -5,9 +5,13 @@
 # optionele_achtervelden: de staart van velden die het PvE niet verplicht stelt
 # ("Verplicht: Nee"). Alleen die mogen aan het eind van een regel ontbreken; mist
 # een verplicht veld, dan faalt de ingest (#281).
+# verplicht = true op een recordtype: het bestand moet minstens één regel van dit
+# type bevatten (PvE: geen optioneel recordtype); ontbreekt het, dan faalt de
+# ingest (#322). Recordtypes zonder vlag (DIP, GEO, ...) mogen ontbreken.
 schema_version = "4.8.2"
 
 [VLP]
+verplicht = true
 # Afwijking van §17.5: echte leveringen hebben BRIN op positie 2 (zie demo-levering).
 single_row  = true
 fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
@@ -16,6 +20,7 @@ int_fields  = ["Studiejaar"]
 domeinen = { BRIN = "brin", Studiejaar = "studiejaar" }
 
 [PER]
+verplicht = true
 # Posities 19-21 staan niet in de PvE-spec maar wel in echte leveringen: meestal
 # gelijk aan Postcodecijfers/Verblijfstitel/Nationaliteit1, niet altijd. Hun
 # betekenis is onbekend; ze worden bewaard als <veld>_positie<n> (alleen in de
@@ -40,6 +45,7 @@ date_fields = ["DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederl
 int_fields  = ["Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4"]
 
 [ISG]
+verplicht = true
 fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
     "Inschrijvingvolgnummer", "DatumInschrijving",
@@ -51,6 +57,7 @@ int_fields  = []
 domeinen = { BRIN = "brin" }
 
 [ISP]
+verplicht = true
 fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
     "Inschrijvingvolgnummer", "DatumBegin", "DatumEind",
@@ -188,6 +195,7 @@ int_fields  = []
 domeinen = { BRIN = "brin", Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
 
 [SLR]
+verplicht = true
 single_row = true
 fields = [
     "Recordsoort",

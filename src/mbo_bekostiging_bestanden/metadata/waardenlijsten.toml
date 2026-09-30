@@ -17,13 +17,17 @@ nee = ["N", "0", "FALSE"]
 # waardenlijst (alle waarden van een lijst hierboven), leeg (veld hoort leeg).
 # Ernst (#238): "error" voor velden waar een afwijking op een verschoven
 # recordlayout wijst (BRIN, Studiejaar) — anders "warning" (default).
+# Verplicht (#320): het PvE schrijft het veld voor, dus een lege waarde telt als
+# afwijking; zonder deze vlag tellen lege waarden niet (optioneel veld).
 [domein.brin]
 patroon = '^[0-9]{2}[A-Z]{2}$'
 ernst = "error"
+verplicht = true
 
 [domein.studiejaar]
 patroon = '^[0-9]{4}$'
 ernst = "error"
+verplicht = true
 
 [domein.onderwijsaanbieder]
 patroon = '^[0-9]{3}A[0-9]{3}$'
@@ -49,5 +53,7 @@ waardenlijst = "indicatie_bekostigbaar"
 [domein.kzd_resultaat]
 waardenlijst = "kzd_resultaat"
 
+# Een gevulde waarde kan hier alleen door een verschoven layout komen (#287).
 [domein.leeg]
 leeg = true
+ernst = "error"

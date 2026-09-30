@@ -106,6 +106,14 @@ _REGELINVENTARIS_MELDINGEN = {
 }
 
 
+def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
+    """Aantal afwijkende waarden, met de lege waarden apart benoemd (#320)."""
+    leeg = afwijking.get("leeg")
+    if not leeg:
+        return afwijking["aantal"]
+    return f"{afwijking['aantal']} (waarvan leeg: {leeg})"
+
+
 @dataclass
 class QualityReport:
     """Gestructureerd kwaliteitsrapport per leveringsbestand."""
@@ -151,14 +159,14 @@ class QualityReport:
         """Neem waarden buiten hun domein op (``controleer_waardedomeinen``).
 
         Een afwijking met ``ernst == "error"`` (bijv. BRIN, Studiejaar: een
-        verschoven recordlayout, #238) meldt in ``errors``; de rest in
-        ``warnings``.
+        verschoven recordlayout, #238; lege verplichte waarden, #320) meldt in
+        ``errors``; de rest in ``warnings``.
         """
         self.domeinafwijkingen = afwijkingen
         for niveau, sleutel in ((ernst.ERROR, "errors"), (ernst.WARNING, "warnings")):
             gefilterd = {
                 rt: {
-                    veld: info["aantal"]
+                    veld: _aantal_tekst(info)
                     for veld, info in velden.items()
                     if info["ernst"] == niveau
                 }
