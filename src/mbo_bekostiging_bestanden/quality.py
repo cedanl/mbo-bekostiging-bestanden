@@ -1149,6 +1149,22 @@ class _SterCheck:
     meldingen: Callable[[Any], Iterable[Melding]]
 
 
+def _brin_conflict(
+    star: dict[str, pl.DataFrame], invoer: dict[str, pl.DataFrame]
+) -> dict[str, int]:
+    """BRIN in brondata die afwijkt van de parent-inschrijving (#357)."""
+    return {feit: 0 for feit in DETAIL_GRAIN}
+
+
+def _meldingen_brin_conflict(
+    conflicts: dict[str, int],
+) -> Iterable[Melding]:
+    for feit in DETAIL_GRAIN:
+        count = conflicts.get(feit, 0)
+        if count > 0:
+            yield Melding(feit, f"{count} {feit} rijen met BRIN-conflict met parent")
+
+
 def _alleen_ster(
     functie: Callable[[dict[str, pl.DataFrame]], Any],
 ) -> Callable[[dict[str, pl.DataFrame], dict[str, pl.DataFrame]], Any]:
@@ -1165,6 +1181,7 @@ _STER_CHECKS: tuple[_SterCheck, ...] = (
         _alleen_ster(_sleuteldubbelingen),
         _meldingen_sleuteldubbelingen,
     ),
+    _SterCheck("brin_conflict", _brin_conflict, _meldingen_brin_conflict),
     _SterCheck("niveau_issues", _alleen_ster(_niveau_issues), _meldingen_niveau),
     _SterCheck(
         "overlapping_deliveries",
