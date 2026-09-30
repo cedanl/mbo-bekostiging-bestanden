@@ -1162,7 +1162,11 @@ def _meldingen_brin_conflict(
     for feit in DETAIL_GRAIN:
         count = conflicts.get(feit, 0)
         if count > 0:
-            yield Melding(feit, f"{count} {feit} rijen met BRIN-conflict met parent")
+            yield Melding(
+                ernst.WARNING,
+                _BRON_STER,
+                f"{count} {feit} rijen met BRIN-conflict met parent",
+            )
 
 
 def _alleen_ster(
