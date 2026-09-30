@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from mbo_bekostiging_bestanden.metadata import SCHEMA_DIR, schema_versie
+from mbo_bekostiging_bestanden.metadata import pve_bron
 from mbo_bekostiging_bestanden.pipeline import detect_bestandstype, run_star
 from mbo_bekostiging_bestanden.referentiedata import METADATA
 
@@ -35,12 +35,6 @@ def star_run(demo_prepared, tmp_path_factory) -> tuple[Path, dict]:
     return doel, star
 
 
-def test_schema_versie_komt_uit_het_schema():
-    for pad in SCHEMA_DIR.glob("*_schema.toml"):
-        naam = pad.stem.removesuffix("_schema")
-        assert f'schema_version = "{schema_versie(naam)}"' in pad.read_text()
-
-
 def test_prepared_quality_noemt_bronbestand_met_hash(demo_prepared):
     _, dirs = demo_prepared
     for levering in dirs:
@@ -51,7 +45,7 @@ def test_prepared_quality_noemt_bronbestand_met_hash(demo_prepared):
         assert rapport["bronbestand"] == {
             "naam": ruw.name,
             "sha256": _sha256(ruw),
-            "pve_versie": schema_versie(bestandstype),
+            "pve_versie": pve_bron()["versie"],
         }
 
 

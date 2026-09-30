@@ -1,4 +1,5 @@
-# Gecodeerde veldwaarden uit de DUO PvE MBO-instelling v4.8.2 en de waardedomeinen
+# Gecodeerde veldwaarden uit het DUO PvE MBO-instelling (versie in pve_bron.json)
+# en de waardedomeinen
 # per veld. Waarden staan in genormaliseerde vorm: hoofdletters, enkele spaties.
 # RO (§15.5.10) schrijft "Behaald"/"Niet behaald", GRONDSLAG (§17.5) "BEHAALD"/"NIET BEHAALD".
 

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.metadata import schema_versie
+from mbo_bekostiging_bestanden.metadata import pve_bron
 from mbo_bekostiging_bestanden.referentiedata import manifest_pad, sha256
 
 if TYPE_CHECKING:
@@ -25,13 +25,13 @@ PAKKET = "mbo-bekostiging-bestanden"
 _PAKKETMAP = Path(__file__).parent
 
 
-def bronbestand(pad: Path, schema_naam: str) -> dict[str, str]:
-    """Naam, sha256 en PvE-versie van een ruw leveringsbestand."""
-    return {
-        "naam": pad.name,
-        "sha256": sha256(pad),
-        "pve_versie": schema_versie(schema_naam),
-    }
+def bronbestand(pad: Path) -> dict[str, str]:
+    """Naam, sha256 en de PvE-versie waarmee het bestand is ingelezen.
+
+    ``pve_versie`` is die van de schema's (``pve_bron.json``), geen versie die
+    uit het bestand zelf is vastgesteld: DUO zet die er niet in.
+    """
+    return {"naam": pad.name, "sha256": sha256(pad), "pve_versie": pve_bron()["versie"]}
 
 
 def pakketversie() -> str | None:

@@ -17,11 +17,6 @@ def _lees_schema(name: str) -> dict:
         return tomllib.load(f)
 
 
-def schema_versie(name: str) -> str:
-    """PvE-versie waarop het schema gebaseerd is (``schema_version``, #300)."""
-    return _lees_schema(name)["schema_version"]
-
-
 def bestandsnaam_patroon(name: str) -> str | None:
     """Regex op de bestandsnaam met named groups voor ``uit_bestandsnaam`` (#236)."""
     return _lees_schema(name).get("bestandsnaam")
@@ -30,6 +25,8 @@ def bestandsnaam_patroon(name: str) -> str | None:
 @lru_cache
 def pve_bron() -> dict[str, str]:
     """De PvE-bron waarop de schema's zijn gebaseerd (``pve_bron.json``, #299).
+
+    De enige plek met de PvE-versie; de schema's herhalen haar niet (#298).
 
     ``versie`` en ``sha256`` (van ``bestand``, de beknopte extractie in de repo)
     zijn het ijkpunt voor de consistentiecontrole in CI.

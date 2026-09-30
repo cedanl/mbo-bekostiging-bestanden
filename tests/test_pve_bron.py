@@ -1,8 +1,8 @@
 """De PvE-bron is één manifest waar schema's en bronbestand aan vastzitten (#299).
 
-De 4.8.2→4.8.3-drift werd handmatig gevonden. Deze test breekt in CI zodra een
-schema een andere versie noemt dan het manifest, of het bronbestand verandert
-zonder dat het manifest is bijgewerkt.
+De 4.8.2→4.8.3-drift werd handmatig gevonden. Deze test breekt in CI zodra het
+bronbestand verandert zonder dat het manifest is bijgewerkt; dat de schema's de
+versie niet zelf herhalen, toetst ``test_pve_versie.py`` (#298).
 """
 
 import hashlib
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from mbo_bekostiging_bestanden.metadata import pve_bron, schema_versie
+from mbo_bekostiging_bestanden.metadata import pve_bron
 
 _REPO = Path(__file__).parent.parent
 _SCRIPT = _REPO / "scripts" / "controleer_pve_upstream.py"
@@ -24,11 +24,6 @@ def _upstream_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-@pytest.mark.parametrize("schema", ["ro", "grondslag", "tbgi"])
-def test_schema_verwijst_naar_de_versie_in_het_manifest(schema):
-    assert schema_versie(schema) == pve_bron()["versie"]
 
 
 def test_bronbestand_komt_overeen_met_het_manifest():
