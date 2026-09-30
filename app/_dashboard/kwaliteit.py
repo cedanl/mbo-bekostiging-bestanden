@@ -52,8 +52,9 @@ def toon(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None:
     if conformiteit:
         st.caption(
             f"Indicatoren (JR/DR): **{conformiteit['indicatoren']}**, geen formele "
-            f"Inspectie-uitkomst · privacyprofiel: {conformiteit['privacyprofiel']} "
-            f"· PvE-schema: {conformiteit['pve_schema'].replace('_', ' ')}"
+            f"Inspectie-uitkomst · PvE-versie: {conformiteit.get('pve_versie', '?')} "
+            f"({conformiteit.get('pve_inhoudelijke_conformiteit', '?').replace('_', ' ')}) "
+            f"· privacyprofiel: {conformiteit['privacyprofiel']}"
         )
     with st.expander("Kwaliteitsmeldingen en bronleveringen"):
         chart_help("kwaliteit")
