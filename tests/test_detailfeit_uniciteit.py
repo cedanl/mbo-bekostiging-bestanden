@@ -108,6 +108,14 @@ def test_brin_komt_van_de_parent_inschrijving(twee_instellingen):
     assert (bpv["BRIN"] == bpv["parent"]).all()
 
 
+def test_brin_conflict_tussen_detail_en_parent_melden(twee_instellingen):
+    """BRIN die in brondata afwijkt van de parent is een conflict (#357)."""
+    star, invoer = twee_instellingen
+    rapport = compile_quality_report(star, invoer=invoer)
+    # De check registreren: controleert brin_conflict in het rapport
+    assert "brin_conflict" in rapport["star"]
+
+
 def test_datamodel_docs_noemen_dezelfde_business_key():
     """``docs/datamodel.md`` en ``DETAIL_GRAIN`` zijn één contract (#327)."""
     tekst = Path("docs/datamodel.md").read_text(encoding="utf-8")

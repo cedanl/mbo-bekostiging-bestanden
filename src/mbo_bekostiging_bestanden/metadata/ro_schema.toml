@@ -15,7 +15,7 @@ single_row  = true
 fields      = ["Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 date_fields = ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 int_fields  = []
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", DatumBeginPeriode = "datum_verplicht" }
 
 [PER]
 verplicht = true

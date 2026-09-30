@@ -401,6 +401,13 @@
             "additionalProperties": false
           }
         },
+        "brin_conflict": {
+          "type": "object",
+          "description": "Per detailfeit: rijen waarvan de bron-BRIN afwijkt van de parent-inschrijving (#357)",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
         "overlapping_deliveries": {
           "type": "array",
           "description": "Inschrijvingen (BRIN × _persoon_id × Inschrijvingvolgnummer) die na canonicalisatie nog in meer dan één levering staan. Elke treffer is dubbeltelling en maakt de status 'fail'.",
@@ -740,6 +747,7 @@
       "required": [
         "orphaned_facts",
         "key_duplicates",
+        "brin_conflict",
         "overlapping_deliveries",
         "niveau_issues",
         "canonicalisatie",
