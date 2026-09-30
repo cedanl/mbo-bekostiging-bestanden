@@ -124,11 +124,13 @@ def lees_status(quality_json: Path | str) -> tuple[str, int]:
     return samenvatting["status"], samenvatting["total_errors"]
 
 
-# Deelaantallen van een domeinafwijking en hun tekst in de melding.
+# Deelaantallen van een domeinafwijking en hun tekst in de melding. Lege
+# waarden apart sinds #320; buiten de geldigheidsperiode, of niet controleerbaar
+# bij een ontbrekende peildatum, sinds #325.
 _DEELAANTALLEN = {
-    "leeg": "waarvan leeg",  # lege waarden onderscheiden in #320
-    "buiten_geldigheid": "waarvan buiten hun geldigheid",  # geldigheidsperiode apart in #325
-    "zonder_peildatum": "zonder peildatum voor de geldigheid",  # geldigheid niet controleerbaar in #325
+    "leeg": "waarvan leeg",
+    "buiten_geldigheid": "waarvan buiten hun geldigheid",
+    "zonder_peildatum": "zonder peildatum voor de geldigheid",
 }
 
 
