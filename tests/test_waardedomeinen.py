@@ -19,9 +19,9 @@ from mbo_bekostiging_bestanden.waardenlijsten import controleer_waardedomeinen
 
 DEMO = Path("data/01-raw/demo")
 
-# RO-DIP met positie 7 (_onbekend, altijd leeg); zonder die positie schuift alles op.
+# RO-DIP in de praktijklayout (positie 7 leeg) en de officiële PvE-layout (#321).
 DIP_MET_POS_7 = "DIP|BSN1||8286771|25655|2025-06-15||J|1|101A741"
-DIP_ZONDER_POS_7 = "DIP|BSN1||8286771|25655|2025-06-15|J|1|101A741"
+DIP_OFFICIEEL = "DIP|BSN1||8286771|25655|2025-06-15|J|1|101A741"
 # Alle verplichte recordtypes (#322); ``{vlp}`` en ``{dip}`` zijn het variabele deel.
 _RO = (
     "{vlp}\nPER|BSN1||2001-05-17|V\nISG|BSN1||1|2025-08-01|2027-07-31||\n"
@@ -37,17 +37,18 @@ def _ro_frames(tmp_path: Path, dip: str) -> dict[str, pl.DataFrame]:
     return read_ro(pad)
 
 
-def test_dip_zonder_positie_7_wordt_gesignaleerd(tmp_path):
-    """``J`` schuift naar ``_onbekend``; ``1`` naar IndicatieBekostigbaar is toevallig
-    ook geldig, dus juist het verplicht lege veld verraadt de verschuiving."""
-    frames = _ro_frames(tmp_path, DIP_ZONDER_POS_7)
+def test_gevulde_positie_7_is_een_error():
+    """Vangnet naast de layoutherkenning (#287): die laat zo'n regel niet door,
+    maar een frame van buiten de ingest kan het nog bevatten."""
+    frames = {"DIP": pl.DataFrame({"_onbekend": ["J", ""]})}
     assert controleer_waardedomeinen(frames, "ro") == {
         "DIP": {"_onbekend": {"aantal": 1, "ernst": "error"}}
     }
 
 
-def test_dip_volgens_praktijklayout_heeft_geen_afwijking(tmp_path):
-    assert controleer_waardedomeinen(_ro_frames(tmp_path, DIP_MET_POS_7), "ro") == {}
+@pytest.mark.parametrize("dip", [DIP_MET_POS_7, DIP_OFFICIEEL])
+def test_dip_in_beide_layouts_heeft_geen_afwijking(tmp_path, dip):
+    assert controleer_waardedomeinen(_ro_frames(tmp_path, dip), "ro") == {}
 
 
 def test_waarden_worden_genormaliseerd_vergeleken():
@@ -64,17 +65,15 @@ def test_lege_waarden_tellen_niet():
     assert controleer_waardedomeinen(frames, "ro") == {}
 
 
-def test_pipeline_meldt_verschoven_dip_als_error(tmp_path):
+def test_pipeline_leest_officiele_dip_zonder_meldingen(tmp_path):
+    """Vóór #321 schoof deze regel één kolom op en meldde de pipeline een error."""
     bron = tmp_path / "RO_99XX_20250801_20260731.csv"
-    bron.write_text(_RO.format(vlp=_VLP, dip=DIP_ZONDER_POS_7), encoding="utf-8")
+    bron.write_text(_RO.format(vlp=_VLP, dip=DIP_OFFICIEEL), encoding="utf-8")
     doel = tmp_path / "prepared"
     run_auto_pipeline(bron, doel)
     rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
-    assert rapport["domeinafwijkingen"]["DIP"]["_onbekend"] == {
-        "aantal": 1,
-        "ernst": "error",
-    }
-    assert any("_onbekend" in e for e in rapport["errors"])
+    assert rapport["domeinafwijkingen"] == {}
+    assert rapport["layoutvarianten"] == {"DIP": {"variant": "officieel"}}
 
 
 @pytest.mark.parametrize(

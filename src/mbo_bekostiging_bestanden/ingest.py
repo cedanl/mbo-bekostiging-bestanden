@@ -1,13 +1,22 @@
 """Inlezen van ruwe bekostigingsbestanden."""
 
+import re
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.metadata import extra_kolommen, load_schema
+from mbo_bekostiging_bestanden.metadata import (
+    bestandsnaam_patroon,
+    extra_kolommen,
+    load_schema,
+)
+from mbo_bekostiging_bestanden.waardenlijsten import voldoet_aan_domein
 
 _XSI_NIL = "{http://www.w3.org/2001/XMLSchema-instance}nil"
+# Naam van de standaardlayout als het schema er geen noemt (``layout``).
+_STANDAARD_LAYOUT = "standaard"
 
 # TBGI: velden die een kind-rij (Teldatum, BPV, Signaal) van zijn ouder erft.
 _TBGI_PERSOON = ("BRIN", "Burgerservicenummer", "Onderwijsnummer")
@@ -39,27 +48,6 @@ def _normalize_row(row: list[str], n: int) -> list[str]:
     return row + [""] * (n - len(row))
 
 
-def _velden_voorbij_schema(
-    fields: list[str], kolommen: list[str], spiegelvelden: list[str]
-) -> list[str]:
-    """Gevulde velden voorbij schema + gedeclareerde spiegelvelden (#257).
-
-    Spiegelvelden (posities buiten het PvE, zie schema-TOML) tellen niet mee:
-    ze worden als eigen kolom ingelezen (#260).
-    """
-    return fields[len(kolommen) + len(spiegelvelden) :]
-
-
-def _ontbrekende_verplichte_velden(fields: list[str], recordschema: dict) -> list[str]:
-    """Velden achter het einde van de regel die niet optioneel zijn (#281).
-
-    Lege achtervelden vallen bij het inlezen weg (zie :func:`_lees_regels`),
-    dus "ontbreekt" betekent hier: afwezig of leeg.
-    """
-    optioneel = set(recordschema.get("optionele_achtervelden", []))
-    return [v for v in recordschema["fields"][len(fields) :] if v not in optioneel]
-
-
 def _lees_regels(path: Path) -> list[list[str]]:
     """Niet-lege regels van een multi-record CSV, gesplitst op het scheidingsteken.
 
@@ -84,6 +72,197 @@ def _lees_regels(path: Path) -> list[list[str]]:
     return [line.rstrip(sep).split(sep) for line in lines]
 
 
+@dataclass(frozen=True)
+class _Layout:
+    """Eén veldvolgorde van een recordtype (zie ``layout``/``varianten`` in het schema).
+
+    ``kolommen`` zijn de posities die de layout vult: ``fields`` plus, bij de
+    standaardlayout, de spiegelkolommen (:func:`extra_kolommen`).
+    """
+
+    naam: str
+    fields: list[str]
+    kolommen: list[str]
+    optioneel: frozenset[str]
+    uit_bestandsnaam: tuple[str, ...] = ()
+
+
+def _layouts(recordschema: dict) -> list[_Layout]:
+    """De standaardlayout, gevolgd door de varianten uit het schema (#236, #321)."""
+    optioneel = frozenset(recordschema.get("optionele_achtervelden", []))
+    standaard = _Layout(
+        naam=recordschema.get("layout", _STANDAARD_LAYOUT),
+        fields=recordschema["fields"],
+        kolommen=[*recordschema["fields"], *extra_kolommen(recordschema)],
+        optioneel=optioneel,
+    )
+    varianten = [
+        _Layout(
+            naam=naam,
+            fields=variant["fields"],
+            kolommen=variant["fields"],
+            optioneel=optioneel,
+            uit_bestandsnaam=tuple(variant.get("uit_bestandsnaam", [])),
+        )
+        for naam, variant in recordschema.get("varianten", {}).items()
+    ]
+    return [standaard, *varianten]
+
+
+def _lengtefout(fields: list[str], layout: _Layout) -> str | None:
+    """Fail-closed op de regellengte (#257, #281).
+
+    Lege achtervelden vallen bij het inlezen weg (zie :func:`_lees_regels`),
+    dus een ontbrekend veld is afwezig of leeg; alleen ``optionele_achtervelden``
+    mogen dat zijn.
+    """
+    extra = fields[len(layout.kolommen) :]
+    if any(extra):
+        return f"heeft gevulde velden voorbij de schemabreedte: {extra}"
+    ontbrekend = [v for v in layout.fields[len(fields) :] if v not in layout.optioneel]
+    if ontbrekend:
+        return f"mist verplichte velden aan het eind (afwezig of leeg): {ontbrekend}"
+    return None
+
+
+def _herkenningsfouten(
+    regels: list[tuple[int, list[str]]], layout: _Layout, recordschema: dict
+) -> list[list[str]]:
+    """Per regel de ``herkenning``-velden die in ``layout`` buiten hun domein vallen."""
+    velden = [v for v in recordschema.get("herkenning", []) if v in layout.fields]
+    if not velden:
+        return [[] for _ in regels]
+    positie = {veld: layout.fields.index(veld) for veld in velden}
+    waarden = pl.DataFrame(
+        {
+            veld: [_normalize_row(f, i + 1)[i] for _, f in regels]
+            for veld, i in positie.items()
+        },
+        schema=dict.fromkeys(velden, pl.Utf8),
+    )
+    passend = waarden.select(
+        voldoet_aan_domein(pl.col(veld), recordschema["domeinen"][veld])
+        for veld in velden
+    )
+    return [
+        [veld for veld, past in zip(velden, rij, strict=True) if not past]
+        for rij in passend.iter_rows()
+    ]
+
+
+def _passingsfouten(
+    regels: list[tuple[int, list[str]]], layout: _Layout, recordschema: dict
+) -> list[str | None]:
+    """Per regel waarom hij niet op ``layout`` past, of ``None``."""
+    herkenning = _herkenningsfouten(regels, layout, recordschema)
+    return [
+        _lengtefout(fields, layout)
+        or (f"waarden buiten hun domein in {buiten}" if buiten else None)
+        for (_, fields), buiten in zip(regels, herkenning, strict=True)
+    ]
+
+
+def _kies_layout(
+    path: Path, rt: str, regels: list[tuple[int, list[str]]], recordschema: dict
+) -> _Layout:
+    """De ene layout waarop alle regels van ``rt`` passen; anders ``ValueError``.
+
+    Een regel die op geen of op meer dan één layout past, zou stil in verkeerde
+    kolommen landen; dat is altijd een error. Gemengde layouts binnen één
+    bestand ook: één levering komt uit één aanmaakproces.
+    """
+    layouts = _layouts(recordschema)
+    fouten = {
+        layout.naam: _passingsfouten(regels, layout, recordschema) for layout in layouts
+    }
+    gekozen: set[str] = set()
+    for i, (regelnr, _) in enumerate(regels):
+        passend = [naam for naam, per_regel in fouten.items() if per_regel[i] is None]
+        if len(passend) == 1:
+            gekozen.add(passend[0])
+            continue
+        plek = f"{path}: regel {regelnr} ({rt})"
+        if len(layouts) == 1:
+            raise ValueError(f"{plek} {fouten[layouts[0].naam][i]}")
+        if not passend:
+            details = "; ".join(
+                f"{naam}: {per_regel[i]}" for naam, per_regel in fouten.items()
+            )
+            raise ValueError(f"{plek} past op geen enkele layout ({details})")
+        raise ValueError(f"{plek} past op meer dan één layout: {passend}")
+    if len(gekozen) > 1:
+        raise ValueError(
+            f"{path}: {rt} gebruikt meerdere layouts in één bestand: {sorted(gekozen)}"
+        )
+    return next(layout for layout in layouts if layout.naam in gekozen)
+
+
+def _uit_bestandsnaam(
+    path: Path, schema_name: str, velden: tuple[str, ...]
+) -> dict[str, str]:
+    """Waarden die een layout niet in de regel heeft, wel in de bestandsnaam (#236)."""
+    if not velden:
+        return {}
+    patroon = bestandsnaam_patroon(schema_name)
+    match = re.match(patroon, path.name) if patroon else None
+    gevonden = match.groupdict() if match else {}
+    if any(not gevonden.get(veld) for veld in velden):
+        raise ValueError(
+            f"{path}: de layout haalt {list(velden)} uit de bestandsnaam, maar "
+            f"{path.name!r} volgt het patroon {patroon!r} niet"
+        )
+    return {veld: gevonden[veld] for veld in velden}
+
+
+def _naar_frame(
+    regels: list[tuple[int, list[str]]],
+    layout: _Layout,
+    standaard: _Layout,
+    aanvulling: dict[str, str],
+) -> pl.DataFrame:
+    """Regels in ``layout`` als frame met de kolommen van de standaardlayout."""
+    rijen = [_normalize_row(f, len(layout.kolommen)) for _, f in regels]
+    positie = {kolom: i for i, kolom in enumerate(layout.kolommen)}
+    return pl.DataFrame(
+        {
+            kolom: [r[positie[kolom]] for r in rijen]
+            if kolom in positie
+            else [aanvulling.get(kolom, "")] * len(rijen)
+            for kolom in standaard.kolommen
+        },
+        schema=dict.fromkeys(standaard.kolommen, pl.Utf8),
+    )
+
+
+def _parseer(
+    path: Path, schema_name: str
+) -> tuple[dict[str, pl.DataFrame], dict[str, dict]]:
+    """Frames per recordtype en, per recordtype met varianten, de gekozen layout."""
+    schema = load_schema(schema_name)
+    regels_per_type: dict[str, list[tuple[int, list[str]]]] = {rt: [] for rt in schema}
+    for regelnr, fields in enumerate(_lees_regels(path), start=1):
+        rt = fields[0]
+        if rt not in regels_per_type:
+            raise ValueError(
+                f"{path}: regel {regelnr} heeft een onbekend recordtype {rt!r}"
+            )
+        regels_per_type[rt].append((regelnr, fields))
+
+    frames: dict[str, pl.DataFrame] = {}
+    varianten: dict[str, dict] = {}
+    for rt, regels in regels_per_type.items():
+        if not regels:
+            continue
+        layout = _kies_layout(path, rt, regels, schema[rt])
+        aanvulling = _uit_bestandsnaam(path, schema_name, layout.uit_bestandsnaam)
+        frames[rt] = _naar_frame(regels, layout, _layouts(schema[rt])[0], aanvulling)
+        if "varianten" in schema[rt]:
+            varianten[rt] = {"variant": layout.naam}
+            if aanvulling:
+                varianten[rt]["uit_bestandsnaam"] = aanvulling
+    return frames, varianten
+
+
 def read_multi_record_csv(
     path: str | Path,
     schema_name: str,
@@ -99,6 +278,10 @@ def read_multi_record_csv(
     genegeerd, afgeknipt of aangevuld. Alleen de ``optionele_achtervelden``
     van een recordtype mogen aan het eind ontbreken; die worden leeg aangevuld.
 
+    Een recordtype met ``varianten`` (#236, #321) wordt per regel aan één
+    layout toegewezen; welke staat in :func:`layoutvarianten`. De kolomset is
+    altijd die van de standaardlayout.
+
     Args:
         path:        Pad naar het bronbestand.
         schema_name: Naam van het schema (bijv. ``"ro"`` of ``"grondslag"``).
@@ -109,46 +292,21 @@ def read_multi_record_csv(
     Raises:
         FileNotFoundError: Als het bronbestand of schema niet bestaat.
         ValueError: Als het bestand leeg is, een regel een onbekend
-            recordtype heeft, of een regel een gevuld veld heeft voorbij de
-            schemabreedte, of een regel een verplicht achterveld mist.
+            recordtype heeft, een gevuld veld voorbij de schemabreedte of een
+            ontbrekend verplicht achterveld heeft, of niet eenduidig op één
+            layout past.
     """
-    schema = load_schema(schema_name)
+    return _parseer(Path(path), schema_name)[0]
 
-    rows_by_type: dict[str, list[list[str]]] = {rt: [] for rt in schema}
-    for regelnr, fields in enumerate(_lees_regels(Path(path)), start=1):
-        rt = fields[0]
-        if rt not in rows_by_type:
-            raise ValueError(
-                f"{path}: regel {regelnr} heeft een onbekend recordtype {rt!r}"
-            )
-        kolommen = schema[rt]["fields"]
-        spiegelvelden = schema[rt].get("spiegelvelden", [])
-        extra = _velden_voorbij_schema(fields, kolommen, spiegelvelden)
-        if any(extra):
-            raise ValueError(
-                f"{path}: regel {regelnr} ({rt}) heeft gevulde velden voorbij "
-                f"de schemabreedte: {extra}"
-            )
-        ontbrekend = _ontbrekende_verplichte_velden(fields, schema[rt])
-        if ontbrekend:
-            raise ValueError(
-                f"{path}: regel {regelnr} ({rt}) mist verplichte velden aan het "
-                f"eind (afwezig of leeg): {ontbrekend}"
-            )
-        rows_by_type[rt].append(fields)
 
-    result: dict[str, pl.DataFrame] = {}
-    for rt, rows in rows_by_type.items():
-        if not rows:
-            continue
-        cols = [*schema[rt]["fields"], *extra_kolommen(schema[rt])]
-        n = len(cols)
-        normalized = [_normalize_row(row, n) for row in rows]
-        result[rt] = pl.DataFrame(
-            {col: [r[i] for r in normalized] for i, col in enumerate(cols)}
-        )
+def layoutvarianten(path: str | Path, schema_name: str) -> dict[str, dict]:
+    """Per recordtype met varianten: de gekozen layout, voor ``quality.json``.
 
-    return result
+    ``{"VLP": {"variant": "officieel", "uit_bestandsnaam": {"BRIN": "97XX"}}}``:
+    waarden uit de bestandsnaam zijn een provenance-beslissing, geen stille
+    aanname (#236).
+    """
+    return _parseer(Path(path), schema_name)[1]
 
 
 def inventariseer_regels(path: str | Path, schema_name: str) -> dict:

@@ -78,6 +78,20 @@ def _binnen_domein(waarde: pl.Expr, domein: dict) -> pl.Expr:
     return _normaliseer(waarde).is_in(waarden)
 
 
+def voldoet_aan_domein(waarde: pl.Expr, naam: str) -> pl.Expr:
+    """Strikt: gevuld en binnen het domein, of leeg bij een ``leeg``-domein.
+
+    Voor de layoutherkenning (#236, #321): anders dan bij
+    :func:`controleer_waardedomeinen` telt een lege waarde hier als niet passend,
+    zodat een verschoven regel niet via een leeg veld toch past.
+    """
+    domein = waardedomein(naam)
+    gevuld = waarde.is_not_null() & (waarde.str.strip_chars() != "")
+    if domein.get("leeg"):
+        return ~gevuld
+    return gevuld & _binnen_domein(waarde, domein)
+
+
 def controleer_waardedomeinen(
     frames: dict[str, pl.DataFrame], schema_name: str
 ) -> dict[str, dict[str, dict[str, int | str]]]:

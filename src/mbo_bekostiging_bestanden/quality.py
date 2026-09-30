@@ -148,6 +148,8 @@ class QualityReport:
     slr_status: str = "unknown"  # match | mismatch | unknown | not_applicable
     parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
     regelinventaris: dict[str, dict] = field(default_factory=dict)
+    # Gekozen layout per recordtype met varianten (``ingest.layoutvarianten``).
+    layoutvarianten: dict[str, dict] = field(default_factory=dict)
     domeinafwijkingen: dict[str, dict[str, dict[str, int | str]]] = field(
         default_factory=dict
     )
@@ -211,6 +213,7 @@ class QualityReport:
             "slr_details": self.slr_checks,
             "parseverlies": self.parseverlies,
             "regelinventaris": self.regelinventaris,
+            "layoutvarianten": self.layoutvarianten,
             "domeinafwijkingen": self.domeinafwijkingen,
             "warnings": self.warnings,
             "errors": self.errors,
@@ -269,6 +272,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         slr_checks=data.get("slr_details", {}),
         parseverlies=data.get("parseverlies", {}),
         regelinventaris=data.get("regelinventaris", {}),
+        layoutvarianten=data.get("layoutvarianten", {}),
         domeinafwijkingen=data.get("domeinafwijkingen", {}),
         warnings=data.get("warnings", []),
         errors=data.get("errors", []),

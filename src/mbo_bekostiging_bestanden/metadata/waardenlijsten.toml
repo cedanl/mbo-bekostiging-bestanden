@@ -48,6 +48,12 @@ buiten_indicatorpopulatie = ["OVO", "ODT"]
 [domein.status_bepaling_bekostigingsstatus]
 waarden = ["D", "V"]
 
+# PvE §17.5 VLP: voorlopige (V) of definitieve (D) bekostiging.
+[domein.bekostigingstype]
+waarden = ["V", "D"]
+ernst = "error"
+verplicht = true
+
 # PvE §16.6: voortgezet onderwijs of mbo.
 [domein.leerroutefase]
 waarden = ["VO", "MBO"]

@@ -119,6 +119,38 @@
             },
             "additionalProperties": false
           },
+          "layoutvarianten": {
+            "type": "object",
+            "description": "Per recordtype met meer dan één bewezen veldvolgorde: de gekozen layout en de waarden die uit de bestandsnaam komen (#236, #321)",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "variant": {
+                  "type": "string"
+                },
+                "uit_bestandsnaam": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "variant"
+              ],
+              "additionalProperties": false
+            },
+            "examples": [
+              {
+                "VLP": {
+                  "variant": "officieel",
+                  "uit_bestandsnaam": {
+                    "BRIN": "97XX"
+                  }
+                }
+              }
+            ]
+          },
           "domeinafwijkingen": {
             "type": "object",
             "description": "Per recordtype en veld: gevulde waarden buiten hun waardedomein (#205), met ernst (#238)",

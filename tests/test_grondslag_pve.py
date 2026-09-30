@@ -6,7 +6,9 @@ waarde per positie. Parsing is positioneel: een verkeerde veldvolgorde in
 dat niet aantonen (geen AMO, lege KZD-velden na ``Resultaat``).
 
 Afwijking van het PvE, gedreven door de praktijk: VLP heeft in echte leveringen
-een ``BRIN`` op positie 2 (zie de demo-levering).
+een ``BRIN`` op positie 2 (zie de demo-levering). Deze fixture volgt die
+praktijkvariant; de officiële VLP zonder BRIN staat, met een oracle rechtstreeks
+uit §17.5, in ``tests/test_layoutvarianten.py`` (#236).
 """
 
 from datetime import date
