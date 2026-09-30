@@ -50,10 +50,13 @@ def toon(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None:
     )
     conformiteit = rapport.get("conformiteit")
     if conformiteit:
+        inhoud = str(conformiteit.get("pve_inhoudelijke_conformiteit", "?")).replace(
+            "_", " "
+        )
+        versie = conformiteit.get("pve_versie", "?")
         st.caption(
             f"Indicatoren (JR/DR): **{conformiteit['indicatoren']}**, geen formele "
-            f"Inspectie-uitkomst · PvE-versie: {conformiteit.get('pve_versie', '?')} "
-            f"({conformiteit.get('pve_inhoudelijke_conformiteit', '?').replace('_', ' ')}) "
+            f"Inspectie-uitkomst · PvE-versie: {versie} ({inhoud}) "
             f"· privacyprofiel: {conformiteit['privacyprofiel']}"
         )
     with st.expander("Kwaliteitsmeldingen en bronleveringen"):
