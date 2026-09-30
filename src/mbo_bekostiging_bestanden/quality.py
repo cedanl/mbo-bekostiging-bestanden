@@ -37,6 +37,7 @@ from mbo_bekostiging_bestanden.contracts import (
 )
 from mbo_bekostiging_bestanden.filters import detail_zonder_inschrijving
 from mbo_bekostiging_bestanden.koppelingen import UNIEK
+from mbo_bekostiging_bestanden.metadata import pve_bron
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
 from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
 from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
@@ -141,8 +142,11 @@ def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
 # Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.
 # JR/DR zijn proxy's tot #296 besloten is; de waarde staat hier op één plek.
 INDICATOREN_STATUS = "proxy"
-# Nog geen gepinde PvE-bron om tegen te toetsen (#299): niet raden.
-PVE_SCHEMA_STATUS = "niet_beoordeeld"
+# Manifest-hash en upstream-check van de PvE-bron draaien in CI (#364, #299);
+# `test_pve_bron.py` en de `pve-upstream`-workflow breken zodra de bron afwijkt.
+PVE_BRON_INTEGRITEIT = "pass"
+# Veldconformiteit en businessregelconformiteit nog niet formeel afgetekend (#364).
+PVE_INHOUDELIJKE_CONFORMITEIT = "niet_beoordeeld"
 # DUO heeft niet bevestigd dat het omgenummerde GRONDSLAG-PGN over studiejaren
 # gelijk blijft (#128); de koppeling neemt aan van wel.
 PGN_STABILITEIT = "onbekend"
@@ -652,7 +656,9 @@ def compile_quality_report(
         "provenance": run_provenance()
         | {"kwaliteitsfouten_toegestaan": fouten_toegestaan},
         "conformiteit": {
-            "pve_schema": PVE_SCHEMA_STATUS,
+            "pve_versie": pve_bron()["versie"],
+            "pve_bron_integriteit": PVE_BRON_INTEGRITEIT,
+            "pve_inhoudelijke_conformiteit": PVE_INHOUDELIJKE_CONFORMITEIT,
             "indicatoren": INDICATOREN_STATUS,
             "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
             "pgn_stabiliteit": PGN_STABILITEIT,

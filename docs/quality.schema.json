@@ -256,9 +256,17 @@
       "type": "object",
       "description": "Wat de uitkomst betekent, naast of ze technisch klopt (#331)",
       "properties": {
-        "pve_schema": {
-          "enum": ["pass", "warn", "fail", "niet_beoordeeld"],
-          "description": "Schema-versie tegen de gepinde PvE-bron; niet_beoordeeld zolang die controle er niet is (#299)"
+        "pve_versie": {
+          "type": "string",
+          "description": "Gebruikte PvE-bron versie, bijv. 4.8.3 (#364)"
+        },
+        "pve_bron_integriteit": {
+          "enum": ["pass", "fail"],
+          "description": "Manifest-hash en upstream-check van PvE-bron (#364)"
+        },
+        "pve_inhoudelijke_conformiteit": {
+          "enum": ["niet_beoordeeld", "beoordeeld"],
+          "description": "Veld- en businessregelconformiteit; nog niet formeel afgetekend (#364)"
         },
         "indicatoren": {
           "enum": ["formeel", "proxy", "niet_bepaalbaar"],
@@ -273,7 +281,7 @@
           "description": "Of het omgenummerde GRONDSLAG-PGN over studiejaren gelijk blijft; door DUO niet bevestigd, de koppeling neemt aan van wel (#128)"
         }
       },
-      "required": ["pve_schema", "indicatoren", "privacyprofiel", "pgn_stabiliteit"],
+      "required": ["pve_versie", "pve_bron_integriteit", "pve_inhoudelijke_conformiteit", "indicatoren", "privacyprofiel", "pgn_stabiliteit"],
       "additionalProperties": false
     },
     "provenance": {
