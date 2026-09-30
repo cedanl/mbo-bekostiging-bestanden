@@ -43,6 +43,8 @@ Geldt voor: `ISP.Leertraject`, `TBGI.Leertraject`
     - **BOL** (Beroepsopleidende leerweg): student volgt onderwijs op school, met stage. Factor is hoger dan BBL.
     - **BBL** (Beroepsbegeleidende leerweg): student werkt bij leerbedrijf en gaat 1 dag per week naar school. Vereist BPV-overeenkomst.
 
+
+De pipeline toetst deze periodes op `DatumBegin` (ISP) of `Teldatum` (TBG-i); een waarde buiten haar periode staat in `quality.json` als `buiten_geldigheid` (#325).
 ---
 
 ## Leerroute

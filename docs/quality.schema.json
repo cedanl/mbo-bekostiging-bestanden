@@ -169,6 +169,14 @@
                   "leeg": {
                     "type": "integer",
                     "description": "Deel van aantal dat een lege waarde is in een verplicht veld (#320)"
+                  },
+                  "buiten_geldigheid": {
+                    "type": "integer",
+                    "description": "Deel van aantal: waarde binnen het domein maar buiten haar geldigheidsperiode op de peildatum van het recordtype (#325)"
+                  },
+                  "zonder_peildatum": {
+                    "type": "integer",
+                    "description": "Tijdgebonden waarden zonder peildatum, dus zonder geldigheidstoets; niet in aantal (#325)"
                   }
                 },
                 "required": ["aantal", "ernst"],

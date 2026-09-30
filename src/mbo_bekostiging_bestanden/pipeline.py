@@ -109,7 +109,9 @@ def _run(
     levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
     quality_report = check_slr_reconciliation(frames, levering, schema_naam=schema_naam)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
-    quality_report.meld_domeinafwijkingen(controleer_waardedomeinen(ruw, schema_naam))
+    quality_report.meld_domeinafwijkingen(
+        controleer_waardedomeinen(ruw, schema_naam, getypeerd=frames)
+    )
     quality_report.domeindekking = dekkingsoverzicht(schema_naam)
     quality_report.bronbestand = bronbestand(source_path)
     quality_report.meld_regelinventaris(inventaris(source_path, schema_naam))

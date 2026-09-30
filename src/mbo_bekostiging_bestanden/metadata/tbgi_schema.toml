@@ -39,6 +39,8 @@ date_fields  = ["Teldatum"]
 int_fields   = ["LeeftijdOpEenAugustusStudiejaar", "AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
 domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Leerroutefase = "leerroutefase", IndicatieBekostigbaar = "indicatie_bekostigbaar", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
+# Datum voor de geldigheid van tijdgebonden waarden (#325).
+peildatum = "Teldatum"
 
 [BekostigingsrelevanteBPV]
 # 0..n per teldatum (PvE §16.1: "Alle BPV's ... die voldoen aan de eisen"), #126.

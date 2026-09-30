@@ -150,14 +150,60 @@ def dekkingsoverzicht(schema_name: str) -> dict[str, int]:
     return aantallen
 
 
+def _buiten_geldigheid(
+    waarde: pl.Expr, peildatum: pl.Expr, geldigheid: dict
+) -> tuple[pl.Expr, pl.Expr]:
+    """``(buiten, zonder_peildatum)`` voor waarden met een periode (#325).
+
+    ``vanaf`` en ``tot`` zijn inclusief (PvE §16.6: "tot en met"). Zonder
+    peildatum is een tijdgebonden waarde niet te toetsen; die telt apart.
+    """
+    genormaliseerd = _normaliseer(waarde)
+    buiten = pl.lit(False)
+    tijdgebonden = pl.lit(False)
+    for code, periode in geldigheid.items():
+        is_code = genormaliseerd == code
+        tijdgebonden = tijdgebonden | is_code
+        if "vanaf" in periode:
+            buiten = buiten | (is_code & (peildatum < periode["vanaf"]))
+        if "tot" in periode:
+            buiten = buiten | (is_code & (peildatum > periode["tot"]))
+    return buiten.fill_null(False), tijdgebonden & peildatum.is_null()
+
+
+def _tel_afwijkingen(
+    df: pl.DataFrame, veld: str, domein: dict, peildatum: pl.Series | None
+) -> dict[str, int]:
+    """Aantallen per soort afwijking van één veld; alleen niet-nul."""
+    waarde = pl.col(veld).cast(pl.Utf8)
+    gevuld = waarde.is_not_null() & (waarde.str.strip_chars() != "")
+    tellingen = {
+        "buiten": gevuld & ~_binnen_domein(waarde, domein),
+        "leeg": ~gevuld if domein.get("verplicht") else pl.lit(False),
+    }
+    if domein.get("geldigheid") and peildatum is not None:
+        df = df.with_columns(peildatum.alias("_peildatum"))
+        buiten_periode, zonder = _buiten_geldigheid(
+            waarde, pl.col("_peildatum"), domein["geldigheid"]
+        )
+        tellingen["buiten_geldigheid"] = gevuld & buiten_periode
+        tellingen["zonder_peildatum"] = gevuld & zonder
+    rij = df.select(expr.sum().alias(soort) for soort, expr in tellingen.items())
+    return {soort: n for soort, n in rij.row(0, named=True).items() if n}
+
+
 def controleer_waardedomeinen(
-    frames: dict[str, pl.DataFrame], schema_name: str
+    frames: dict[str, pl.DataFrame],
+    schema_name: str,
+    getypeerd: dict[str, pl.DataFrame] | None = None,
 ) -> dict[str, dict[str, dict[str, int | str]]]:
     """Tel per recordtype en veld de waarden buiten het domein.
 
     Args:
         frames:      Ruwe (tekst)frames per recordtype.
         schema_name: Schema met per recordtype ``domeinen = {veld = "domein"}``.
+        getypeerd:   Gedecodeerde frames met dezelfde rijvolgorde; nodig voor de
+                     tijdstoets op de ``peildatum`` van het recordtype (#325).
 
     Returns:
         Recordtype → veld → ``{"aantal": .., "ernst": ..}``; alleen niet-nul.
@@ -166,29 +212,33 @@ def controleer_waardedomeinen(
         anders ``"warning"``, #238). Bij een domein met ``verplicht = true``
         telt een lege waarde ook mee in ``aantal`` en staat het aantal lege
         waarden apart in ``leeg`` (#320); anders tellen lege waarden niet.
+        Een waarde buiten haar ``geldigheid`` op de peildatum telt mee en staat
+        apart in ``buiten_geldigheid``; ``zonder_peildatum`` telt de
+        tijdgebonden waarden die niet te toetsen waren (niet in ``aantal``).
     """
     schema = load_schema(schema_name)
     domeinen = _laad()["domein"]
     afwijkingen: dict[str, dict[str, dict[str, int | str]]] = {}
     for rt, df in frames.items():
-        for veld, naam in schema.get(rt, {}).get("domeinen", {}).items():
+        spec = schema.get(rt, {})
+        peildatum = (
+            (getypeerd or {})
+            .get(rt, pl.DataFrame())
+            .get_column(spec.get("peildatum", ""), default=None)
+        )
+        for veld, naam in spec.get("domeinen", {}).items():
             if veld not in df.columns:
                 continue
             domein = domeinen[naam]
-            waarde = pl.col(veld).cast(pl.Utf8)
-            gevuld = waarde.is_not_null() & (waarde.str.strip_chars() != "")
-            buiten, leeg = df.select(
-                (gevuld & ~_binnen_domein(waarde, domein)).sum().alias("buiten"),
-                (~gevuld).sum().alias("leeg")
-                if domein.get("verplicht")
-                else pl.lit(0).alias("leeg"),
-            ).row(0)
-            if buiten or leeg:
-                afwijking: dict[str, int | str] = {
-                    "aantal": buiten + leeg,
-                    "ernst": domein.get("ernst", ernst.WARNING),
-                }
-                if leeg:
-                    afwijking["leeg"] = leeg
-                afwijkingen.setdefault(rt, {})[veld] = afwijking
+            tellingen = _tel_afwijkingen(df, veld, domein, peildatum)
+            if not tellingen:
+                continue
+            buiten = tellingen.pop("buiten", 0)
+            afwijking: dict[str, int | str] = {
+                "aantal": buiten
+                + tellingen.get("leeg", 0)
+                + tellingen.get("buiten_geldigheid", 0),
+                "ernst": domein.get("ernst", ernst.WARNING),
+            }
+            afwijkingen.setdefault(rt, {})[veld] = afwijking | tellingen
     return afwijkingen

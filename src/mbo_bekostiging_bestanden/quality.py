@@ -123,12 +123,24 @@ def lees_status(quality_json: Path | str) -> tuple[str, int]:
     return samenvatting["status"], samenvatting["total_errors"]
 
 
+# Deelaantallen van een domeinafwijking en hun tekst in de melding.
+_DEELAANTALLEN = {
+    "leeg": "waarvan leeg",  # #320
+    "buiten_geldigheid": "waarvan buiten hun geldigheid",  # #325
+    "zonder_peildatum": "zonder peildatum voor de geldigheid",  # #325
+}
+
+
 def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
-    """Aantal afwijkende waarden, met de lege waarden apart benoemd (#320)."""
-    leeg = afwijking.get("leeg")
-    if not leeg:
+    """Aantal afwijkende waarden, met de deelaantallen apart benoemd."""
+    delen = [
+        f"{tekst}: {afwijking[sleutel]}"
+        for sleutel, tekst in _DEELAANTALLEN.items()
+        if afwijking.get(sleutel)
+    ]
+    if not delen:
         return afwijking["aantal"]
-    return f"{afwijking['aantal']} (waarvan leeg: {leeg})"
+    return f"{afwijking['aantal']} ({'; '.join(delen)})"
 
 
 # Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.
