@@ -7,6 +7,7 @@ Alle controles retourneren gestructureerde dicts (JSON-serialiseerbaar).
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -369,7 +370,7 @@ _OPTIONELE_PARENT = {
 }
 
 
-def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _wees_feiten(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     """Per detail-feit: rijen zonder inschrijving, en hoeveel daarvan verklaard zijn."""
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     orphaned_facts: dict[str, Any] = {}
@@ -393,13 +394,13 @@ def _check_orphaned_facts_structured(star: dict[str, pl.DataFrame]) -> dict[str,
             "explanation": reden,
         }
 
-    return {"orphaned_facts": orphaned_facts}
+    return orphaned_facts
 
 
 def controleer_koppelingen(star: dict[str, pl.DataFrame]) -> list[str]:
     """Eén melding per detail-feit met wees-rijen, voor weergave in de app."""
     meldingen: list[str] = []
-    wees_per_feit = _check_orphaned_facts_structured(star)["orphaned_facts"]
+    wees_per_feit = _wees_feiten(star)
     for naam, metrics in wees_per_feit.items():
         wees = metrics["orphaned_rows"]
         totaal = metrics["total_rows"]
@@ -475,22 +476,17 @@ def _dubbele_sleutels(star: dict[str, pl.DataFrame], contract: _Uniciteit) -> di
     return resultaat
 
 
-def _check_key_duplicates_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _sleuteldubbelingen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     """Per uniciteitscontract: aantal dubbele sleutels en getroffen rijen."""
     return {
-        "key_duplicates": {
-            naam: _dubbele_sleutels(star, contract)
-            for naam, contract in _UNICITEIT.items()
-        }
+        naam: _dubbele_sleutels(star, contract) for naam, contract in _UNICITEIT.items()
     }
 
 
 def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
     """Eén melding per geschonden uniciteitscontract, voor weergave in de app."""
     meldingen = []
-    for naam, dubbel in _check_key_duplicates_structured(star)[
-        "key_duplicates"
-    ].items():
+    for naam, dubbel in _sleuteldubbelingen(star).items():
         n = dubbel["duplicate_keys"]
         if n == 0:
             continue
@@ -510,38 +506,31 @@ def controleer_sleuteluniciteit(star: dict[str, pl.DataFrame]) -> list[str]:
     return meldingen
 
 
-def _check_niveau_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _niveau_issues(star: dict[str, pl.DataFrame]) -> dict[str, int]:
     """Inschrijvingen zonder bekend niveau, naar oorzaak (#130)."""
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
-    niveau_issues = {"unknown_code": 0, "sbb_without_level": 0, "total": 0}
-
     if _NIVEAU_HERKOMST not in feit.columns or feit.is_empty():
-        return {"niveau_issues": niveau_issues}
+        return {"unknown_code": 0, "sbb_without_level": 0, "total": 0}
 
     herkomst = feit[_NIVEAU_HERKOMST]
     onbekend = int((herkomst == _NIVEAU_ONBEKEND).sum())
     sbb_nvt = int((herkomst == _NIVEAU_SBB_NVT).sum())
-
     return {
-        "niveau_issues": {
-            "unknown_code": onbekend,
-            "sbb_without_level": sbb_nvt,
-            "total": onbekend + sbb_nvt,
-        }
+        "unknown_code": onbekend,
+        "sbb_without_level": sbb_nvt,
+        "total": onbekend + sbb_nvt,
     }
 
 
 def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
     """Melding over inschrijvingen zonder bekend niveau, voor de app."""
-    result = _check_niveau_structured(star)
-    niveau_issues = result.get("niveau_issues", {})
-
-    if niveau_issues.get("total", 0) == 0:
+    niveau_issues = _niveau_issues(star)
+    total = niveau_issues["total"]
+    if total == 0:
         return []
 
-    onbekend = niveau_issues.get("unknown_code", 0)
-    sbb_nvt = niveau_issues.get("sbb_without_level", 0)
-    total = niveau_issues.get("total", 0)
+    onbekend = niveau_issues["unknown_code"]
+    sbb_nvt = niveau_issues["sbb_without_level"]
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     feit_height = feit.height if not feit.is_empty() else 0
 
@@ -566,135 +555,17 @@ class Melding:
 
 
 def _ster_meldingen(star: dict[str, Any]) -> list[Melding]:
-    """Bevindingen van de star-checks, elk met zijn ernst.
+    """Bevindingen van de star-checks, elk met zijn ernst (zie ``_STER_CHECKS``).
 
-    Error: onverklaarde wees-feiten, elk geschonden uniciteitscontract, overlap
-    die na canonicalisatie (#174) in de ster blijft (telt dubbel).
-    Warning: onbekend niveau, meervoudige matches bij koppelingen (#209),
-    leveringen zonder waarneembare peildatum (#211), een referentie die afwijkt
-    van haar manifest of die de data niet meer dekt (#132).
-    Info: verklaarde wees-rijen (#196), vervangen leveringen (#174),
-    verouderde kolommen (#201), de instellingen waarbinnen uitstroom bepaald
-    is (#118), detailrijen die op de eerste periode terugvielen (#121).
-    Dekkingsgaten (#295) hebben hun ernst al in de dekkingstabel.
+    Een sleutel die in ``star`` ontbreekt (rapport van vóór die check) geeft
+    geen meldingen.
     """
-    meldingen: list[Melding] = []
-
-    def melding(ernst: str, tekst: str) -> None:
-        meldingen.append(Melding(ernst, _BRON_STER, tekst))
-
-    for naam, wees in star.get("orphaned_facts", {}).items():
-        onverklaard = wees["orphaned_rows"] - wees["explained_rows"]
-        if onverklaard > 0:
-            melding(
-                ERNST_ERROR,
-                f"{naam}: {onverklaard} van {wees['total_rows']} rijen zonder "
-                f"inschrijving in {_CENTRAAL_FEIT}",
-            )
-        if wees["explained_rows"]:
-            melding(
-                ERNST_INFO,
-                f"{naam}: {wees['explained_rows']} rijen zonder inschrijving, "
-                f"verklaard: {wees['explanation']}",
-            )
-    for naam, dubbel in star.get("key_duplicates", {}).items():
-        if dubbel.get("duplicate_keys", 0) > 0:
-            melding(
-                ERNST_ERROR,
-                f"{naam}: {dubbel['duplicate_keys']} dubbele sleutels "
-                f"({', '.join(dubbel.get('sleutel', []))})",
-            )
-    if star.get("overlapping_deliveries"):
-        melding(
-            ERNST_ERROR,
-            f"{len(star['overlapping_deliveries'])} overlappende leveringen na "
-            "canonicalisatie",
-        )
-    if star.get("niveau_issues", {}).get("total", 0) > 0:
-        melding(
-            ERNST_WARNING,
-            f"{star['niveau_issues']['total']} inschrijvingen zonder bekend niveau",
-        )
-    meervoudig = [k for k in star.get("join_keuzes", []) if k["meervoudige_sleutels"]]
-    if meervoudig:
-        melding(
-            ERNST_WARNING,
-            "meervoudige matches bij koppelen: "
-            + ", ".join(
-                f"{k['koppeling']} ({k['meervoudige_sleutels']})" for k in meervoudig
-            ),
-        )
-    if star.get("leveringen_zonder_schooljaar"):
-        melding(
-            ERNST_WARNING,
-            "leveringen zonder waarneembare peildatum: "
-            + ", ".join(r["levering"] for r in star["leveringen_zonder_schooljaar"]),
-        )
-    vervangen = star.get("canonicalisatie", {}).get("vervangen_inschrijvingen", 0)
-    if vervangen:
-        melding(
-            ERNST_INFO,
-            f"{vervangen} inschrijvingen vervangen door een recentere levering",
-        )
-    for tabel, kolommen in star.get("verouderde_kolommen", {}).items():
-        melding(
-            ERNST_INFO,
-            f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
-            f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
-        )
-    for naam, per_status in star.get("periode_koppelstatus", {}).items():
-        terugval = {
-            status: n
-            for status, n in per_status.items()
-            if status not in (KOPPELSTATUS_BINNEN, KOPPELSTATUS_GEEN_INSCHRIJVING)
-        }
-        if terugval:
-            details = ", ".join(f"{s}: {n}" for s, n in terugval.items())
-            melding(
-                ERNST_INFO,
-                f"{naam}: {sum(terugval.values())} rijen aan de eerste periode van "
-                f"hun inschrijving gehangen ({details}); filter op {KOPPELSTATUS} "
-                "(#121)",
-            )
-    brins = star.get("dr_scope", {}).get("brins", [])
-    if brins:
-        melding(
-            ERNST_INFO,
-            f"DR- en Entree-uitstroom bepaald binnen {len(brins)} "
-            f"{'instelling' if len(brins) == 1 else 'instellingen'} "
-            f"({', '.join(brins)}); een overstap naar een instelling buiten de "
-            "dataset telt als uitstroom (#118)",
-        )
-    referentie = star.get("referentiedata", {})
-    afwijkend = [
-        r["bestand"] for r in referentie.get("bestanden", []) if r["afwijkend"]
+    return [
+        melding
+        for check in _STER_CHECKS
+        if check.sleutel in star
+        for melding in check.meldingen(star[check.sleutel])
     ]
-    if afwijkend:
-        melding(
-            ERNST_WARNING,
-            "referentiebestanden wijken af van metadata/referentiedata.json: "
-            + ", ".join(afwijkend),
-        )
-    na_dekking = referentie.get("onbekende_codes_na_dekking") or {}
-    if na_dekking.get("codes"):
-        melding(
-            ERNST_WARNING,
-            f"opleidingscodes {', '.join(na_dekking['codes'])} onbekend in de "
-            f"referentie, in inschrijvingen na haar dekking "
-            f"({na_dekking['dekking_tot']}): werk de referentie bij (#132)",
-        )
-    for rij in star.get("dekking", []):
-        if rij["ernst"]:
-            doel = f"0 in {rij['feit']}" if rij["feit"] else rij["verklaring"]
-            meldingen.append(
-                Melding(
-                    rij["ernst"],
-                    rij["levering"],
-                    f"{rij['recordtype']}: {rij['ingelezen']} records ingelezen, "
-                    f"{doel}",
-                )
-            )
-    return meldingen
 
 
 def kwaliteitsmeldingen(rapport: dict[str, Any]) -> list[Melding]:
@@ -737,18 +608,7 @@ def compile_quality_report(
             deliveries_list.append(report.as_dict())
 
     star_checks = {
-        **_check_orphaned_facts_structured(star),
-        **_check_key_duplicates_structured(star),
-        **_check_niveau_structured(star),
-        **check_overlapping_deliveries(star),
-        **_check_canonicalisatie_structured(star),
-        **_check_join_keuzes_structured(star),
-        **_check_leveringen_zonder_schooljaar(star),
-        **_check_verouderde_kolommen(star),
-        **_check_dr_scope(star),
-        **_check_periode_koppelstatus(star),
-        **_check_referentiedata(star),
-        "dekking": controleer_dekking(invoer or {}, star),
+        check.sleutel: check.bereken(star, invoer or {}) for check in _STER_CHECKS
     }
 
     total_warnings = 0
@@ -802,7 +662,7 @@ def write_quality_json(
     return output_path
 
 
-def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _overlappende_leveringen(star: dict[str, pl.DataFrame]) -> list[dict[str, Any]]:
     """Inschrijvingen die na canonicalisatie nog in meerdere leveringen staan.
 
     Een inschrijving is ``BRIN × _persoon_id × Inschrijvingvolgnummer`` (zie
@@ -811,11 +671,11 @@ def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any
     dubbeltelling in de output.
 
     Returns:
-        ``{"overlapping_deliveries": [{key, deliveries, count}, ...]}``
+        ``[{key, deliveries, count}, ...]``, gesorteerd op ``key``.
     """
     feit = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     if not {"levering", *INSCHRIJVING} <= set(feit.columns):
-        return {"overlapping_deliveries": []}
+        return []
 
     grouped = (
         feit.group_by(INSCHRIJVING)
@@ -830,35 +690,31 @@ def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any
         }
         for row in grouped.iter_rows(named=True)
     ]
-    return {"overlapping_deliveries": sorted(overlaps, key=lambda x: x["key"])}
+    return sorted(overlaps, key=lambda x: x["key"])
 
 
-def _check_canonicalisatie_structured(
-    star: dict[str, pl.DataFrame],
-) -> dict[str, Any]:
+def _canonicalisatie(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     meta = star.get(_META_CANONICALISATIE, pl.DataFrame())
     per_levering = meta.to_dicts() if not meta.is_empty() else []
     return {
-        "canonicalisatie": {
-            "regel": REGEL,
-            "vervangen_inschrijvingen": sum(r["inschrijvingen"] for r in per_levering),
-            "vervangen_isp_perioden": sum(r["isp_perioden"] for r in per_levering),
-            "per_levering": per_levering,
-        }
+        "regel": REGEL,
+        "vervangen_inschrijvingen": sum(r["inschrijvingen"] for r in per_levering),
+        "vervangen_isp_perioden": sum(r["isp_perioden"] for r in per_levering),
+        "per_levering": per_levering,
     }
 
 
-def _check_join_keuzes_structured(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _join_keuzes(star: dict[str, pl.DataFrame]) -> list[dict[str, Any]]:
     """Koppelingen met meer dan één kandidaat per sleutel (``meta_koppelkeuzes``)."""
     keuzes = star.get(_META_KOPPELKEUZES, pl.DataFrame())
     if keuzes.is_empty():
-        return {"join_keuzes": []}
-    return {"join_keuzes": keuzes.filter(pl.col("meervoudige_sleutels") > 0).to_dicts()}
+        return []
+    return keuzes.filter(pl.col("meervoudige_sleutels") > 0).to_dicts()
 
 
-def _check_leveringen_zonder_schooljaar(
+def _leveringen_zonder_schooljaar(
     star: dict[str, pl.DataFrame],
-) -> dict[str, Any]:
+) -> list[dict[str, Any]]:
     """Leveringen met inschrijvingen maar zonder rij in de schooljaar-fact.
 
     Zonder schooljaar-fact in de ster (niet gebouwd) valt er niets te melden.
@@ -866,7 +722,7 @@ def _check_leveringen_zonder_schooljaar(
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     jaren = star.get(SCHOOLJAAR_FEIT)
     if jaren is None or "levering" not in inschrijvingen.columns:
-        return {"leveringen_zonder_schooljaar": []}
+        return []
     per_levering = inschrijvingen.group_by("levering").agg(
         pl.len().alias("inschrijvingen")
     )
@@ -874,7 +730,7 @@ def _check_leveringen_zonder_schooljaar(
         per_levering = per_levering.join(
             jaren.select("levering").unique(), on="levering", how="anti"
         )
-    return {"leveringen_zonder_schooljaar": per_levering.sort("levering").to_dicts()}
+    return per_levering.sort("levering").to_dicts()
 
 
 @dataclass(frozen=True)
@@ -999,18 +855,16 @@ def controleer_dekking(
     return rijen
 
 
-def _check_periode_koppelstatus(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _periode_koppelstatus(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     """Per detail-feit het aantal rijen per koppelstatus (#121)."""
     return {
-        "periode_koppelstatus": {
-            naam: dict(sorted(feit.group_by(KOPPELSTATUS).len().iter_rows()))
-            for naam, feit in sorted(star.items())
-            if KOPPELSTATUS in feit.columns
-        }
+        naam: dict(sorted(feit.group_by(KOPPELSTATUS).len().iter_rows()))
+        for naam, feit in sorted(star.items())
+        if KOPPELSTATUS in feit.columns
     }
 
 
-def _check_dr_scope(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _dr_scope(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     """Instellingen waarbinnen DR- en Entree-uitstroom bepaald zijn (#118).
 
     Uitstroom zoekt de persoon in ``t+1`` bij alle instellingen in de dataset;
@@ -1023,10 +877,10 @@ def _check_dr_scope(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
         if "BRIN" in jaren.columns
         else []
     )
-    return {"dr_scope": {"brins": brins, "mbo_breed": False}}
+    return {"brins": brins, "mbo_breed": False}
 
 
-def _check_referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     """Herkomst van de referenties, en of de data voorbij hun dekking loopt (#132).
 
     Een opleidingscode die geen referentie kent, in een inschrijving die begint
@@ -1035,7 +889,7 @@ def _check_referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     """
     meta = star.get(_META_REFERENTIEDATA, pl.DataFrame())
     if meta.is_empty():
-        return {"referentiedata": {"bestanden": [], "onbekende_codes_na_dekking": None}}
+        return {"bestanden": [], "onbekende_codes_na_dekking": None}
     dekking_tot = (
         meta.filter(pl.col("bestand").is_in(OPLEIDINGSREFERENTIES))
         .select(pl.col("dekking_tot").max())
@@ -1054,17 +908,237 @@ def _check_referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
         onbekend = sorted(set(codes) - bekende_opleidingscodes())
         na_dekking = {"dekking_tot": dekking_tot.isoformat(), "codes": onbekend}
     return {
-        "referentiedata": {
-            "bestanden": meta.with_columns(
-                pl.col("opgenomen", "dekking_tot").dt.to_string()
-            ).to_dicts(),
-            "onbekende_codes_na_dekking": na_dekking,
-        }
+        "bestanden": meta.with_columns(
+            pl.col("opgenomen", "dekking_tot").dt.to_string()
+        ).to_dicts(),
+        "onbekende_codes_na_dekking": na_dekking,
     }
 
 
-def _check_verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
+def _verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, list[str]]:
     """Legacy jaarkolommen die de ster nog heeft; ze verdwijnen in v4.0.0 (#201)."""
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     aanwezig = [k for k in VEROUDERDE_KOLOMMEN if k in inschrijvingen.columns]
-    return {"verouderde_kolommen": {_CENTRAAL_FEIT: aanwezig} if aanwezig else {}}
+    return {_CENTRAAL_FEIT: aanwezig} if aanwezig else {}
+
+
+def _ster(ernst_: str, tekst: str) -> Melding:
+    return Melding(ernst_, _BRON_STER, tekst)
+
+
+def _meldingen_wees_feiten(wees_per_feit: dict[str, Any]) -> Iterator[Melding]:
+    """Onverklaarde wees-rijen zijn een error, verklaarde (#196) info."""
+    for naam, wees in wees_per_feit.items():
+        onverklaard = wees["orphaned_rows"] - wees["explained_rows"]
+        if onverklaard > 0:
+            yield _ster(
+                ERNST_ERROR,
+                f"{naam}: {onverklaard} van {wees['total_rows']} rijen zonder "
+                f"inschrijving in {_CENTRAAL_FEIT}",
+            )
+        if wees["explained_rows"]:
+            yield _ster(
+                ERNST_INFO,
+                f"{naam}: {wees['explained_rows']} rijen zonder inschrijving, "
+                f"verklaard: {wees['explanation']}",
+            )
+
+
+def _meldingen_sleuteldubbelingen(per_contract: dict[str, Any]) -> Iterator[Melding]:
+    for naam, dubbel in per_contract.items():
+        if dubbel.get("duplicate_keys", 0) > 0:
+            yield _ster(
+                ERNST_ERROR,
+                f"{naam}: {dubbel['duplicate_keys']} dubbele sleutels "
+                f"({', '.join(dubbel.get('sleutel', []))})",
+            )
+
+
+def _meldingen_niveau(niveau_issues: dict[str, int]) -> Iterator[Melding]:
+    if niveau_issues.get("total", 0) > 0:
+        yield _ster(
+            ERNST_WARNING,
+            f"{niveau_issues['total']} inschrijvingen zonder bekend niveau",
+        )
+
+
+def _meldingen_overlap(overlap: list[dict[str, Any]]) -> Iterator[Melding]:
+    """Overlap die na canonicalisatie (#174) blijft, telt dubbel: error."""
+    if overlap:
+        yield _ster(
+            ERNST_ERROR,
+            f"{len(overlap)} overlappende leveringen na canonicalisatie",
+        )
+
+
+def _meldingen_canonicalisatie(canonicalisatie: dict[str, Any]) -> Iterator[Melding]:
+    vervangen = canonicalisatie.get("vervangen_inschrijvingen", 0)
+    if vervangen:
+        yield _ster(
+            ERNST_INFO,
+            f"{vervangen} inschrijvingen vervangen door een recentere levering",
+        )
+
+
+def _meldingen_join_keuzes(keuzes: list[dict[str, Any]]) -> Iterator[Melding]:
+    meervoudig = [k for k in keuzes if k["meervoudige_sleutels"]]
+    if meervoudig:
+        yield _ster(
+            ERNST_WARNING,
+            "meervoudige matches bij koppelen: "
+            + ", ".join(
+                f"{k['koppeling']} ({k['meervoudige_sleutels']})" for k in meervoudig
+            ),
+        )
+
+
+def _meldingen_zonder_schooljaar(leveringen: list[dict[str, Any]]) -> Iterator[Melding]:
+    if leveringen:
+        yield _ster(
+            ERNST_WARNING,
+            "leveringen zonder waarneembare peildatum: "
+            + ", ".join(r["levering"] for r in leveringen),
+        )
+
+
+def _meldingen_verouderd(per_tabel: dict[str, list[str]]) -> Iterator[Melding]:
+    for tabel, kolommen in per_tabel.items():
+        yield _ster(
+            ERNST_INFO,
+            f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
+            f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
+        )
+
+
+def _meldingen_dr_scope(scope: dict[str, Any]) -> Iterator[Melding]:
+    brins = scope.get("brins", [])
+    if brins:
+        yield _ster(
+            ERNST_INFO,
+            f"DR- en Entree-uitstroom bepaald binnen {len(brins)} "
+            f"{'instelling' if len(brins) == 1 else 'instellingen'} "
+            f"({', '.join(brins)}); een overstap naar een instelling buiten de "
+            "dataset telt als uitstroom (#118)",
+        )
+
+
+def _meldingen_koppelstatus(per_feit: dict[str, dict[str, int]]) -> Iterator[Melding]:
+    """Detailrijen die op de eerste periode terugvielen (#121): info."""
+    for naam, per_status in per_feit.items():
+        terugval = {
+            status: n
+            for status, n in per_status.items()
+            if status not in (KOPPELSTATUS_BINNEN, KOPPELSTATUS_GEEN_INSCHRIJVING)
+        }
+        if terugval:
+            details = ", ".join(f"{s}: {n}" for s, n in terugval.items())
+            yield _ster(
+                ERNST_INFO,
+                f"{naam}: {sum(terugval.values())} rijen aan de eerste periode van "
+                f"hun inschrijving gehangen ({details}); filter op {KOPPELSTATUS} "
+                "(#121)",
+            )
+
+
+def _meldingen_referentiedata(referentie: dict[str, Any]) -> Iterator[Melding]:
+    """Afwijking van het manifest of data voorbij de dekking (#132): warning."""
+    afwijkend = [
+        r["bestand"] for r in referentie.get("bestanden", []) if r["afwijkend"]
+    ]
+    if afwijkend:
+        yield _ster(
+            ERNST_WARNING,
+            "referentiebestanden wijken af van metadata/referentiedata.json: "
+            + ", ".join(afwijkend),
+        )
+    na_dekking = referentie.get("onbekende_codes_na_dekking") or {}
+    if na_dekking.get("codes"):
+        yield _ster(
+            ERNST_WARNING,
+            f"opleidingscodes {', '.join(na_dekking['codes'])} onbekend in de "
+            f"referentie, in inschrijvingen na haar dekking "
+            f"({na_dekking['dekking_tot']}): werk de referentie bij (#132)",
+        )
+
+
+def _meldingen_dekking(rijen: list[dict[str, Any]]) -> Iterator[Melding]:
+    """De dekkingstabel (#295) draagt zijn ernst al; bron is de levering."""
+    for rij in rijen:
+        if rij["ernst"]:
+            doel = f"0 in {rij['feit']}" if rij["feit"] else rij["verklaring"]
+            yield Melding(
+                rij["ernst"],
+                rij["levering"],
+                f"{rij['recordtype']}: {rij['ingelezen']} records ingelezen, {doel}",
+            )
+
+
+@dataclass(frozen=True)
+class _SterCheck:
+    """Eén star-check: waarde onder ``sleutel`` in ``quality.json`` → ``star``.
+
+    ``bereken`` krijgt de ster en de gestapelde invoer; ``meldingen`` krijgt de
+    (uit JSON teruggelezen) waarde, zodat het dashboard een geschreven rapport
+    kan tonen zonder de ster opnieuw te bouwen.
+    """
+
+    sleutel: str
+    bereken: Callable[[dict[str, pl.DataFrame], dict[str, pl.DataFrame]], Any]
+    meldingen: Callable[[Any], Iterable[Melding]]
+
+
+def _alleen_ster(
+    functie: Callable[[dict[str, pl.DataFrame]], Any],
+) -> Callable[[dict[str, pl.DataFrame], dict[str, pl.DataFrame]], Any]:
+    return lambda star, _invoer: functie(star)
+
+
+# Register van alle star-checks (#329), in de sleutelvolgorde van quality.json.
+# Een check toevoegen = een reken- en een meldingenfunctie plus één regel hier,
+# en de sleutel in docs/quality.schema.json (tests/test_checkregister.py).
+_STER_CHECKS: tuple[_SterCheck, ...] = (
+    _SterCheck("orphaned_facts", _alleen_ster(_wees_feiten), _meldingen_wees_feiten),
+    _SterCheck(
+        "key_duplicates",
+        _alleen_ster(_sleuteldubbelingen),
+        _meldingen_sleuteldubbelingen,
+    ),
+    _SterCheck("niveau_issues", _alleen_ster(_niveau_issues), _meldingen_niveau),
+    _SterCheck(
+        "overlapping_deliveries",
+        _alleen_ster(_overlappende_leveringen),
+        _meldingen_overlap,
+    ),
+    _SterCheck(
+        "canonicalisatie",
+        _alleen_ster(_canonicalisatie),
+        _meldingen_canonicalisatie,
+    ),
+    _SterCheck("join_keuzes", _alleen_ster(_join_keuzes), _meldingen_join_keuzes),
+    _SterCheck(
+        "leveringen_zonder_schooljaar",
+        _alleen_ster(_leveringen_zonder_schooljaar),
+        _meldingen_zonder_schooljaar,
+    ),
+    _SterCheck(
+        "verouderde_kolommen",
+        _alleen_ster(_verouderde_kolommen),
+        _meldingen_verouderd,
+    ),
+    _SterCheck("dr_scope", _alleen_ster(_dr_scope), _meldingen_dr_scope),
+    _SterCheck(
+        "periode_koppelstatus",
+        _alleen_ster(_periode_koppelstatus),
+        _meldingen_koppelstatus,
+    ),
+    _SterCheck(
+        "referentiedata",
+        _alleen_ster(_referentiedata),
+        _meldingen_referentiedata,
+    ),
+    _SterCheck(
+        "dekking",
+        lambda star, invoer: controleer_dekking(invoer, star),
+        _meldingen_dekking,
+    ),
+)
