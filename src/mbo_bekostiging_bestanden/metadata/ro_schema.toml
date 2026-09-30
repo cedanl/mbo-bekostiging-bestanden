@@ -72,7 +72,9 @@ date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerke
 int_fields  = ["Omvang"]
 
 [DIP]
-# Positie 7 ontbreekt in PvE v4.8.2 maar is aanwezig in alle bekende leveringen (altijd leeg).
+# Praktijk: positie 7 staat niet in het PvE maar wel in alle bekende leveringen
+# (altijd leeg). Layoutkeuze: zie grondslag_schema.toml (#321).
+layout = "praktijk"
 fields = [
     "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
     "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
@@ -83,6 +85,15 @@ optionele_achtervelden = ["Inschrijvingvolgnummer", "Onderwijsaanbieder"]
 date_fields = ["DatumResultaat"]
 int_fields  = []
 domeinen = { _onbekend = "leeg", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode" }
+herkenning = ["_onbekend", "IndicatieBekostigbaar"]
+
+# PvE §15.5.7: negen velden, Indicatie bekostigbaar direct na Datum resultaat.
+[DIP.varianten.officieel]
+fields = [
+    "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
+    "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
+    "IndicatieBekostigbaar", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
 
 [AMO]
 fields = [

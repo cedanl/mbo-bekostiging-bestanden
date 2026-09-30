@@ -22,6 +22,11 @@ def schema_versie(name: str) -> str:
     return _lees_schema(name)["schema_version"]
 
 
+def bestandsnaam_patroon(name: str) -> str | None:
+    """Regex op de bestandsnaam met named groups voor ``uit_bestandsnaam`` (#236)."""
+    return _lees_schema(name).get("bestandsnaam")
+
+
 @lru_cache
 def pve_bron() -> dict[str, str]:
     """De PvE-bron waarop de schema's zijn gebaseerd (``pve_bron.json``, #299).

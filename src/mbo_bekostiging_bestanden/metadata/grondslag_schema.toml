@@ -8,16 +8,32 @@
 # verplicht = true op een recordtype: het bestand moet minstens één regel van dit
 # type bevatten (PvE: geen optioneel recordtype); ontbreekt het, dan faalt de
 # ingest (#322). Recordtypes zonder vlag (DIP, GEO, ...) mogen ontbreken.
+# layout + varianten (#236, #321): recordtypes met meer dan één bewezen
+# veldvolgorde. `fields` is de standaardlayout (`layout` = zijn naam) en tegelijk
+# de kolomset van de uitvoer; een variant noemt alleen zijn eigen volgorde. De
+# ingest kiest per regel de layout waarop lengte en `herkenning` (velden met een
+# domein uit `domeinen`) passen; geen of meer dan één passende layout, of
+# gemengde layouts in één bestand, is een error. Kolommen die een variant mist
+# blijven leeg, behalve `uit_bestandsnaam` (named group in `bestandsnaam`).
 schema_version = "4.8.2"
+# PvE §17.3: GRONDSLAG_IP_MBO_<BRIN>_<einddatum selectie>_<studiejaar>.csv
+bestandsnaam = '(?i)^GRONDSLAG_IP_MBO_(?P<BRIN>[^_]+)_'
 
 [VLP]
 verplicht = true
-# Afwijking van §17.5: echte leveringen hebben BRIN op positie 2 (zie demo-levering).
 single_row  = true
+# Praktijk: echte leveringen hebben BRIN op positie 2 (zie demo-levering).
+layout      = "praktijk"
 fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
 date_fields = ["DatumAanmaak"]
 int_fields  = ["Studiejaar"]
-domeinen = { BRIN = "brin", Studiejaar = "studiejaar" }
+domeinen = { BRIN = "brin", Studiejaar = "studiejaar", BekostigingsType = "bekostigingstype" }
+herkenning = ["Studiejaar", "BekostigingsType"]
+
+# PvE §17.5: geen BRIN in het voorlooprecord; die staat in de bestandsnaam.
+[VLP.varianten.officieel]
+fields = ["Recordsoort", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
+uit_bestandsnaam = ["BRIN"]
 
 [PER]
 verplicht = true
