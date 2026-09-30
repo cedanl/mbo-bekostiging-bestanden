@@ -35,6 +35,14 @@ gelijke tellingen wordt daarom overal via `grafieken.sorteer_aantal` bepaald
 rijvolgorde vast, dus zonder die tweede sleutel wisselde de volgorde per run —
 en in een top-N ook welke regels zichtbaar waren.
 
+## Kwaliteitspoort zit in `run_star`, niet in bouwstenen
+
+`pipeline.run_star()` is het enige invoerpunt dat kwaliteitscontrole uitvoert en
+`quality.json` schrijft. De afzonderlijke bouwstenen
+(`stack_prepared()`, `build_star()`) zijn herbruikbaar en geven geen
+kwaliteitsoordeel. Een script of notebook dat deze functies direct aanroept,
+rekent verder op ongevalideerde data (zie de docstrings van beide functies).
+
 ## Quality leest de ster onafhankelijk
 
 `quality.py` beoordeelt de output van de sterbouw (`transform.py`,

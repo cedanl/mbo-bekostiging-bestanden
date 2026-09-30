@@ -141,6 +141,12 @@ def build_star(
           ``meta_canonicalisatie``       — vervangen leveringen per leveringspaar
           ``meta_koppelkeuzes``          — meervoudige matches per koppeling (#209)
           ``meta_referentiedata``        — herkomst en inhoud van de referenties (#132)
+
+    Note:
+        Deze functie bouwt enkel het schema. Kwaliteitscontrole gebeurt in
+        :func:`~mbo_bekostiging_bestanden.pipeline.run_star`. Directe aanroep
+        van deze functie (script, notebook) geeft geen kwaliteitsoordeel. Voor
+        gevalideerde output: gebruik altijd ``run_star``.
     """
     tables = _bouw_analysetabellen(stacked)
     inschrijvingen = tables["inschrijvingen"]

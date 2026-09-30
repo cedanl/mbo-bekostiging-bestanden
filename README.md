@@ -114,6 +114,11 @@ run_star(
 # Star schema staat in data/03-output/demo/star/datamodel/
 ```
 
+> **Kwaliteitsoordeel:** `run_star` voert de kwaliteitscontrole uit en
+> schrijft `quality.json`. Directe aanroepen van `build_star()` of
+> `stack_prepared()` (bijv. in een notebook) geven geen kwaliteitssignaal. Voor
+> gevalideerde data: gebruik altijd `run_star`.
+
 ### Eigen data verwerken
 
 Wijs `app/config.toml` naar je eigen mappen en draai dezelfde stappen:
