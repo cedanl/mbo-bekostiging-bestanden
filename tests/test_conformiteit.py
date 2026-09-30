@@ -33,6 +33,7 @@ def test_ster_rapport_bevat_conformiteit():
         "pve_schema": "niet_beoordeeld",
         "indicatoren": "proxy",
         "privacyprofiel": "gepseudonimiseerd",
+        "pgn_stabiliteit": "onbekend",
     }
 
 

@@ -121,9 +121,18 @@ nooit zonder persoon joinen. Bij TBGI neemt het inlezen de BSN/ONr van de ouder-
 **Persoon over bronfamilies heen.** `_persoon_id` is een pseudoniem van *soort + nummer*
 (PGN, BSN of ONr). GRONDSLAG levert een door DUO omgenummerd PGN in plaats van het BSN
 (PvE 4.8.2 §17.1); een GRONDSLAG-student koppelt daarom nooit op persoon aan RO of TBGI.
-RO en TBGI (beiden BSN/ONr) koppelen wel. Of het PGN over studiejaren gelijk blijft, is nog
-niet door DUO bevestigd (#128); tot die tijd zijn persoonskoppelingen tussen
-GRONDSLAG-leveringen van verschillende jaren niet gegarandeerd.
+RO en TBGI (beiden BSN/ONr) koppelen wel.
+
+**Stabiliteit van het PGN (#128).** Of DUO dezelfde persoon in elk studiejaar hetzelfde
+omgenummerde PGN geeft, is **onbekend**: DUO heeft het niet bevestigd en het PvE zegt er niets
+over. De pipeline neemt aan dat het stabiel is en koppelt GRONDSLAG-leveringen van
+verschillende studiejaren op het PGN. Klopt de aanname niet, dan wordt één persoon twee
+`_persoon_id`'s (en valt een doorstroom weg), of, als DUO een nummer hergebruikt, worden twee
+personen één. `quality.json` legt dit vast als `conformiteit.pgn_stabiliteit = "onbekend"`;
+`star.grondslag_studiejaren` toont per instelling de studiejaren, en bij meer dan één volgt een
+info-melding. Een terugval op kenmerken (BRIN, geslacht, leeftijd, postcode) is bewust niet
+gebouwd: die geeft valse matches en is pas zinvol als DUO bevestigt dat het PGN niet stabiel
+is.
 **Centrale laag over bronnen heen (#196).** `fact_inschrijving` bevat de ISP-perioden (RO, GRONDSLAG) én
 de TBGI-inschrijvingen die daar níet al in staan (zelfde `BRIN × _persoon_id × Inschrijvingvolgnummer`).
 Een inschrijving met ISP-perioden is rijker en blijft de parent; TBGI vult alleen aan, bijv. een student die

@@ -149,6 +149,9 @@ def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
 INDICATOREN_STATUS = "proxy"
 # Nog geen gepinde PvE-bron om tegen te toetsen (#299): niet raden.
 PVE_SCHEMA_STATUS = "niet_beoordeeld"
+# DUO heeft niet bevestigd dat het omgenummerde GRONDSLAG-PGN over studiejaren
+# gelijk blijft (#128); de koppeling neemt aan van wel.
+PGN_STABILITEIT = "onbekend"
 PROFIEL_BRONDATA = "brondata"
 PROFIEL_GEPSEUDONIMISEERD = "gepseudonimiseerd"
 
@@ -658,6 +661,7 @@ def compile_quality_report(
             "pve_schema": PVE_SCHEMA_STATUS,
             "indicatoren": INDICATOREN_STATUS,
             "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
+            "pgn_stabiliteit": PGN_STABILITEIT,
         },
         "deliveries": deliveries_list,
         "star": star_checks,
@@ -1105,6 +1109,38 @@ def _meldingen_dekking(rijen: list[dict[str, Any]]) -> Iterator[Melding]:
             )
 
 
+def _grondslag_studiejaren(star: dict[str, pl.DataFrame]) -> dict[str, list[int]]:
+    """Per BRIN de studiejaren van de GRONDSLAG-leveringen in de ster (#128).
+
+    Alleen het GRONDSLAG-voorlooprecord heeft een ``Studiejaar``.
+    """
+    meta = star.get("meta_leveringen", pl.DataFrame())
+    if not {"BRIN", "Studiejaar"} <= set(meta.columns):
+        return {}
+    per_brin = (
+        meta.drop_nulls(["BRIN", "Studiejaar"])
+        .group_by("BRIN")
+        .agg(pl.col("Studiejaar").unique().sort())
+        .sort("BRIN")
+    )
+    return dict(per_brin.iter_rows())
+
+
+def _meldingen_pgn(studiejaren: dict[str, list[int]]) -> Iterator[Melding]:
+    """Info zodra de ster op een onbevestigde PGN-stabiliteit leunt (#128)."""
+    meerdere = {brin: jaren for brin, jaren in studiejaren.items() if len(jaren) > 1}
+    if meerdere:
+        details = ", ".join(
+            f"{brin}: {', '.join(map(str, jaren))}" for brin, jaren in meerdere.items()
+        )
+        yield _ster(
+            ERNST_INFO,
+            f"GRONDSLAG-leveringen uit meerdere studiejaren ({details}): personen "
+            "koppelen op het omgenummerde PGN, waarvan de stabiliteit over "
+            f"studiejaren {PGN_STABILITEIT} is (#128)",
+        )
+
+
 @dataclass(frozen=True)
 class _SterCheck:
     """Eén star-check: waarde onder ``sleutel`` in ``quality.json`` → ``star``.
@@ -1167,6 +1203,11 @@ _STER_CHECKS: tuple[_SterCheck, ...] = (
         "referentiedata",
         _alleen_ster(_referentiedata),
         _meldingen_referentiedata,
+    ),
+    _SterCheck(
+        "grondslag_studiejaren",
+        _alleen_ster(_grondslag_studiejaren),
+        _meldingen_pgn,
     ),
     _SterCheck(
         "dekking",
