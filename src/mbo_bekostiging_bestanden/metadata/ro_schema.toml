@@ -54,6 +54,8 @@ optionele_achtervelden = [
 date_fields = ["DatumBegin"]
 int_fields  = []
 domeinen = { IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Onderwijslocatie = "onderwijslocatie", Leerroute = "leerroute", Leerroutefase = "leerroutefase", LocatiecodeVSV = "locatiecode_vsv" }
+# Datum voor de geldigheid van tijdgebonden waarden (#325).
+peildatum = "DatumBegin"
 
 [ISE]
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "DatumBegin", "DatumEind"]
