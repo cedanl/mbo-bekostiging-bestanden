@@ -204,7 +204,6 @@ class QualityReport:
                 )
 
     def as_dict(self) -> dict:
-        """Zet rapport om naar dict voor JSON-export."""
         return {
             "levering": self.levering,
             "schema_type": self.schema_type,
@@ -223,9 +222,7 @@ class QualityReport:
 def tel_parseverlies(
     ruw: dict[str, pl.DataFrame], getypeerd: dict[str, pl.DataFrame]
 ) -> dict[str, dict[str, int]]:
-    """Tel per tabel en kolom de gevulde bronwaarden die na typering leeg zijn.
-
-    Alleen kolommen die van tekst naar een ander type gingen tellen mee: een
+    """Alleen kolommen die van tekst naar een ander type gingen tellen mee: een
     ongeldige datum of een getal met tekst wordt bij het decoderen niet-strikt
     null.  ``ruw`` en ``getypeerd`` hebben per tabel dezelfde rijvolgorde.
     """
@@ -726,14 +723,9 @@ def compile_quality_report(
 ) -> dict[str, Any]:
     """Stel ``quality.json`` samen voor een ster-run (``docs/quality.schema.json``).
 
-    Args:
-        star:       Tabellen van :func:`~mbo_bekostiging_bestanden.star.build_star`.
-        deliveries: Rapport per levering (label zoals in de ster).
-        scenario:   Label voor de run, bijv. ``"demo"`` of ``"prod"``.
-        invoer:     Gestapelde prepared-tabellen waaruit de ster is gebouwd;
-                    zonder invoer blijft de dekkingstabel leeg.
-        fouten_toegestaan: De run mocht doorgaan bij quality-errors (#289);
-                    komt in de provenance, zodat een exploratieve run herkenbaar is.
+    ``deliveries`` gebruikt dezelfde labels als de ster; zonder ``invoer`` blijft de
+    dekkingstabel leeg. ``fouten_toegestaan`` komt in de provenance, zodat een run
+    die quality-errors negeerde (#289) herkenbaar is.
     """
     deliveries_list = []
     if deliveries:
@@ -796,15 +788,7 @@ def write_quality_json(
     report: dict[str, Any],
     output_path: Path | str,
 ) -> Path:
-    """Write quality report to JSON file.
-
-    Args:
-        report: Quality report dict (from compile_quality_report)
-        output_path: Path to write quality.json to
-
-    Returns:
-        Path to written file
-    """
+    """Schrijf het kwaliteitsrapport naar ``output_path`` en geef dat pad terug."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -848,7 +832,6 @@ def check_overlapping_deliveries(star: dict[str, pl.DataFrame]) -> dict[str, Any
 def _check_canonicalisatie_structured(
     star: dict[str, pl.DataFrame],
 ) -> dict[str, Any]:
-    """Samenvatting van ``meta_canonicalisatie``: wat is vervangen en waarom."""
     meta = star.get(_META_CANONICALISATIE, pl.DataFrame())
     per_levering = meta.to_dicts() if not meta.is_empty() else []
     return {
@@ -1077,7 +1060,7 @@ def _check_referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
 
 
 def _check_verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
-    """Verouderde kolommen per tabel die ze nog heeft (#201, release N)."""
+    """Legacy jaarkolommen die de ster nog heeft; ze verdwijnen in v4.0.0 (#201)."""
     inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
     aanwezig = [k for k in VEROUDERDE_KOLOMMEN if k in inschrijvingen.columns]
     return {"verouderde_kolommen": {_CENTRAAL_FEIT: aanwezig} if aanwezig else {}}

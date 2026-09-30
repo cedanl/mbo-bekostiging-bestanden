@@ -283,7 +283,6 @@ def _add_persoon_id(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _drop(df: pl.DataFrame, *kolommen: str) -> pl.DataFrame:
-    """Verwijder kolommen als ze bestaan, negeer ontbrekende."""
     return df.drop([c for c in kolommen if c in df.columns])
 
 
@@ -493,7 +492,6 @@ def _geo_pivot(
     geo = _add_persoon_id(geo)
     geo = _resolve_inschrijving(geo, dip)
 
-    # Neem per (levering, persoon, inschrijving, code) de laatste/hoogste waarde.
     agg = geo.group_by(
         [
             "levering",
@@ -582,7 +580,8 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
     - Studiejaar_periode: afgeleid uit DatumBegin (ISP-periode).
     - Studiejaar_levering: van bronbestand (GRONDSLAG) of null.
 
-    Behoudt Studiejaar (coalesce voor backwards-compat).
+    Behoudt ``Studiejaar`` voor afnemers van die kolom, aangevuld uit de datum
+    waar de bron het niet levert.
     """
     datum_col = _periode_begin_kolom(df)
 
@@ -594,13 +593,11 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
             .cast(pl.Int64)
         )
 
-    # Bereken altijd Studiejaar_periode (uit datum)
     if datum_col is not None:
         df = df.with_columns(_studiejaar_expr(datum_col).alias("Studiejaar_periode"))
     else:
         df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar_periode"))
 
-    # Bewaar leveringsjaar apart (afkomstig van bronbestand)
     if "Studiejaar" in df.columns:
         df = df.with_columns(
             pl.col("Studiejaar").cast(pl.Int64).alias("Studiejaar_levering")
@@ -608,7 +605,6 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
     else:
         df = df.with_columns(pl.lit(None, dtype=pl.Int64).alias("Studiejaar_levering"))
 
-    # Zet Studiejaar (oorspronkelijke kolom) voor backwards-compat
     if "Studiejaar" not in df.columns:
         if datum_col is not None:
             df = df.with_columns(_studiejaar_expr(datum_col).alias("Studiejaar"))
@@ -663,8 +659,7 @@ def _voeg_periode_einde_toe(df: pl.DataFrame) -> pl.DataFrame:
     )
     tot_volgende = pl.col("_volgende_begin") - pl.duration(days=1)
 
-    # Period end = min(tot_volgende, DatumEind, DatumUitschrijvingWerkelijk)
-    # DatumUitschrijvingWerkelijk is HARD BOUND: enrollment ends there (#163)
+    # Werkelijke uitschrijving is een harde bovengrens van de periode (#163).
     candidates = [tot_volgende]
     if "DatumEind" in df.columns:
         candidates.append("DatumEind")
@@ -793,7 +788,6 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Int64).alias("_num_opbrengstjaar_3jr"),
         )
 
-    # Bepaal actief per schooljaar (zet _actief_1_oktober en _ingeschreven_jaar_later)
     df = _bepaal_actief_per_schooljaar(df)
 
     # _bekostigd_eerste_1okt: actief én bekostigbaar
@@ -804,7 +798,6 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     ).alias("_bekostigd_eerste_1okt")
 
     # _gediplomeerd_in_jaar: diploma in het schooljaar van de periode
-    # Gebruik Studiejaar_periode als beschikbaar (juiste schooljaar voor deze periode)
     sj_col = (
         "Studiejaar_periode" if "Studiejaar_periode" in df.columns else "Studiejaar"
     )
@@ -887,8 +880,6 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
         )
 
-    # Hoofdinschrijving wordt per schooljaar gekozen.
-    # Explodeer _schooljaren_actief, selecteer per schooljaar, map terug.
     if "_schooljaren_actief" not in df.columns or "_actief_1_oktober" not in df.columns:
         return df.with_columns(
             pl.lit(None, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
@@ -900,7 +891,6 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
             pl.lit(False, dtype=pl.Boolean).alias(c) for c in _SELECTIE_VLAGGEN
         )
 
-    # Explodeer schooljaren per actieve periode
     actieve_exploded = actieve.explode(
         "_schooljaren_actief", empty_as_null=True
     ).rename({"_schooljaren_actief": "_schooljaar_peildatum"})
@@ -940,8 +930,7 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         .drop(rij)
     )
 
-    # Map terug naar originele df: een periode is hoofdinschrijving als het
-    # voor ÉÉN van zijn schooljaren de hoofdinschrijving is
+    # Een periode is hoofdinschrijving als ze dat voor één van haar schooljaren is.
     hoofd_per_periode = (
         actieve_exploded.filter(pl.col("_hoofdinschrijving"))
         .select(
@@ -967,8 +956,8 @@ def _voeg_sr_vlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
         .drop("_is_hoofd")
     )
 
-    # Vul _hoogste_niveau en _laagste_CREBO voor alle rijen (niet alleen actieve)
-    # Gebruik de waarden uit de actieve periodes per groep
+    # Niet per schooljaar maar over alle perioden van persoon × BRIN × levering,
+    # ook de niet-actieve.
     niveau_all = _niveau_numeriek(pl.col("Niveau"))
     groep_all = [c for c in ["levering", "BRIN", "_persoon_id"] if c in df.columns]
     if groep_all:

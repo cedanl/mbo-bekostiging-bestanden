@@ -10,7 +10,6 @@ Bewust géén bedrijfslogica; het model leeft in ``src/.../star.py``.
 
 import streamlit as st
 
-# Korte, algemene uitleg over hoe de pagina werkt (bovenaan de pagina).
 PAGINA_INTRO = (
     "De verwerking levert twee producten.  **Brondata per levering**: elk "
     "DUO-bestand per recordtype, getrouw aan de levering (alleen getypeerd).  "

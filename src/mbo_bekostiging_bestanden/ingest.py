@@ -34,7 +34,6 @@ def _detect_separator(line: str) -> str:
 
 
 def _normalize_row(row: list[str], n: int) -> list[str]:
-    """Clip of pad een rij tot exact n velden."""
     if len(row) >= n:
         return row[:n]
     return row + [""] * (n - len(row))

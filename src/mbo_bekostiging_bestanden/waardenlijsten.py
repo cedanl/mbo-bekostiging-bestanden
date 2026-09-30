@@ -63,7 +63,7 @@ def waardedomein(naam: str) -> dict:
 
 
 def leertrajecten_buiten_indicatorpopulatie() -> list[str]:
-    """Leertrajecten die niet meetellen in de indicatorpopulatie (bijlage 3)."""
+    """Bijlage 3 van de toelichting onderwijsresultaten (#286)."""
     return waardedomein("leertraject")["buiten_indicatorpopulatie"]
 
 

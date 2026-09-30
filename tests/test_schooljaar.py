@@ -487,7 +487,7 @@ def test_demo_precies_een_hoofdinschrijving_per_persoon_instelling_schooljaar(
 
 
 def test_demo_heeft_positieve_jr_teller(demo_star):
-    """Regressie #194: de demo bevat gediplomeerden die in hun schooljaar tellen."""
+    """De demo bevat gediplomeerden die in hun schooljaar tellen (#194)."""
     assert demo_star["fact_inschrijving_schooljaar"]["_jr_teller"].sum() > 0
 
 

@@ -172,34 +172,9 @@ def _join_landcode(
 def enrich_inschrijvingen(df: pl.DataFrame) -> pl.DataFrame:
     """Verrijk inschrijvingen met leesbare labels uit decodeertabellen.
 
-    Toegevoegde kolommen (alleen als de bronkolom aanwezig is):
-
-    Nationaliteit:
-        ``Nationaliteit1_naam``, ``Nationaliteit1_migratieachtergrond``
-        ``Nationaliteit2_naam``, ``Nationaliteit2_migratieachtergrond``
-
-    Geboorteland:
-        ``CodeGeboorteland_naam``, ``CodeGeboorteland_migratieachtergrond``
-
-    Postcode → gemeente:
-        ``Gemeente``, ``Gemeentecode``
-
-    Opleidingcode → CREBO (DUO erkende-opleidingstabel):
-        ``Opleiding_naam``, ``Opleiding_leerweg``,
-        ``Opleiding_domein``, ``Opleiding_subgroep``,
-        ``Opleiding_dossiercode``, ``Opleiding_dossier``, ``Opleiding_sectorkamer``
-
-    Opleidingcode → S-BB koppeltabel (Groep 19):
-        ``Opleiding_beroep``, ``Opleiding_niveau``,
-        ``Opleiding_opvolger``,
-        ``Opleiding_eerste_schooljaar``, ``Opleiding_laatste_schooljaar``
-
-    Opleidingcode → S-BB crebolijst (Groep 14, officiële geldigheidsperioden):
-        ``Opleiding_geldig_van``, ``Opleiding_geldig_tot``,
-        ``Opleiding_prijsfactor``, ``Opleiding_soort_opleiding``
-
-    BRIN → instelling:
-        ``Instelling_naam``, ``Instelling_plaats``
+    Kolommen komen uit de decodeertabellen in ``metadata/`` (nationaliteit,
+    geboorteland, postcode → gemeente, CREBO, S-BB, BRIN → instelling) en worden
+    alleen toegevoegd als de bronkolom aanwezig is.
 
     Args:
         df: Resultaat van ``_bouw_inschrijvingen`` of

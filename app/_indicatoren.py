@@ -97,7 +97,6 @@ def norm_voor(indicator: str, niveau: int, soort: str) -> int | None:
 
 
 def _niveau_num(col: pl.Expr) -> pl.Expr:
-    """Numeriek niveau uit ``"MBO-2"`` → ``2``."""
     return col.str.extract(r"(\d+)$").cast(pl.Int32, strict=False)
 
 

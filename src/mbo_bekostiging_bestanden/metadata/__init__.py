@@ -65,7 +65,6 @@ def extra_kolommen(recordschema: dict) -> dict[str, str]:
 
 
 def alle_extra_kolommen() -> set[str]:
-    """Alle :func:`extra_kolommen` over alle schema's in ``metadata/``."""
     return {
         kolom
         for pad in SCHEMA_DIR.glob("*_schema.toml")

@@ -1,4 +1,4 @@
-"""Capture animated GIFs of the Streamlit app per feature, using Playwright + ffmpeg."""
+"""Maak per feature een geanimeerde GIF van de Streamlit-app (Playwright, ffmpeg)."""
 
 import asyncio
 import subprocess
@@ -12,12 +12,12 @@ ROOT = Path(__file__).parent.parent
 ASSETS = ROOT / "docs" / "assets"
 ASSETS.mkdir(parents=True, exist_ok=True)
 
-# Each GIF spec: (name, list of (label, duration_seconds, action_fn))
-# action_fn receives (page,) and is called before the screenshot is taken.
+# Elke GIF-spec: (naam, lijst van (label, duur_in_seconden, actie_fn)).
+# actie_fn krijgt (page,) en draait vóór de screenshot.
 
 
 async def wait_streamlit(page):
-    """Wait until Streamlit has finished its initial render."""
+    """Wacht tot Streamlit de eerste render klaar heeft."""
     await page.wait_for_selector("[data-testid='stApp']", timeout=30_000)
     await page.wait_for_load_state("networkidle", timeout=30_000)
     await asyncio.sleep(1.5)
@@ -47,12 +47,10 @@ async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
     await wait_streamlit(page)
     await asyncio.sleep(1)
 
-    # Frame 1: hero + bestanden gevonden
     p = tmp / "home_00.png"
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.5))
 
-    # Frame 2: open eerste expander
     expanders = page.locator("[data-testid='stExpander'] summary")
     if await expanders.count() > 0:
         await expanders.first.click()
@@ -61,7 +59,6 @@ async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.0))
 
-    # Frame 3: scroll naar knop
     btn = page.locator("button:has-text('Verwerk bestanden')").first
     await btn.scroll_into_view_if_needed()
     await asyncio.sleep(0.5)
@@ -69,14 +66,12 @@ async def capture_home(page, tmp: Path) -> list[tuple[Path, float]]:
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.0))
 
-    # Frame 4: klik verwerken + wacht op voortgang
     await btn.click()
     await asyncio.sleep(2.0)
     p = tmp / "home_03.png"
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.0))
 
-    # Frame 5: brondata klaar, bouw daarna het analysemodel
     await page.wait_for_selector("text=Brondata klaar", timeout=120_000)
     ster_btn = page.locator("button:has-text('Bouw analysemodel')").first
     await ster_btn.scroll_into_view_if_needed()
@@ -100,11 +95,9 @@ async def capture_dashboard(page, tmp: Path) -> list[tuple[Path, float]]:
 
     await page.goto(f"{BASE_URL}/dashboard", wait_until="networkidle")
     await wait_streamlit(page)
-    # Wacht tot tabs zichtbaar zijn
     await page.wait_for_selector("button[role='tab']", timeout=20_000)
     await asyncio.sleep(1)
 
-    # Frame 1: header metrics (bovenkant pagina)
     await page.evaluate("window.scrollTo(0, 0)")
     await asyncio.sleep(0.5)
     p = tmp / "dash_00.png"
@@ -114,7 +107,6 @@ async def capture_dashboard(page, tmp: Path) -> list[tuple[Path, float]]:
     tabs = ["Rendementen", "Bekostiging", "Opleidingen", "Studenten", "Examens"]
     for i, tab in enumerate(tabs, 1):
         await click_tab(page, tab)
-        # Scroll naar tab-content zodat grafieken/tabellen zichtbaar zijn
         await page.evaluate("window.scrollTo(0, 300)")
         await asyncio.sleep(0.8)
         p = tmp / f"dash_{i:02d}.png"
@@ -141,7 +133,6 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     await wait_streamlit(page)
     await asyncio.sleep(1)
 
-    # Zonder analysemodel in deze sessie: beide stappen uitvoeren
     if await page.locator("text=Analysemodel klaar").count() == 0:
         await page.locator("button:has-text('Verwerk bestanden')").first.click()
         await page.wait_for_selector("text=Brondata klaar", timeout=120_000)
@@ -156,12 +147,10 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     await wait_streamlit(page)
     await asyncio.sleep(1)
 
-    # Frame 1: tabel-selectie (fact_inschrijving standaard geselecteerd)
     p = tmp / "res_00.png"
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.5))
 
-    # Frame 2: open selectbox — laat de dropdown met alle tabellen zien
     selectbox = page.locator("[data-testid='stSelectbox']").first
     await selectbox.wait_for(state="visible", timeout=10_000)
     await selectbox.scroll_into_view_if_needed()
@@ -171,7 +160,6 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.0))
 
-    # Kies detail_bekostiging
     opt = page.locator("li[role='option']").filter(has_text="detail_bekostiging")
     if await opt.count() > 0:
         await opt.first.click()
@@ -180,12 +168,10 @@ async def capture_resultaten(page, tmp: Path) -> list[tuple[Path, float]]:
         await page.keyboard.press("Escape")
         await asyncio.sleep(0.5)
 
-    # Frame 3: data tabel preview
     p = tmp / "res_02.png"
     await page.screenshot(path=str(p), full_page=False)
     frames.append((p, 2.5))
 
-    # Frame 4: scroll naar download knop
     dl = page.locator("[data-testid='stDownloadButton']").first
     await dl.scroll_into_view_if_needed()
     await asyncio.sleep(0.5)
@@ -205,7 +191,6 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
     """Gebruik ffmpeg concat-demuxer + palettegen voor een scherpe GIF."""
     tmp_dir = frames[0][0].parent
 
-    # Schrijf concat-manifest
     concat = tmp_dir / "concat.txt"
     with concat.open("w") as f:
         for path, dur in frames:
@@ -216,7 +201,6 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
 
     palette = tmp_dir / "palette.png"
 
-    # Stap 1: palettegen
     subprocess.run(
         [
             FFMPEG,
@@ -235,7 +219,6 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
         capture_output=True,
     )
 
-    # Stap 2: GIF
     subprocess.run(
         [
             FFMPEG,
