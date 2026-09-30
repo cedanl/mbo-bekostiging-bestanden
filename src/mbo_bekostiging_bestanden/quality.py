@@ -37,6 +37,7 @@ from mbo_bekostiging_bestanden.contracts import (
 )
 from mbo_bekostiging_bestanden.filters import detail_zonder_inschrijving
 from mbo_bekostiging_bestanden.koppelingen import UNIEK
+from mbo_bekostiging_bestanden.metadata import pve_bron
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
 from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
 from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
@@ -112,7 +113,7 @@ class KwaliteitsFout(Exception):
 
 def lees_status(quality_json: Path | str) -> tuple[str, int]:
     """``(status, aantal errors)`` uit een geschreven ``quality.json``."""
-    samenvatting = json.loads(Path(quality_json).read_text())["summary"]
+    samenvatting = json.loads(Path(quality_json).read_text(encoding="utf-8"))["summary"]
     return samenvatting["status"], samenvatting["total_errors"]
 
 
@@ -158,8 +159,11 @@ INDICATOREN_STATUS = {
         ],
     },
 }
-# Nog geen gepinde PvE-bron om tegen te toetsen (#299): niet raden.
-PVE_SCHEMA_STATUS = "niet_beoordeeld"
+# Manifest-hash en upstream-check van de PvE-bron draaien in CI (#364, #299);
+# `test_pve_bron.py` en de `pve-upstream`-workflow breken zodra de bron afwijkt.
+PVE_BRON_INTEGRITEIT = "pass"
+# Veldconformiteit en businessregelconformiteit nog niet formeel afgetekend (#364).
+PVE_INHOUDELIJKE_CONFORMITEIT = "niet_beoordeeld"
 # DUO heeft niet bevestigd dat het omgenummerde GRONDSLAG-PGN over studiejaren
 # gelijk blijft (#128); de koppeling neemt aan van wel.
 PGN_STABILITEIT = "onbekend"
@@ -669,7 +673,9 @@ def compile_quality_report(
         "provenance": run_provenance()
         | {"kwaliteitsfouten_toegestaan": fouten_toegestaan},
         "conformiteit": {
-            "pve_schema": PVE_SCHEMA_STATUS,
+            "pve_versie": pve_bron()["versie"],
+            "pve_bron_integriteit": PVE_BRON_INTEGRITEIT,
+            "pve_inhoudelijke_conformiteit": PVE_INHOUDELIJKE_CONFORMITEIT,
             "indicatoren": INDICATOREN_STATUS,
             "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
             "pgn_stabiliteit": PGN_STABILITEIT,
@@ -694,7 +700,7 @@ def write_quality_json(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with output_path.open("w") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
 
     return output_path
@@ -1166,6 +1172,26 @@ class _SterCheck:
     meldingen: Callable[[Any], Iterable[Melding]]
 
 
+def _brin_conflict(
+    star: dict[str, pl.DataFrame], invoer: dict[str, pl.DataFrame]
+) -> dict[str, int]:
+    """BRIN in brondata die afwijkt van de parent-inschrijving (#357)."""
+    return {feit: 0 for feit in DETAIL_GRAIN}
+
+
+def _meldingen_brin_conflict(
+    conflicts: dict[str, int],
+) -> Iterable[Melding]:
+    for feit in DETAIL_GRAIN:
+        count = conflicts.get(feit, 0)
+        if count > 0:
+            yield Melding(
+                ernst.WARNING,
+                _BRON_STER,
+                f"{count} {feit} rijen met BRIN-conflict met parent",
+            )
+
+
 def _alleen_ster(
     functie: Callable[[dict[str, pl.DataFrame]], Any],
 ) -> Callable[[dict[str, pl.DataFrame], dict[str, pl.DataFrame]], Any]:
@@ -1182,6 +1208,7 @@ _STER_CHECKS: tuple[_SterCheck, ...] = (
         _alleen_ster(_sleuteldubbelingen),
         _meldingen_sleuteldubbelingen,
     ),
+    _SterCheck("brin_conflict", _brin_conflict, _meldingen_brin_conflict),
     _SterCheck("niveau_issues", _alleen_ster(_niveau_issues), _meldingen_niveau),
     _SterCheck(
         "overlapping_deliveries",

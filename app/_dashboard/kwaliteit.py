@@ -1,5 +1,7 @@
 """Kwaliteitsstatus uit ``quality.json`` bovenaan het dashboard (#202)."""
 
+from typing import Any
+
 import polars as pl
 import streamlit as st
 from _chart_docs import chart_help
@@ -34,6 +36,27 @@ def uitstroom_scope(rapport: dict | None) -> str:
     )
 
 
+def _indicatoren_tekst(indicatoren: dict[str, Any]) -> str:
+    """Status per proxy-indicator met de formele afwijkingen (#369).
+
+    Een ``quality.json`` van vóór #369 heeft hier een kale statusstring; die
+    blijft leesbaar zodat een oud rapport geen KeyError geeft.
+    """
+    if not isinstance(indicatoren, dict):
+        return str(indicatoren)
+    statussen = ", ".join(
+        f"{naam} {gegevens['status']}" for naam, gegevens in indicatoren.items()
+    )
+    afwijkingen = [
+        afwijking["code"]
+        for gegevens in indicatoren.values()
+        for afwijking in gegevens.get("afwijkingen", [])
+    ]
+    if not afwijkingen:
+        return statussen
+    return f"{statussen}; formele afwijkingen: {', '.join(sorted(set(afwijkingen)))}"
+
+
 def toon(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None:
     """Status, conformiteit, meldingen en bronleveringen."""
     if rapport is None:
@@ -50,10 +73,15 @@ def toon(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None:
     )
     conformiteit = rapport.get("conformiteit")
     if conformiteit:
+        inhoud = str(conformiteit.get("pve_inhoudelijke_conformiteit", "?")).replace(
+            "_", " "
+        )
+        versie = conformiteit.get("pve_versie", "?")
+        indicatoren = _indicatoren_tekst(conformiteit["indicatoren"])
         st.caption(
-            f"Indicatoren (JR/DR): **{conformiteit['indicatoren']}**, geen formele "
-            f"Inspectie-uitkomst · privacyprofiel: {conformiteit['privacyprofiel']} "
-            f"· PvE-schema: {conformiteit['pve_schema'].replace('_', ' ')}"
+            f"Indicatoren (JR/DR): **{indicatoren}**, geen formele "
+            f"Inspectie-uitkomst · PvE-versie: {versie} ({inhoud}) "
+            f"· privacyprofiel: {conformiteit['privacyprofiel']}"
         )
     with st.expander("Kwaliteitsmeldingen en bronleveringen"):
         chart_help("kwaliteit")

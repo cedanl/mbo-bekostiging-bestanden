@@ -30,7 +30,9 @@ def ster_dir(demo_prepared, tmp_path_factory) -> Path:
 def test_ster_rapport_bevat_conformiteit():
     rapport = compile_quality_report({})
     conformiteit = rapport["conformiteit"]
-    assert conformiteit["pve_schema"] == "niet_beoordeeld"
+    assert "pve_versie" in conformiteit
+    assert "pve_bron_integriteit" in conformiteit
+    assert "pve_inhoudelijke_conformiteit" in conformiteit
     assert conformiteit["privacyprofiel"] == "gepseudonimiseerd"
     assert conformiteit["pgn_stabiliteit"] == "onbekend"
     # Indicatoren bevat per proxy-indicator status en afwijkingen (#369)

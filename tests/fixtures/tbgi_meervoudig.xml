@@ -6,6 +6,8 @@
     <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
     <Teldatum>
       <Teldatum>2025-10-01</Teldatum>
+      <IndicatieBekostigbaar>true</IndicatieBekostigbaar>
+      <InschrijvingVoorCorrectiefactor>false</InschrijvingVoorCorrectiefactor>
       <BekostigingsrelevanteBPV>
         <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
         <Volgnummer>1</Volgnummer>

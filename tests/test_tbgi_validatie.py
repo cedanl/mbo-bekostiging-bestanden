@@ -106,3 +106,19 @@ def test_onbekend_element_in_een_genest_element_krijgt_zijn_eigen_groep(tmp_path
 
 def test_inventaris_van_demo_is_leeg():
     assert inventariseer_xml_elementen(DEMO_TBGI) == {"onbekende_xml_elementen": {}}
+
+
+@pytest.mark.parametrize(
+    "veld", ["InschrijvingVoorCorrectiefactor", "IndicatieBekostigbaar"]
+)
+def test_boolean_buiten_domein_is_error(tmp_path, veld):
+    bron = _kopie(
+        tmp_path,
+        (f"<{veld}>true</{veld}>", f"<{veld}>not-a-bool</{veld}>"),
+    )
+    rapport = _rapport(bron, tmp_path)
+    assert rapport["domeinafwijkingen"]["Teldatum"][veld] == {
+        "aantal": 1,
+        "ernst": "error",
+    }
+    assert any(veld in e for e in rapport["errors"])

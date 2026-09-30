@@ -38,7 +38,7 @@ def test_no_dangling_symbols_in_comments():
         if not search_dir.exists():
             continue
         for py_file in search_dir.rglob("*.py"):
-            content = py_file.read_text()
+            content = py_file.read_text(encoding="utf-8")
             # Definities: def NAME of class NAME
             for m in re.finditer(
                 r"(?:^def|^class)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
@@ -70,7 +70,7 @@ def test_no_dangling_symbols_in_comments():
         if not search_dir.exists():
             continue
         for py_file in search_dir.rglob("*.py"):
-            content = py_file.read_text()
+            content = py_file.read_text(encoding="utf-8")
             rel_path = py_file.relative_to(repo_root)
             rel_path_str = str(rel_path).replace("\\", "/")
 
@@ -80,7 +80,7 @@ def test_no_dangling_symbols_in_comments():
 
     # Scan pyproject.toml
     if toml_file.exists():
-        content = toml_file.read_text()
+        content = toml_file.read_text(encoding="utf-8")
         for line_no, line in enumerate(content.split("\n"), 1):
             _check_line("pyproject.toml", line_no, line)
 
