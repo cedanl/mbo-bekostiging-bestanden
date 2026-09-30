@@ -64,6 +64,7 @@ def run_auto_pipeline(
     source: str | Path,
     target: str | Path,
     fmt: OutputFormat = "parquet",
+    fail_on_errors: bool = True,
 ) -> dict[str, pl.DataFrame]:
     """Detecteer het bestandstype en draai de juiste pipeline automatisch.
 
@@ -71,12 +72,14 @@ def run_auto_pipeline(
         source: Pad naar een ruw bekostigingsbestand.
         target: Doelmap voor de uitvoerbestanden.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
+        fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
 
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
 
     Raises:
         ValueError: Als het bestandstype niet herkend wordt.
+        KwaliteitsFout: Als fail_on_errors en de status fail is.
     """
     bestandstype = detect_bestandstype(source)
     if bestandstype is None:
@@ -84,7 +87,9 @@ def run_auto_pipeline(
             f"Onbekend bestandstype: {Path(source).name!r}. "
             f"Ondersteund: {sorted(_PIPELINES)}"
         )
-    return _PIPELINES[bestandstype](source, target, fmt=fmt)
+    return _PIPELINES[bestandstype](
+        source, target, fmt=fmt, fail_on_errors=fail_on_errors
+    )
 
 
 def _run(
@@ -97,6 +102,7 @@ def _run(
     schema_naam: str,
     inventaris: Callable[[Path, str], dict] = inventariseer_regels,
     layouts: Callable[[Path, str], dict] | None = layoutvarianten,
+    fail_on_errors: bool = True,
 ) -> dict[str, pl.DataFrame]:
     source_path = Path(source)
     target_path = Path(target)
@@ -124,6 +130,14 @@ def _run(
         json.dump(quality_report.as_dict(), f, indent=2, ensure_ascii=False)
 
     export_frames(frames, target_path, fmt=fmt)
+
+    # Controleer kwaliteitsstatus (#361)
+    if fail_on_errors and quality_report.errors:
+        raise KwaliteitsFout(
+            f"Kwaliteitsstatus fail ({len(quality_report.errors)} error(s)); "
+            f"zie {report_path}"
+        )
+
     return frames
 
 
@@ -131,6 +145,7 @@ def run_pipeline(
     source: str | Path,
     target: str | Path,
     fmt: OutputFormat = "parquet",
+    fail_on_errors: bool = True,
 ) -> dict[str, pl.DataFrame]:
     """Draai de volledige RO-pipeline van ruw bestand naar schone output.
 
@@ -138,6 +153,7 @@ def run_pipeline(
         source: Pad naar een ruw RO-bestand in ``data/01-raw/``.
         target: Doelmap voor de uitvoerbestanden in ``data/02-prepared/``.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
+        fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
 
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
@@ -150,6 +166,7 @@ def run_pipeline(
         target,
         fmt,
         schema_naam="ro",
+        fail_on_errors=fail_on_errors,
     )
 
 
@@ -157,6 +174,7 @@ def run_grondslag_pipeline(
     source: str | Path,
     target: str | Path,
     fmt: OutputFormat = "parquet",
+    fail_on_errors: bool = True,
 ) -> dict[str, pl.DataFrame]:
     """Draai de volledige GRONDSLAG IP MBO-pipeline van ruw bestand naar schone output.
 
@@ -164,6 +182,7 @@ def run_grondslag_pipeline(
         source: Pad naar een ruw GRONDSLAG-bestand in ``data/01-raw/``.
         target: Doelmap voor de uitvoerbestanden in ``data/02-prepared/``.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
+        fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
 
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
@@ -176,6 +195,7 @@ def run_grondslag_pipeline(
         target,
         fmt,
         schema_naam="grondslag",
+        fail_on_errors=fail_on_errors,
     )
 
 
@@ -183,6 +203,7 @@ def run_tbgi_pipeline(
     source: str | Path,
     target: str | Path,
     fmt: OutputFormat = "parquet",
+    fail_on_errors: bool = True,
 ) -> dict[str, pl.DataFrame]:
     """Draai de volledige TBGI-pipeline van ruw XML-bestand naar schone output.
 
@@ -190,6 +211,7 @@ def run_tbgi_pipeline(
         source: Pad naar een ruw TBGI XML-bestand in ``data/01-raw/``.
         target: Doelmap voor de uitvoerbestanden in ``data/02-prepared/``.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
+        fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
 
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
@@ -204,6 +226,7 @@ def run_tbgi_pipeline(
         schema_naam="tbgi",
         inventaris=inventariseer_xml_elementen,
         layouts=None,
+        fail_on_errors=fail_on_errors,
     )
 
 

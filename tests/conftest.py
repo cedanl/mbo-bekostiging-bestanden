@@ -98,7 +98,7 @@ def prepared_met_fout(tmp_path) -> tuple[Path, list[Path]]:
     )
     basis = tmp_path / "prepared"
     levering = basis / "h15" / bron.stem
-    run_auto_pipeline(bron, levering)
+    run_auto_pipeline(bron, levering, fail_on_errors=False)
     return basis, [levering]
 
 

@@ -89,3 +89,35 @@ def test_cli_override_geeft_exitcode_nul_en_meldt_de_status(
     )
     main()
     assert "fail" in capsys.readouterr().out
+
+
+def test_cli_verwerk_eindigt_exit_3_bij_quality_errors(tmp_path, monkeypatch):
+    """``mbo verwerk`` eindigt met exitcode 3 (niet 0) bij quality-errors (#361)."""
+    bron_demo = Path("data/01-raw/demo/h15/RO_21CY_20250730_20250731.csv")
+    bron = tmp_path / bron_demo.name
+    # Maak een bestand met lege BRIN (quality error)
+    bron.write_text(
+        bron_demo.read_text(encoding="utf-8").replace("VLP;21CY;", "VLP;;", 1),
+        encoding="utf-8",
+    )
+    doel = tmp_path / "prepared"
+    monkeypatch.setattr("sys.argv", ["mbo", "verwerk", str(bron), str(doel)])
+    with pytest.raises(SystemExit) as uit:
+        main()
+    assert uit.value.code == 3
+
+
+def test_cli_verwerk_dengan_allow_quality_errors_exit_nul(tmp_path, monkeypatch):
+    """``mbo verwerk --allow-quality-errors`` slaat quality-errors over (#361)."""
+    bron_demo = Path("data/01-raw/demo/h15/RO_21CY_20250730_20250731.csv")
+    bron = tmp_path / bron_demo.name
+    # Maak een bestand met lege BRIN (quality error)
+    bron.write_text(
+        bron_demo.read_text(encoding="utf-8").replace("VLP;21CY;", "VLP;;", 1),
+        encoding="utf-8",
+    )
+    doel = tmp_path / "prepared"
+    monkeypatch.setattr(
+        "sys.argv", ["mbo", "verwerk", str(bron), str(doel), "--allow-quality-errors"]
+    )
+    main()  # Should not raise SystemExit
