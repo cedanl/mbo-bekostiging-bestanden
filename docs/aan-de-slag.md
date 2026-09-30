@@ -25,7 +25,10 @@ een verschillend `_persoon_id`. Dat vereist een salt, ingesteld via de env-var:
 export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ```
 
-Zonder geldige salt faalt de pipeline (fail-closed).
+Zonder geldige salt faalt de stap die het analysemodel bouwt (`mbo star`, "Bouw
+analysemodel" in de app; fail-closed). De stap die brondata schrijft (`mbo verwerk`,
+"Verwerk bestanden") heeft geen salt nodig en pseudonimiseert niet: de brondata in
+`02-prepared/` bevat BSN/ONr in platte tekst.
 
 - **Productie:** de salt komt uitsluitend uit de environment (secret manager,
   bijv. via het deploymentplatform). Geen salt in de repo of in
@@ -39,6 +42,21 @@ Zonder geldige salt faalt de pipeline (fail-closed).
 - `app/config.toml` heeft nog een `[security] pseudonimisering_salt`-fallback
   voor oude setups, maar de meegeleverde config bevat bewust géén salt meer.
   Gebruik die fallback niet voor echte data; een echte salt hoort er niet thuis.
+
+### Opslag en retentie van brondata
+
+De brondata (`data/02-prepared/`) is persoonsgegevens: ze bevat BSN/Onderwijsnummer in
+platte tekst (#173). Ga ermee om als met de ruwe bestanden in `data/01-raw/`:
+
+- **Opslag:** alleen lokaal, op een schijf met toegangsbeperking van de gebruiker; nooit in git
+  (echte data is gitignored), nooit op een gedeelde of gehoste omgeving. De app wordt niet
+  gehost (#82).
+- **Retentie:** bewaar de brondata niet langer dan nodig om het analysemodel te bouwen.
+  Het analysemodel (`03-output/`) bevat geen bronidentifiers en kan zonder de brondata
+  worden bewaard; de brondata is opnieuw te maken uit de ruwe bestanden.
+- **Verwijderen:** verwijder `02-prepared/` zodra het analysemodel gebouwd en gecontroleerd is.
+  Een pseudoniem uit het analysemodel is alleen te koppelen met dezelfde salt.
+- **Structurele oplossing:** pseudonimiseren vóór het wegschrijven van brondata staat in #173.
 
 ---
 
@@ -72,6 +90,10 @@ bestanden in `data/01-raw/` en maakt de twee producten in aparte stappen (#264):
    brondata is, ook na een herstart; de ruwe bestanden worden niet opnieuw verwerkt.
 
 Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
+
+---
+
+
 
 ---
 
@@ -225,7 +247,7 @@ uv run pytest
 ```
 
 De tests draaien fail-closed op de pseudonimiserings-salt; zonder de env-var
-slaat de pipeline-fase af (zie [Pseudonimisering](#pseudonimisering)).
+slaat de fase die het analysemodel bouwt af (zie [Pseudonimisering](#pseudonimisering)).
 
 ---
 

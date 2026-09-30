@@ -54,3 +54,19 @@ def test_dashboard_toont_de_proxystatus(ster_dir):
 
     assert not app.exception
     assert any("proxy" in c.value for c in app.caption)
+
+
+def test_dashboard_noemt_jr_dr_en_oordeel_proxy(ster_dir):
+    """Geen kop, kolom of tabel die als formele uitkomst gelezen kan worden (#297)."""
+    app = AppTest.from_file(_DASHBOARD, default_timeout=120)
+    app.session_state["resultaten_dir"] = ster_dir
+    app.run()
+
+    koppen = [h.value for h in app.subheader]
+    assert any("JR-proxy" in k for k in koppen)
+    assert any("DR-proxy" in k for k in koppen)
+    assert any(k.startswith("Proxy-oordeel") for k in koppen)
+    assert not any(k.startswith("Berekend oordeel") for k in koppen)
+    kolommen = {c for tabel in app.dataframe for c in tabel.value.columns}
+    assert {"JR-proxy (%)", "Proxy-oordeel"} <= kolommen
+    assert "Percentage" not in kolommen
