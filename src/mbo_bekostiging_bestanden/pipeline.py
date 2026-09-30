@@ -10,6 +10,7 @@ from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
 from mbo_bekostiging_bestanden.ingest import (
     inventariseer_regels,
+    inventariseer_xml_elementen,
     read_grondslag,
     read_ro,
     read_tbgi,
@@ -89,7 +90,7 @@ def _run(
     target: str | Path,
     fmt: OutputFormat,
     schema_naam: str,
-    positioneel: bool = True,
+    inventaris: Callable[[Path, str], dict] = inventariseer_regels,
 ) -> dict[str, pl.DataFrame]:
     source_path = Path(source)
     target_path = Path(target)
@@ -104,10 +105,7 @@ def _run(
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
     quality_report.meld_domeinafwijkingen(controleer_waardedomeinen(ruw, schema_naam))
     quality_report.bronbestand = bronbestand(source_path, schema_naam)
-    if positioneel:
-        quality_report.meld_regelinventaris(
-            inventariseer_regels(source_path, schema_naam)
-        )
+    quality_report.meld_regelinventaris(inventaris(source_path, schema_naam))
 
     report_path = target_path / "quality.json"
     target_path.mkdir(parents=True, exist_ok=True)
@@ -193,7 +191,7 @@ def run_tbgi_pipeline(
         target,
         fmt,
         schema_naam="tbgi",
-        positioneel=False,
+        inventaris=inventariseer_xml_elementen,
     )
 
 

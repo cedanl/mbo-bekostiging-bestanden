@@ -3,6 +3,9 @@
 # (bestandsbeschrijving_beknopt.pdf).
 # XML-structuur wordt door read_tbgi platgeslagen naar vijf tabellen: Inschrijving,
 # Teldatum, BekostigingsrelevanteBPV, Diploma en Signaal (één rij per parameter).
+# domeinen: waardedomein per veld uit waardenlijsten.toml (PvE §16.6), zoals bij
+# RO en GRONDSLAG (#205, #323). Velden zonder domein: vrije tekst, datum, getal of
+# een boolean (IndicatieSpecialistendiploma) waarvoor nog geen domein bestaat.
 schema_version = "4.8.2"
 
 [Inschrijving]
@@ -15,6 +18,7 @@ fields = [
 date_fields  = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields   = []
 float_fields = []
+domeinen = { BRIN = "brin", NiveauHoogstBekostigdeDiploma = "niveau" }
 
 [Teldatum]
 # DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
@@ -34,6 +38,7 @@ fields = [
 date_fields  = ["Teldatum"]
 int_fields   = ["LeeftijdOpEenAugustusStudiejaar", "AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Leerroutefase = "leerroutefase", IndicatieBekostigbaar = "indicatie_bekostigbaar", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
 
 [BekostigingsrelevanteBPV]
 # 0..n per teldatum (PvE §16.1: "Alle BPV's ... die voldoen aan de eisen"), #126.
@@ -48,6 +53,7 @@ fields = [
 date_fields  = ["Teldatum", "Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
 int_fields   = []
 float_fields = []
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode" }
 
 [Diploma]
 # DatumTijdBepalingBekostigingsgrondslagen is een datetime en blijft Utf8.
@@ -63,6 +69,7 @@ fields = [
 date_fields  = ["DatumBehaald"]
 int_fields   = []
 float_fields = ["BijdrageDiplomawaarde"]
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", NiveauHoogstBekostigdeDiploma = "niveau", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
 
 [Signaal]
 # Bron = "Inschrijving" of "Diploma".
@@ -77,3 +84,4 @@ fields = [
 date_fields  = []
 int_fields   = []
 float_fields = []
+domeinen = { BRIN = "brin" }

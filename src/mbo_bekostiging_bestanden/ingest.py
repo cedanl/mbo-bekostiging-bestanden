@@ -242,6 +242,73 @@ def _signaal_rijen(
     return rijen
 
 
+def _tbgi_structuur(velden: dict[str, list[str]]) -> dict[str, dict[str, str | None]]:
+    """Toegestane kind-tags per XML-groep uit het schema: tag → kindgroep of None.
+
+    Alleen de eigen velden van een groep staan als kind in de XML; wat een
+    kind-rij van zijn ouder erft (``_TBGI_INSCHRIJVING_CONTEXT``) staat op de ouder.
+    """
+
+    def eigen(tabel: str, context: tuple[str, ...]) -> dict[str, str | None]:
+        return {_TBGI_TAG.get(v, v): None for v in velden[tabel] if v not in context}
+
+    teldatum_context = (*_TBGI_INSCHRIJVING_CONTEXT, "Teldatum")
+    signaal = {v: None for v in velden["Signaal"] if v.startswith("Signaal")}
+    return {
+        "Bekostigingsgrondslagen": {
+            "Inschrijving": "Inschrijving",
+            "Diploma": "Diploma",
+        },
+        "Inschrijving": {v: None for v in velden["Inschrijving"]}
+        | {"Teldatum": "Teldatum"},
+        "Teldatum": eigen("Teldatum", _TBGI_INSCHRIJVING_CONTEXT)
+        | {_TBGI_BPV: _TBGI_BPV, "Signaal": "Signaal"},
+        _TBGI_BPV: eigen(_TBGI_BPV, teldatum_context),
+        "Diploma": {v: None for v in velden["Diploma"]} | {"Signaal": "Signaal"},
+        "Signaal": signaal | {"Parameter": "Parameter"},
+        "Parameter": {v: None for v in velden["Signaal"] if v.startswith("Parameter")},
+    }
+
+
+def _tel_onbekende_elementen(
+    elem: ET.Element,
+    groep: str,
+    structuur: dict[str, dict[str, str | None]],
+    gevonden: dict[str, dict[str, int]],
+) -> None:
+    for kind in elem:
+        kindgroep = structuur[groep].get(kind.tag, False)
+        if kindgroep is False:
+            per_tag = gevonden.setdefault(groep, {})
+            per_tag[kind.tag] = per_tag.get(kind.tag, 0) + 1
+        elif kindgroep:
+            _tel_onbekende_elementen(kind, kindgroep, structuur, gevonden)
+
+
+def inventariseer_xml_elementen(path: str | Path, schema_name: str = "tbgi") -> dict:
+    """Tel XML-elementen die het schema niet kent, per groep en tagnaam.
+
+    ``read_tbgi`` leest alleen de schemavelden; een element dat DUO toevoegt
+    verdween zonder spoor (#324). Het bestand breekt niet: DUO mag XML
+    uitbreiden, dus dit blijft een warning in ``quality.json``.
+
+    Returns:
+        ``onbekende_xml_elementen``: groep → tagnaam → aantal.
+    """
+    velden = {tabel: spec["fields"] for tabel, spec in load_schema(schema_name).items()}
+    root = ET.parse(path).getroot()
+    gevonden: dict[str, dict[str, int]] = {}
+    _tel_onbekende_elementen(
+        root, "Bekostigingsgrondslagen", _tbgi_structuur(velden), gevonden
+    )
+    return {
+        "onbekende_xml_elementen": {
+            groep: dict(sorted(tags.items()))
+            for groep, tags in sorted(gevonden.items())
+        }
+    }
+
+
 def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     """Lees een TBGI XML-bestand in en plat het naar vijf DataFrames.
 

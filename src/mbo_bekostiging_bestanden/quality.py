@@ -97,8 +97,10 @@ def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
     return "unknown"
 
 
-# Waarschuwing per onderdeel van ``ingest.inventariseer_regels`` (#120).
+# Waarschuwing per onderdeel van ``ingest.inventariseer_regels`` (#120) en
+# ``ingest.inventariseer_xml_elementen`` (#324).
 _REGELINVENTARIS_MELDINGEN = {
+    "onbekende_xml_elementen": "XML-elementen buiten het schema niet ingelezen",
     "spiegel_afwijkingen": (
         "Posities buiten het PvE verschillen van het veld dat ze meestal "
         "herhalen; betekenis onbekend, waarde bewaard in de brondata"
