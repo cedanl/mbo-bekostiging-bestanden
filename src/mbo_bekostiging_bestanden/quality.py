@@ -112,9 +112,7 @@ class KwaliteitsFout(Exception):
 
 def lees_status(quality_json: Path | str) -> tuple[str, int]:
     """``(status, aantal errors)`` uit een geschreven ``quality.json``."""
-    samenvatting = json.loads(
-        Path(quality_json).read_text(encoding="utf-8")
-    )["summary"]
+    samenvatting = json.loads(Path(quality_json).read_text(encoding="utf-8"))["summary"]
     return samenvatting["status"], samenvatting["total_errors"]
 
 
