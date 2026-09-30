@@ -17,10 +17,25 @@ import polars as pl
 
 from mbo_bekostiging_bestanden import ernst
 from mbo_bekostiging_bestanden.canonicalisatie import INSCHRIJVING, REGEL
-from mbo_bekostiging_bestanden.filters import (
-    _PERIODE_SLEUTEL,
-    detail_zonder_inschrijving,
+from mbo_bekostiging_bestanden.contracts import (
+    BRON,
+    BRON_BID,
+    BRON_BII,
+    BRON_ISP,
+    BRON_TBGI,
+    DETAIL_GRAIN,
+    HOOFDINSCHRIJVING,
+    HOOFDINSCHRIJVING_GROEP,
+    KOPPELSTATUS,
+    KOPPELSTATUS_BINNEN,
+    KOPPELSTATUS_GEEN_INSCHRIJVING,
+    PERIODE_SLEUTEL,
+    SCHOOLJAAR_FEIT,
+    SCHOOLJAAR_GRAIN,
+    VEROUDERD_TOT,
+    VEROUDERDE_KOLOMMEN,
 )
+from mbo_bekostiging_bestanden.filters import detail_zonder_inschrijving
 from mbo_bekostiging_bestanden.koppelingen import UNIEK
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
 from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
@@ -31,29 +46,6 @@ from mbo_bekostiging_bestanden.referentiedata import (
     bekende_opleidingscodes,
 )
 from mbo_bekostiging_bestanden.referentiedata import TABEL as _META_REFERENTIEDATA
-from mbo_bekostiging_bestanden.schooljaar import (
-    FEIT as SCHOOLJAAR_FEIT,
-)
-from mbo_bekostiging_bestanden.schooljaar import (
-    GRAIN as SCHOOLJAAR_GRAIN,
-)
-from mbo_bekostiging_bestanden.schooljaar import (
-    HOOFDINSCHRIJVING,
-    HOOFDINSCHRIJVING_GROEP,
-)
-from mbo_bekostiging_bestanden.star import DETAIL_GRAIN
-from mbo_bekostiging_bestanden.transform import (
-    BRON,
-    BRON_BID,
-    BRON_BII,
-    BRON_ISP,
-    BRON_TBGI,
-    KOPPELSTATUS,
-    KOPPELSTATUS_BINNEN,
-    KOPPELSTATUS_GEEN_INSCHRIJVING,
-    VEROUDERD_TOT,
-    VEROUDERDE_KOLOMMEN,
-)
 
 # Icoon per SLR-status voor de app-weergave.
 _SLR_STATUS_ICONS = {
@@ -454,7 +446,7 @@ class _Uniciteit:
 # Naam → uniciteitscontract. Een geschonden contract is een error (#122, #200).
 _UNICITEIT = {
     _CENTRAAL_FEIT: _Uniciteit(
-        _CENTRAAL_FEIT, tuple(_PERIODE_SLEUTEL), "{n} {sleutels} meer dan één keer voor"
+        _CENTRAAL_FEIT, PERIODE_SLEUTEL, "{n} {sleutels} meer dan één keer voor"
     ),
     SCHOOLJAAR_FEIT: _Uniciteit(
         SCHOOLJAAR_FEIT,

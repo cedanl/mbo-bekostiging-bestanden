@@ -5,9 +5,9 @@ from datetime import date
 import polars as pl
 import pytest
 
+from mbo_bekostiging_bestanden.contracts import BRON
 from mbo_bekostiging_bestanden.koppelingen import Koppelingen
 from mbo_bekostiging_bestanden.transform import (
-    BRON,
     _add_persoon_id,
     _bouw_analysetabellen,
     _bouw_detail_bekostiging,

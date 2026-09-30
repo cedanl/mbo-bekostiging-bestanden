@@ -98,7 +98,7 @@ naar de centrale laag staan apart:
 `levering` hoort erbij omdat `Inschrijvingvolgnummer` alleen uniek is per persoon binnen één
 instelling (PvE §16.5.1): dezelfde persoon en hetzelfde volgnummer bij twee instellingen zijn
 twee verschillende inschrijvingen. Zonder `levering` in de sleutel telt een test met twee
-instellingen dubbelen (BPV, KZD en GEO). De keys staan in de code als `star.DETAIL_GRAIN`; een
+instellingen dubbelen (BPV, KZD en GEO). De keys staan in de code als `contracts.DETAIL_GRAIN`; een
 test houdt deze tabel en de code gelijk, en `quality.json` → `star.key_duplicates` toetst per
 detailfeit de uniciteit (een dubbele sleutel is een error, #328). Elk detailfeit heeft een
 `BRIN`-kolom, afgeleid van de parent-inschrijving via `_inschrijving_periode_id`; alleen een rij
@@ -240,7 +240,7 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
 
     **Besluit (#201):** `fact_inschrijving_schooljaar` is de enige bron voor jaargebonden vlaggen en indicatoren;
     `fact_inschrijving` blijft periode-grain. Migratiepad: de eerstvolgende release markeert de kolommen
-    (`transform.VEROUDERDE_KOLOMMEN`, in `quality.json` → `star.verouderde_kolommen` en als info-melding) en de app
+    (`contracts.VEROUDERDE_KOLOMMEN`, in `quality.json` → `star.verouderde_kolommen` en als info-melding) en de app
     leest ze niet meer; v4.0.0 verwijdert ze, samen met hun berekening in `transform.py`. Dat geldt ook voor de
     run-afhankelijke opbrengstjaar-kolommen (`Opbrengstjaar_*`, `_driejaars_teljaar`, `_num_opbrengstjaar_3jr`).
 

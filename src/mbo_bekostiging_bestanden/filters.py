@@ -11,10 +11,12 @@ TBGI-only jaren wegvallen.
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.transform import (
-    _STUDIEJAAR_START_MONTH,
-    _TELDATUM_DAG,
-    _TELDATUM_MONTH,
+from mbo_bekostiging_bestanden.contracts import (
+    PERIODE_ID,
+    PERIODE_SLEUTEL,
+    STUDIEJAAR_START_MAAND,
+    TELDATUM_DAG,
+    TELDATUM_MAAND,
 )
 
 _SCHOOLJAAR = "Schooljaar"
@@ -24,19 +26,18 @@ _PERIODE_JAAR = "Studiejaar_periode"
 # Koppelsleutels van detail-feiten naar fact_inschrijving, in voorkeursvolgorde:
 # de periodesleutel wijst één ISP-periode aan; de inschrijvingssleutel is de
 # fallback voor star-output van vóór die sleutel (en kent geen periode).
-_PERIODE_SLEUTEL = ["_inschrijving_periode_id"]
-_INSCHRIJVING_SLEUTEL = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
+_INSCHRIJVING_SLEUTEL = ("levering", "_persoon_id", "Inschrijvingvolgnummer")
 
 
 def schooljaar_van(datum: pl.Expr) -> pl.Expr:
     """Schooljaar *t* loopt van 1-8-t t/m 31-7-(t+1)."""
     datum = datum.cast(pl.Date, strict=False)
-    return datum.dt.year() - (datum.dt.month() < _STUDIEJAAR_START_MONTH).cast(pl.Int32)
+    return datum.dt.year() - (datum.dt.month() < STUDIEJAAR_START_MAAND).cast(pl.Int32)
 
 
 def peildatum(schooljaar: pl.Expr) -> pl.Expr:
     """1 oktober van ``schooljaar``: de teldatum van de bekostiging."""
-    return pl.date(schooljaar, _TELDATUM_MONTH, _TELDATUM_DAG)
+    return pl.date(schooljaar, TELDATUM_MAAND, TELDATUM_DAG)
 
 
 def beschikbare_schooljaren(
@@ -95,19 +96,20 @@ def filter_perioden_op_schooljaren(
         if _PERIODE_JAAR in perioden.columns
         else pl.lit(False)
     )
-    [sleutel] = _PERIODE_SLEUTEL
-    if sleutel in actief.columns and sleutel in perioden.columns:
-        begint = begint | pl.col(sleutel).is_in(actief[sleutel].drop_nulls().implode())
+    if PERIODE_ID in actief.columns and PERIODE_ID in perioden.columns:
+        begint = begint | pl.col(PERIODE_ID).is_in(
+            actief[PERIODE_ID].drop_nulls().implode()
+        )
     return perioden.filter(begint)
 
 
 def _koppelsleutel(
     detail: pl.DataFrame, inschrijvingen: pl.DataFrame
-) -> list[str] | None:
+) -> tuple[str, ...] | None:
     """Eerste koppelsleutel die in beide tabellen staat, of ``None``."""
     gedeeld = set(detail.columns) & set(inschrijvingen.columns)
     return next(
-        (s for s in (_PERIODE_SLEUTEL, _INSCHRIJVING_SLEUTEL) if set(s) <= gedeeld),
+        (s for s in (PERIODE_SLEUTEL, _INSCHRIJVING_SLEUTEL) if set(s) <= gedeeld),
         None,
     )
 

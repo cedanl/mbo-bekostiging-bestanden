@@ -36,28 +36,29 @@ Regels:
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.transform import (
-    _PERIODE_EINDE,
-    _STUDIEJAAR_EIND_DAG,
-    _STUDIEJAAR_EIND_MONTH,
-    _STUDIEJAAR_START_DAG,
-    _STUDIEJAAR_START_MONTH,
-    _TELDATUM_DAG,
-    _TELDATUM_MONTH,
+from mbo_bekostiging_bestanden.contracts import (
     BRON,
     BRON_TBGI,
+    HOOFDINSCHRIJVING,
+    HOOFDINSCHRIJVING_GROEP,
+    PERIODE_ID,
+    SCHOOLJAAR,
+    SCHOOLJAAR_GRAIN,
+    STUDIEJAAR_EIND_DAG,
+    STUDIEJAAR_EIND_MAAND,
+    STUDIEJAAR_START_DAG,
+    STUDIEJAAR_START_MAAND,
+    TELDATUM_DAG,
+    TELDATUM_MAAND,
+)
+from mbo_bekostiging_bestanden.transform import (
+    _PERIODE_EINDE,
     _niveau_numeriek,
     _voeg_periode_einde_toe,
     _vul_niveau_aan,
 )
 
-FEIT = "fact_inschrijving_schooljaar"
-SCHOOLJAAR = "Schooljaar"
 PEILDATUM = "Peildatum"
-GRAIN = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer", SCHOOLJAAR]
-# Per groep precies één hoofdinschrijving (invariant, gecontroleerd in quality).
-HOOFDINSCHRIJVING_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
-HOOFDINSCHRIJVING = "_hoofdinschrijving"
 # DR en Entree zoeken de persoon in t+1 over alle instellingen in de dataset (#118).
 VOLGEND_JAAR_GROEP = ["_persoon_id"]
 # DR-teller (#119): een diploma van de instelling die de student verlaat, behaald
@@ -91,7 +92,7 @@ _KOLOMMEN = [
     "Inschrijvingvolgnummer",
     SCHOOLJAAR,
     PEILDATUM,
-    "_inschrijving_periode_id",
+    PERIODE_ID,
     "DatumBegin",
     "Opleidingcode",
     "Niveau",
@@ -111,7 +112,7 @@ _KOLOMMEN = [
 
 
 def _peildatum(jaar: pl.Expr) -> pl.Expr:
-    return pl.date(jaar, _TELDATUM_MONTH, _TELDATUM_DAG)
+    return pl.date(jaar, TELDATUM_MAAND, TELDATUM_DAG)
 
 
 def _eerste_peiljaar(datum: pl.Expr) -> pl.Expr:
@@ -216,8 +217,8 @@ def _voeg_hoofdinschrijving_toe(df: pl.DataFrame) -> pl.DataFrame:
 def _in_schooljaar(datum: pl.Expr) -> pl.Expr:
     """Waar als ``datum`` in schooljaar ``t`` valt: 1-8-t t/m 31-7-(t+1)."""
     jaar = pl.col(SCHOOLJAAR)
-    begin = pl.date(jaar, _STUDIEJAAR_START_MONTH, _STUDIEJAAR_START_DAG)
-    eind = pl.date(jaar + 1, _STUDIEJAAR_EIND_MONTH, _STUDIEJAAR_EIND_DAG)
+    begin = pl.date(jaar, STUDIEJAAR_START_MAAND, STUDIEJAAR_START_DAG)
+    eind = pl.date(jaar + 1, STUDIEJAAR_EIND_MAAND, STUDIEJAAR_EIND_DAG)
     return (datum >= begin) & (datum <= eind)
 
 
@@ -231,8 +232,8 @@ def _in_dr_diplomavenster(datum: pl.Expr) -> pl.Expr:
     jaar = pl.col(SCHOOLJAAR)
     begin = pl.date(
         jaar - (DR_DIPLOMAVENSTER_JAREN - 1),
-        _STUDIEJAAR_START_MONTH,
-        _STUDIEJAAR_START_DAG,
+        STUDIEJAAR_START_MAAND,
+        STUDIEJAAR_START_DAG,
     )
     return (datum >= begin) & (datum < _peildatum(jaar + 1))
 
@@ -376,8 +377,8 @@ def _tbgi_waarnemingen(
     teldatum = pl.col(_TELDATUM)
     peilmomenten = (
         teldata.filter(
-            (teldatum.dt.month() == _TELDATUM_MONTH)
-            & (teldatum.dt.day() == _TELDATUM_DAG)
+            (teldatum.dt.month() == TELDATUM_MAAND)
+            & (teldatum.dt.day() == TELDATUM_DAG)
         )
         .select(*sleutel, _TELDATUM, *attributen)
         .unique()
@@ -410,7 +411,8 @@ def bouw_inschrijving_schooljaar(
                         TBGI-inschrijvingen.
 
     Returns:
-        Eén rij per ``GRAIN``; leeg (met vast schema) zonder peildatum-dekking.
+        Eén rij per ``SCHOOLJAAR_GRAIN``; leeg (met vast schema) zonder
+        peildatum-dekking.
     """
     tbgi_rij = (
         pl.col(BRON) == BRON_TBGI if BRON in inschrijvingen.columns else pl.lit(False)
@@ -444,4 +446,4 @@ def bouw_inschrijving_schooljaar(
         _voeg_jr_toe(_voeg_hoofdinschrijving_toe(_per_schooljaar(perioden)))
     )
     df = _voeg_entree_toe(_voeg_dr_toe(df, _diplomas(perioden)))
-    return df.select(_KOLOMMEN).sort(GRAIN)
+    return df.select(_KOLOMMEN).sort(SCHOOLJAAR_GRAIN)

@@ -55,13 +55,13 @@ def test_tbgi_only_metrics_zijn_niet_nul(dashboard):
 
 # Alleen in fact_inschrijving (periode-grain) en verouderd (#201). Namen die ook
 # in fact_inschrijving_schooljaar bestaan (_telling, _jr_*, …) staan in
-# transform.VEROUDERDE_KOLOMMEN; hier gaat het erom dat het dashboard ze uit de
+# contracts.VEROUDERDE_KOLOMMEN; hier gaat het erom dat het dashboard ze uit de
 # periode-fact niet nodig heeft.
 @pytest.fixture(scope="module")
 def star_zonder_legacy(demo_prepared, tmp_path_factory) -> Path:
     import polars as pl
 
-    from mbo_bekostiging_bestanden.transform import VEROUDERDE_KOLOMMEN
+    from mbo_bekostiging_bestanden.contracts import VEROUDERDE_KOLOMMEN
 
     prepared, dirs = demo_prepared
     doel = tmp_path_factory.mktemp("star_zonder_legacy")
