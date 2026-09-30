@@ -60,7 +60,7 @@ _KOLOMMEN_KOPPEL = {
 
 def _download_koppeltabel(file_id: str) -> pl.DataFrame | None:
     url = _BASE_URL + file_id
-    print(f"  Groep 19 {url} …", end=" ")
+    print(f"  Groep 19 {url} ...", end=" ")
     try:
         data = urllib.request.urlopen(url, timeout=30).read()
         df = pl.read_excel(io.BytesIO(data))
@@ -155,7 +155,7 @@ def _download_crebolijst(
     ``soort_opleiding`` (String).
     """
     url = _BASE_URL + file_id
-    print(f"  Groep 14 {url} …", end=" ")
+    print(f"  Groep 14 {url} ...", end=" ")
     try:
         data = urllib.request.urlopen(url, timeout=30).read()
         df = pl.read_excel(io.BytesIO(data), infer_schema_length=0)
