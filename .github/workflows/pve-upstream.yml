@@ -1,0 +1,21 @@
+name: PvE upstream
+
+# Signaleert een nieuwe PvE-versie op duo.nl (#299). Bewust los van CI: het heeft
+# netwerk nodig en mag een PR niet blokkeren; een rode run is de melding.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  versie:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Vergelijk met duo.nl
+        run: uv run --with pypdf python scripts/controleer_pve_upstream.py
