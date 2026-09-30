@@ -4,9 +4,8 @@ Positioneel parsen neemt per recordtype alleen de velden uit het schema. Een
 onbekend recordtype en gevulde velden voorbij de schemabreedte verdwenen
 voorheen zonder spoor; de SLR-reconciliatie bleef "match". Sinds #257 breekt
 ``read_multi_record_csv`` de ingest op precies die twee gevallen, in plaats
-van ze stil te negeren/afknippen. ``inventariseer_regels`` blijft een
-onafhankelijk diagnosemiddel (o.a. voor ``spiegel_afwijkingen``, dat wél door
-de pipeline heen komt) — zie de docstring in ``ingest.py``.
+van ze stil te negeren/afknippen. ``inventariseer_regels`` telt daarom alleen
+nog ``spiegel_afwijkingen``, dat wél door de pipeline heen komt (#292).
 """
 
 from pathlib import Path
@@ -43,20 +42,16 @@ def _bestand(tmp_path: Path, naam: str, inhoud: str) -> Path:
     return pad
 
 
-def test_onbekende_recordtypes_worden_geteld(tmp_path):
+def test_inventaris_bevat_alleen_categorieen_die_kunnen_voorkomen(tmp_path):
+    """Onbekende recordtypes en velden voorbij het schema breken de ingest
+    (#257) en horen dus niet meer in het rapport (#292)."""
     inv = inventariseer_regels(_bestand(tmp_path, "RO_99XX_1_2.csv", RO), "ro")
-    assert inv["onbekende_recordtypes"] == {"CTR": 1, "XYZ": 1}
-
-
-def test_gevulde_velden_voorbij_het_schema_worden_geteld(tmp_path):
-    inv = inventariseer_regels(_bestand(tmp_path, "RO_99XX_1_2.csv", RO), "ro")
-    assert inv["velden_voorbij_schema"] == {"ISG": 1}
+    assert set(inv) == {"spiegel_afwijkingen"}
 
 
 def test_spiegelvelden_die_kloppen_zijn_geen_afwijking(tmp_path):
     pad = _bestand(tmp_path, "GRONDSLAG_IP_MBO_99XX_1_2.csv", GRONDSLAG_SPIEGEL)
     inv = inventariseer_regels(pad, "grondslag")
-    assert inv["velden_voorbij_schema"] == {}
     assert inv["spiegel_afwijkingen"] == {}
 
 
@@ -90,16 +85,6 @@ def test_pipeline_faalt_bij_velden_voorbij_schema(tmp_path):
     doel = tmp_path / "prepared"
     with pytest.raises(ValueError, match="ISG"):
         run_auto_pipeline(bron, doel)
-
-
-@pytest.mark.parametrize(
-    "bron", sorted(DEMO.glob("h1[57]/*.csv")), ids=lambda p: p.stem
-)
-def test_demo_heeft_geen_onbekende_regels_of_extra_velden(bron):
-    schema = "grondslag" if bron.name.startswith("GRONDSLAG") else "ro"
-    inv = inventariseer_regels(bron, schema)
-    assert inv["onbekende_recordtypes"] == {}
-    assert inv["velden_voorbij_schema"] == {}
 
 
 def test_demo_grondslag_positie_19_is_niet_altijd_een_spiegel():

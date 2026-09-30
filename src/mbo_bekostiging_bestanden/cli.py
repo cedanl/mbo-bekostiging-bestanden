@@ -8,6 +8,7 @@ Gebruik:
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 from mbo_bekostiging_bestanden.export import export_frames
@@ -134,4 +135,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except ValueError as fout:
+        # Fail-closed ingest (#257, #281): de melding noemt bestand en regel.
+        print(f"mbo {args.command}: {fout}", file=sys.stderr)
+        sys.exit(1)

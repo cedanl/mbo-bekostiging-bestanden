@@ -95,20 +95,8 @@
           },
           "regelinventaris": {
             "type": "object",
-            "description": "Wat de ingest niet inlas (#120); leeg voor TBGI (XML)",
+            "description": "Posities buiten het PvE die afwijken van het veld dat ze herhalen (#120); leeg voor TBGI (XML)",
             "properties": {
-              "onbekende_recordtypes": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "integer"
-                }
-              },
-              "velden_voorbij_schema": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "integer"
-                }
-              },
               "spiegel_afwijkingen": {
                 "type": "object",
                 "additionalProperties": {

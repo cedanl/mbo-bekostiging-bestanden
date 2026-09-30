@@ -4,8 +4,9 @@ import argparse
 from pathlib import Path
 
 import polars as pl
+import pytest
 
-from mbo_bekostiging_bestanden.cli import _stapel, _verwerk, build_parser
+from mbo_bekostiging_bestanden.cli import _stapel, _verwerk, build_parser, main
 
 DEMO_H15 = Path("data/01-raw/demo/h15")
 RO = DEMO_H15 / "RO_21CY_20250730_20250731.csv"
@@ -113,3 +114,27 @@ def test_help_noemt_de_laag_per_commando():
     assert "brondata" in hulp["verwerk"]
     assert "brondata" in hulp["stapel"]
     assert "analysemodel" in hulp["star"]
+
+
+# ---------------------------------------------------------------------------
+# Foutafhandeling (#291)
+# ---------------------------------------------------------------------------
+
+
+def test_main_toont_fail_closed_ingestfout_zonder_traceback(
+    tmp_path, monkeypatch, capsys
+):
+    """Een kapot bronbestand geeft een korte melding op stderr en exitcode 1."""
+    bron = tmp_path / "RO_99XX_20250801_20260731.csv"
+    bron.write_text("VLP|99XX|2025-08-01|2026-07-31|2026-08-01\nXYZ|iets\n")
+    monkeypatch.setattr(
+        "sys.argv", ["mbo", "verwerk", str(bron), str(tmp_path / "prepared")]
+    )
+
+    with pytest.raises(SystemExit) as uit:
+        main()
+
+    assert uit.value.code == 1
+    fout = capsys.readouterr().err
+    assert "XYZ" in fout
+    assert "Traceback" not in fout
