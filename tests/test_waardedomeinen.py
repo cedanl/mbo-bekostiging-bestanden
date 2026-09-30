@@ -150,6 +150,13 @@ def test_lege_datumbeginperiode_in_ro_is_een_error():
     assert result.get("VLP", {}).get("DatumBeginPeriode", {}).get("ernst") == "error"
 
 
+def test_lege_leertraject_is_een_error():
+    """§16.1: Leertraject is verplicht in RO-ISP (#354)."""
+    frames = {"ISP": pl.DataFrame({"Leertraject": ["BOL", None]})}
+    result = controleer_waardedomeinen(frames, "ro")
+    assert result.get("ISP", {}).get("Leertraject", {}).get("ernst") == "error"
+
+
 def test_pipeline_faalt_op_lege_brin(tmp_path):
     """Voorheen: status ``pass`` en de instelling verdween stil uit de ster (#320)."""
     bron = tmp_path / "RO_99XX_20250801_20260731.csv"

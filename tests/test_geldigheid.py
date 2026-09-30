@@ -47,11 +47,13 @@ def test_leerroutefase_is_pas_geldig_vanaf_1_augustus_2020():
 
 
 def test_rij_zonder_peildatum_krijgt_geen_tijdstoets_maar_telt_wel():
-    """Alle leertrajecten hebben in §16.6 een begindatum, dus beide tellen."""
+    """Alle leertrajecten hebben in §16.6 een begindatum, dus beide tellen.
+    Leertraject is verplicht (#354), dus lege waarde is een error."""
     afwijking = _toets("Leertraject", ["BOL_DT", "BOL", ""], [None, None, None])
     assert afwijking["Leertraject"] == {
-        "aantal": 0,
-        "ernst": "warning",
+        "aantal": 1,
+        "ernst": "error",
+        "leeg": 1,
         "zonder_peildatum": 2,
     }
 
@@ -72,10 +74,11 @@ def test_audit_bewijs_via_de_pipeline(tmp_path):
         "SLR|1|1|1|0|0|0|0|0|0\n",
         encoding="utf-8",
     )
-    run_auto_pipeline(bron, tmp_path / "uit")
+    run_auto_pipeline(bron, tmp_path / "uit", fail_on_errors=False)
     rapport = json.loads((tmp_path / "uit" / "quality.json").read_text("utf-8"))
     assert rapport["domeinafwijkingen"]["ISP"]["Leertraject"]["buiten_geldigheid"] == 1
-    assert any("buiten hun geldigheid" in w for w in rapport["warnings"])
+    # Leertraject is verplicht en buiten geldigheid geeft error (#354)
+    assert any("buiten hun domein" in e for e in rapport["errors"])
 
 
 @pytest.mark.parametrize("schema", ["ro", "grondslag", "tbgi"])

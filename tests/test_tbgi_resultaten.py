@@ -26,7 +26,7 @@ def prepared(tmp_path_factory) -> Path:
     bron = tmp_path_factory.mktemp("raw") / "TBGI_25LX_2027_20251124.XML"
     shutil.copy(XML, bron)
     doel = tmp_path_factory.mktemp("prepared") / bron.stem
-    run_auto_pipeline(bron, doel)
+    run_auto_pipeline(bron, doel, fail_on_errors=False)
     return doel
 
 
