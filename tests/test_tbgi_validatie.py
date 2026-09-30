@@ -106,3 +106,31 @@ def test_onbekend_element_in_een_genest_element_krijgt_zijn_eigen_groep(tmp_path
 
 def test_inventaris_van_demo_is_leeg():
     assert inventariseer_xml_elementen(DEMO_TBGI) == {"onbekende_xml_elementen": {}}
+
+
+def test_inschrijving_voor_correctiefactor_buiten_domein_is_error(tmp_path):
+    bron = _kopie(
+        tmp_path,
+        ("<InschrijvingVoorCorrectiefactor>true</InschrijvingVoorCorrectiefactor>",
+         "<InschrijvingVoorCorrectiefactor>not-a-bool</InschrijvingVoorCorrectiefactor>"),
+    )
+    rapport = _rapport(bron, tmp_path)
+    assert rapport["domeinafwijkingen"]["Teldatum"]["InschrijvingVoorCorrectiefactor"] == {
+        "aantal": 1,
+        "ernst": "error",
+    }
+    assert any("InschrijvingVoorCorrectiefactor" in e for e in rapport["errors"])
+
+
+def test_indicatie_bekostigbaar_buiten_domein_is_error(tmp_path):
+    bron = _kopie(
+        tmp_path,
+        ("<IndicatieBekostigbaar>true</IndicatieBekostigbaar>",
+         "<IndicatieBekostigbaar>maybe</IndicatieBekostigbaar>"),
+    )
+    rapport = _rapport(bron, tmp_path)
+    assert rapport["domeinafwijkingen"]["Teldatum"]["IndicatieBekostigbaar"] == {
+        "aantal": 1,
+        "ernst": "error",
+    }
+    assert any("IndicatieBekostigbaar" in e for e in rapport["errors"])
