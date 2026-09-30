@@ -238,7 +238,7 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
         check=True,
         capture_output=True,
     )
-    print(f"  ✓ {output.name}  ({output.stat().st_size // 1024} KB)")
+    print(f"  ok {output.name}  ({output.stat().st_size // 1024} KB)")
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@ def make_gif(frames: list[tuple[Path, float]], output: Path, width: int = 960):
 async def main():
     import tempfile
 
-    print("Starten van Playwright…")
+    print("Starten van Playwright...")
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(
             headless=True,
@@ -264,15 +264,15 @@ async def main():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
 
-            print("\n[1/3] Home GIF…")
+            print("\n[1/3] Home GIF...")
             home_frames = await capture_home(page, tmp)
             make_gif(home_frames, ASSETS / "home.gif")
 
-            print("\n[2/3] Dashboard GIF…")
+            print("\n[2/3] Dashboard GIF...")
             dash_frames = await capture_dashboard(page, tmp)
             make_gif(dash_frames, ASSETS / "dashboard.gif")
 
-            print("\n[3/3] Resultaten GIF…")
+            print("\n[3/3] Resultaten GIF...")
             res_frames = await capture_resultaten(page, tmp)
             make_gif(res_frames, ASSETS / "resultaten.gif")
 

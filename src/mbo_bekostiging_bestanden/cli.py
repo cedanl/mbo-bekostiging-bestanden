@@ -12,6 +12,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import polars as pl
+
 from mbo_bekostiging_bestanden.export import export_frames
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
 from mbo_bekostiging_bestanden.quality import (
@@ -24,11 +26,19 @@ from mbo_bekostiging_bestanden.stack import stack_prepared
 # Exitcode bij quality-status fail (#289); 1 is een ingestfout (#291).
 EXIT_KWALITEIT = 3
 
+# stdout is alleen ASCII: een Windows-console (cp1252) kan geen "→" coderen en
+# de UnicodeEncodeError kwam als ingestfout met exitcode 1 naar buiten (#353).
+PIJL = "->"
+
+
+def _meld_resultaat(actie: str, frames: dict[str, pl.DataFrame], doel: Path) -> None:
+    rijen = sum(df.height for df in frames.values())
+    print(f"{actie}: {len(frames)} tabellen, {rijen} rijen {PIJL} {doel}")
+
 
 def _verwerk(args: argparse.Namespace) -> None:
     frames = run_auto_pipeline(args.source, args.target, fmt=args.fmt)
-    total = sum(df.height for df in frames.values())
-    print(f"Verwerkt: {len(frames)} tabellen, {total} rijen → {args.target}")
+    _meld_resultaat("Verwerkt", frames, args.target)
 
 
 def _stapel(args: argparse.Namespace) -> None:
@@ -38,8 +48,7 @@ def _stapel(args: argparse.Namespace) -> None:
         relative_to=args.relative_to,
     )
     export_frames(frames, args.output, fmt=args.fmt)
-    total = sum(df.height for df in frames.values())
-    print(f"Gestapeld: {len(frames)} tabellen, {total} rijen → {args.output}")
+    _meld_resultaat("Gestapeld", frames, args.output)
 
 
 def _star(args: argparse.Namespace) -> None:
@@ -50,8 +59,7 @@ def _star(args: argparse.Namespace) -> None:
         scenario=args.scenario,
         fail_on_errors=not args.allow_quality_errors,
     )
-    total = sum(df.height for df in star.values())
-    print(f"Star schema gebouwd: {len(star)} tabellen, {total} rijen → {args.output}")
+    _meld_resultaat("Star schema gebouwd", star, args.output)
     status, fouten = lees_status(args.output / "quality.json")
     if status == "fail":
         print(f"Let op: kwaliteitsstatus {status} ({fouten} error(s)), toegestaan.")
@@ -155,8 +163,9 @@ def main() -> None:
     args = build_parser().parse_args()
     try:
         args.func(args)
-    except ValueError as fout:
-        # Fail-closed ingest (#257, #281): de melding noemt bestand en regel.
+    except (ValueError, FileNotFoundError) as fout:
+        # Fail-closed ingest (#257, #281) of een verkeerd pad (#353): de
+        # melding noemt het bestand, dus een traceback voegt niets toe.
         print(f"mbo {args.command}: {fout}", file=sys.stderr)
         sys.exit(1)
     except KwaliteitsFout as fout:

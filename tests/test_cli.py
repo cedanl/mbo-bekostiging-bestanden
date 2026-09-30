@@ -1,6 +1,8 @@
 """Tests voor de CLI-wrappers (TDD)."""
 
 import argparse
+import io
+import sys
 from pathlib import Path
 
 import polars as pl
@@ -138,3 +140,45 @@ def test_main_toont_fail_closed_ingestfout_zonder_traceback(
     fout = capsys.readouterr().err
     assert "XYZ" in fout
     assert "Traceback" not in fout
+
+
+def test_main_meldt_ontbrekende_bronmap_zonder_traceback(tmp_path, monkeypatch, capsys):
+    """Een verkeerd pad is een gebruikersfout, geen crash (#353)."""
+    ontbreekt = tmp_path / "bestaat_niet"
+    monkeypatch.setattr(
+        "sys.argv", ["mbo", "star", str(ontbreekt), "--output", str(tmp_path / "s")]
+    )
+
+    with pytest.raises(SystemExit) as uit:
+        main()
+
+    assert uit.value.code == 1
+    assert str(ontbreekt) in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Windows-console (#353)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_werkt_op_windows_console(tmp_path, monkeypatch):
+    """Elk commando meldt zijn resultaat zonder UnicodeEncodeError op cp1252.
+
+    Die fout is een ``ValueError``; ``main()`` zou hem als ingestfout met
+    exitcode 1 melden terwijl de uitvoer al geschreven is.
+    """
+    prepared = tmp_path / "prepared"
+    commandos = [
+        ["verwerk", str(RO), str(prepared)],
+        ["stapel", str(prepared), "--output", str(tmp_path / "gestapeld")],
+        ["star", str(prepared), "--output", str(tmp_path / "star")],
+    ]
+    for commando in commandos:
+        # Standaard Windows-console: cp1252 met errors="strict" op stdout.
+        uitvoer = io.BytesIO()
+        console = io.TextIOWrapper(uitvoer, encoding="cp1252", errors="strict")
+        monkeypatch.setattr(sys, "stdout", console)
+        monkeypatch.setattr(sys, "argv", ["mbo", *commando])
+        main()
+        console.flush()
+        assert b" -> " in uitvoer.getvalue(), commando[0]
