@@ -25,6 +25,7 @@ date_fields = ["Geboortedatum"]
 # PvE §15.5.2: dag of dag+maand mag 00 zijn (onbekend) (#206).
 partial_date_fields = ["Geboortedatum"]
 int_fields  = []
+domeinen = { Geslacht = "geslacht" }
 
 [ISG]
 verplicht = true
@@ -36,6 +37,7 @@ fields = [
 optionele_achtervelden = ["DatumUitschrijvingWerkelijk", "RedenUitschrijving"]
 date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields  = []
+domeinen = { RedenUitschrijving = "reden_uitschrijving" }
 
 [ISP]
 verplicht = true
@@ -52,7 +54,7 @@ optionele_achtervelden = [
 ]
 date_fields = ["DatumBegin"]
 int_fields  = []
-domeinen = { IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject" }
+domeinen = { IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Onderwijslocatie = "onderwijslocatie", Leerroute = "leerroute", Leerroutefase = "leerroutefase", LocatiecodeVSV = "locatiecode_vsv" }
 
 [ISE]
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "DatumBegin", "DatumEind"]
@@ -70,6 +72,7 @@ fields = [
 optionele_achtervelden = ["Opleidingcode", "CodeKeuzedeel"]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
 int_fields  = ["Omvang"]
+domeinen = { Omvang = "omvang_bpv_ro", LeerbedrijfID = "leerbedrijf_id", Opleidingcode = "opleidingcode" }
 
 [DIP]
 # Praktijk: positie 7 staat niet in het PvE maar wel in alle bekende leveringen
@@ -107,7 +110,7 @@ optionele_achtervelden = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
-domeinen = { Certificaat = "certificaat" }
+domeinen = { Certificaat = "certificaat", OpleidingcodeDiploma = "opleidingcode", Onderwijsaanbieder = "onderwijsaanbieder" }
 
 [GEO]
 fields = [
@@ -126,6 +129,7 @@ optionele_achtervelden = [
 date_fields = ["DatumResultaat"]
 # Komma-cijfers zijn geldig volgens het PvE (bv. "6,5"); float, geen int (#207, #259).
 float_fields = ["Eindcijfer", "CijferIE", "CijferCE"]
+domeinen = { OpleidingcodeDiploma = "opleidingcode", Onderwijsaanbieder = "onderwijsaanbieder" }
 
 [KZD]
 fields = [
@@ -137,7 +141,7 @@ fields = [
 optionele_achtervelden = ["Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder"]
 date_fields = ["DatumResultaat"]
 int_fields  = []
-domeinen = { Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
+domeinen = { Resultaat = "kzd_resultaat", Certificaat = "certificaat", OpleidingcodeDiploma = "opleidingcode", Onderwijsaanbieder = "onderwijsaanbieder" }
 
 [SLR]
 verplicht = true

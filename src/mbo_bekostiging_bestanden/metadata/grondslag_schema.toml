@@ -59,6 +59,7 @@ optionele_achtervelden = [
 ]
 date_fields = ["DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland"]
 int_fields  = ["Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4"]
+domeinen = { Geslacht = "geslacht", Postcodecijfers = "postcodecijfers" }
 
 [ISG]
 verplicht = true
@@ -70,7 +71,7 @@ fields = [
 optionele_achtervelden = ["DatumUitschrijvingWerkelijk", "RedenUitschrijving"]
 date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields  = []
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", RedenUitschrijving = "reden_uitschrijving" }
 
 [ISP]
 verplicht = true
@@ -86,7 +87,7 @@ optionele_achtervelden = [
 ]
 date_fields = ["DatumBegin", "DatumEind"]
 int_fields  = []
-domeinen = { BRIN = "brin", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject" }
+domeinen = { BRIN = "brin", IndicatieBekostigbaar = "indicatie_bekostigbaar", Onderwijsaanbieder = "onderwijsaanbieder", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Onderwijslocatie = "onderwijslocatie", Leerroute = "leerroute", Leerroutefase = "leerroutefase", LocatiecodeVSV = "locatiecode_vsv" }
 
 [ISE]
 fields = [
@@ -108,7 +109,7 @@ fields = [
 optionele_achtervelden = ["Opleidingcode", "CodeKeuzedeel"]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
 int_fields  = ["Omvang"]
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", Omvang = "omvang_bpv_grondslag", LeerbedrijfID = "leerbedrijf_id", Opleidingcode = "opleidingcode" }
 
 [BII]
 # Niet aanwezig in demo-data; aangemaakt na bekostigingsberekening door DUO.
@@ -130,7 +131,7 @@ optionele_achtervelden = [
 date_fields  = ["Teldatum"]
 int_fields   = ["AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus", Bekostigingsstatus = "ja_nee", InschrijvingVoorCorrectiefactor = "ja_nee" }
 
 [DIP]
 fields = [
@@ -158,7 +159,7 @@ optionele_achtervelden = ["Bekostigingsstatus", "BijdrageDiplomawaarde"]
 date_fields  = []
 int_fields   = []
 float_fields = ["BijdrageDiplomawaarde"]
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", Niveau = "niveau", IndicatieSpecialistendiploma = "ja_nee", NiveauHoogstBekostigdeDiploma = "niveau", IndicatieHoogstBekostigdeDiplomaIsSpecialist = "ja_nee", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus", Bekostigingsstatus = "ja_nee" }
 
 [AMO]
 # Niet aanwezig in demo-data (subset); aanwezig in volledig bestand.
@@ -173,7 +174,7 @@ optionele_achtervelden = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
-domeinen = { BRIN = "brin", Certificaat = "certificaat" }
+domeinen = { BRIN = "brin", Certificaat = "certificaat", Onderwijsaanbieder = "onderwijsaanbieder" }
 
 [GEO]
 fields = [
@@ -192,7 +193,7 @@ optionele_achtervelden = [
 date_fields = ["DatumResultaat"]
 # Komma-cijfers zijn geldig volgens het PvE (bv. "6,5"); float, geen int (#208, #259).
 float_fields = ["Eindcijfer", "CijferIE", "CijferCE"]
-domeinen = { BRIN = "brin" }
+domeinen = { BRIN = "brin", Onderwijsaanbieder = "onderwijsaanbieder" }
 
 [KZD]
 # Certificaat vóór DatumResultaat, anders dan RO (§15) (#127).
@@ -208,7 +209,7 @@ optionele_achtervelden = [
 ]
 date_fields = ["DatumResultaat"]
 int_fields  = []
-domeinen = { BRIN = "brin", Resultaat = "kzd_resultaat", Certificaat = "certificaat" }
+domeinen = { BRIN = "brin", Resultaat = "kzd_resultaat", Certificaat = "certificaat", Onderwijsaanbieder = "onderwijsaanbieder" }
 
 [SLR]
 verplicht = true

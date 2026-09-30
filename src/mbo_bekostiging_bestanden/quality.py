@@ -153,6 +153,8 @@ class QualityReport:
     domeinafwijkingen: dict[str, dict[str, dict[str, int | str]]] = field(
         default_factory=dict
     )
+    # Schemavelden per soort domeindekking (``waardenlijsten.dekkingsoverzicht``).
+    domeindekking: dict[str, int] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     # Naam, sha256 en PvE-versie van het ruwe bestand (#300); None in rapporten
@@ -215,6 +217,7 @@ class QualityReport:
             "regelinventaris": self.regelinventaris,
             "layoutvarianten": self.layoutvarianten,
             "domeinafwijkingen": self.domeinafwijkingen,
+            "domeindekking": self.domeindekking,
             "warnings": self.warnings,
             "errors": self.errors,
             "bronbestand": self.bronbestand,
@@ -274,6 +277,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         regelinventaris=data.get("regelinventaris", {}),
         layoutvarianten=data.get("layoutvarianten", {}),
         domeinafwijkingen=data.get("domeinafwijkingen", {}),
+        domeindekking=data.get("domeindekking", {}),
         warnings=data.get("warnings", []),
         errors=data.get("errors", []),
         bronbestand=data.get("bronbestand"),
