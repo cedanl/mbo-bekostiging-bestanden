@@ -139,8 +139,25 @@ def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
 
 
 # Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.
-# JR/DR zijn proxy's tot #296 besloten is; de waarde staat hier op één plek.
-INDICATOREN_STATUS = "proxy"
+# JR/DR zijn proxy's tot #296 besloten is; per proxy de afwijkingen vastleggen (#369).
+INDICATOREN_STATUS = {
+    "JR": {
+        "status": "proxy",
+        "afwijkingen": [
+            {"code": "geen_driejaarsvenster", "tekst": "geen formeel 3-jaarsvenster"},
+            {
+                "code": "noemer_inclusief_ongediplomeerden",
+                "tekst": "noemer bevat instellingsverlaters",
+            },
+        ],
+    },
+    "DR": {
+        "status": "proxy",
+        "afwijkingen": [
+            {"code": "geen_driejaarsvenster", "tekst": "geen formeel 3-jaarsvenster"},
+        ],
+    },
+}
 # Nog geen gepinde PvE-bron om tegen te toetsen (#299): niet raden.
 PVE_SCHEMA_STATUS = "niet_beoordeeld"
 # DUO heeft niet bevestigd dat het omgenummerde GRONDSLAG-PGN over studiejaren

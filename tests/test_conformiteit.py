@@ -29,12 +29,14 @@ def ster_dir(demo_prepared, tmp_path_factory) -> Path:
 
 def test_ster_rapport_bevat_conformiteit():
     rapport = compile_quality_report({})
-    assert rapport["conformiteit"] == {
-        "pve_schema": "niet_beoordeeld",
-        "indicatoren": "proxy",
-        "privacyprofiel": "gepseudonimiseerd",
-        "pgn_stabiliteit": "onbekend",
-    }
+    conformiteit = rapport["conformiteit"]
+    assert conformiteit["pve_schema"] == "niet_beoordeeld"
+    assert conformiteit["privacyprofiel"] == "gepseudonimiseerd"
+    assert conformiteit["pgn_stabiliteit"] == "onbekend"
+    # Indicatoren bevat per proxy-indicator status en afwijkingen (#369)
+    assert "JR" in conformiteit["indicatoren"]
+    assert "DR" in conformiteit["indicatoren"]
+    assert conformiteit["indicatoren"]["JR"]["status"] == "proxy"
 
 
 def test_indicatorstatus_komt_uit_een_constante():
