@@ -32,8 +32,13 @@ uv run streamlit run app/main.py
 De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 > **Pseudonimisering (fail-closed):** persoons-identifiers worden gehasht met
-> HMAC-SHA256 plus deze salt. Zonder `MBO_PSEUDONIMISERING_SALT` weigert de
-> pipeline te draaien. Productie gebruikt uitsluitend de environment
+> HMAC-SHA256 plus deze salt, en wel in de stap die het analysemodel bouwt
+> (`mbo star`, of "Bouw analysemodel" in de app). Zonder
+> `MBO_PSEUDONIMISERING_SALT` weigert *die stap* te draaien. De stap
+> "Verwerk bestanden" (`mbo verwerk`) heeft de salt niet nodig en schrijft
+> brondata in `02-prepared/` **met BSN/Onderwijsnummer in platte tekst**: behandel
+> die map als persoonsgegevens (zie [Aan de slag](docs/aan-de-slag.md#opslag-en-retentie-van-brondata)).
+> Productie gebruikt uitsluitend de environment
 > (secret manager); lokaal genereert het `export`-commando hierboven een
 > willekeurige salt per shell. Bewaar die zelf als je pseudoniemen tussen sessies
 > wilt kunnen koppelen. Bewaar echte salts nooit in git — een
@@ -143,7 +148,8 @@ uv run ruff check   # lint
 ```
 
 De tests draaien fail-closed op persoons-pseudonimisering; zonder
-`MBO_PSEUDONIMISERING_SALT` faalt de pipeline (zie [Quick start](#quick-start)).
+`MBO_PSEUDONIMISERING_SALT` faalt de stap die het analysemodel bouwt (zie
+[Quick start](#quick-start)).
 De vaste testwaarde is publiek en dus herleidbaar: gebruik hem uitsluitend op
 synthetische data (tests, CI), nooit voor het verwerken van echte bestanden.
 

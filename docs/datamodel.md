@@ -54,12 +54,12 @@ geschreven.
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
 | `fact_inschrijving` | ISP-inschrijvingsperiode, of TBGI-inschrijving zonder ISP | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. `Bron` = `ISP` (RO/GRONDSLAG-periode) of `TBGI` (inschrijving die alleen in TBG-i staat, #196). De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |
 | `fact_inschrijving_schooljaar` | Persoon × instelling × inschrijving × schooljaar | `BRIN` + `_persoon_id` + `Inschrijvingvolgnummer` + `Schooljaar` | Eén rij per schooljaar waarin een inschrijving op de peildatum (1 oktober) actief is, met hoofdinschrijving, telling, bekostigd, JR, DR en Entree. FK `_inschrijving_periode_id` wijst de periode aan die de peildatum dekt |
-| `fact_bpv` | BPV-overeenkomst | `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
-| `fact_kzd` | Keuzedeel-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving; `Behaald` (bool) is exact bepaald uit de waardenlijst (`Behaald`/`Niet behaald`), null bij een onbekende waarde |
-| `fact_amo` | AMO-resultaat | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
-| `fact_geo` | GEO-examenonderdeel | `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | Eindcijfers IE/CE per onderdeel in long format |
-| `fact_bekostiging` | GRONDSLAG BII, TBGI Teldatum | `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2); `Bron` = `BII` of `TBGI` |
-| `fact_bekostiging_diploma` | GRONDSLAG BID, TBGI Diploma | `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma; `Bron` = `BID` of `TBGI`. Een BID neemt `Inschrijvingvolgnummer`, `Opleidingcode` en `DatumBehaald` (= `DatumResultaat`) over van het DIP-record met hetzelfde `Resultaatvolgnummer` (#258) |
+| `fact_bpv` | BPV-overeenkomst | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
+| `fact_kzd` | Keuzedeel-resultaat | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving; `Behaald` (bool) is exact bepaald uit de waardenlijst (`Behaald`/`Niet behaald`), null bij een onbekende waarde |
+| `fact_amo` | AMO-resultaat | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | AMvB-onderdelen per inschrijving |
+| `fact_geo` | GEO-examenonderdeel | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | Eindcijfers IE/CE per onderdeel in long format |
+| `fact_bekostiging` | GRONDSLAG BII, TBGI Teldatum | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | Bekostigingsgrondslagen per inschrijving per teldatum (1-10 / 1-2); `Bron` = `BII` of `TBGI` |
+| `fact_bekostiging_diploma` | GRONDSLAG BID, TBGI Diploma | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | Diplomawaarde-bijdragen (`BijdrageDiplomawaarde`) per behaald diploma; `Bron` = `BID` of `TBGI`. Een BID neemt `Inschrijvingvolgnummer`, `Opleidingcode` en `DatumBehaald` (= `DatumResultaat`) over van het DIP-record met hetzelfde `Resultaatvolgnummer` (#258) |
 | `meta_leveringen` | Leveringsbestand | `levering` | Elke verwerkte levering, met VLP + SLR metadata (leveringsdatum, aantallen zoals `AantalBII`/`AantalBID`) waar het bestand die heeft; bij TBGI (XML) zijn die velden leeg. Observatievenster (#211): `Peilgrens` (laatste waarneembare datum), `Peilgrens_bron` (`DatumEindePeriode`, `DatumAanmaak` of bij TBGI `Teldatum`) en `Laatste_peildatum` (laatste 1 oktober die de levering kan waarnemen). Zelfde `levering`-labels als in de feiten en `quality.json`. Na `run_star` ook het ruwe bronbestand (#300): `Bronbestand` (naam, geen pad), `Bronbestand_sha256` en `PvE_versie` (de `schema_version` van het schema waarmee het is ingelezen); leeg voor prepared-mappen van vóór #300 |
 | `meta_koppelkeuzes` | Koppeling | `koppeling` | Per links-join (PER, ISG, VLP, ISE, DIP, GEO, BID.DIP, meta_leveringen): hoeveel sleutels meer dan één kandidaat hadden en hoeveel rijen daardoor wegvielen. De keuze hangt nooit af van de rijvolgorde; bij DIP wint de meest recente `DatumResultaat` (#209) |
 | `meta_referentiedata` | Referentiebestand | `bestand` | Herkomst van de referentietabellen in `metadata/` uit `metadata/referentiedata.json` (#132): `bron`, `opgenomen` (datum van opname in de repo), `dekking_tot` (laatste datum waarvoor de lijst de opleidingen dekt; alleen bekend voor de S-BB-lijsten), `sha256`, `rijen`, en `afwijkend` als het bestand op schijf een andere inhoud heeft dan het manifest. `crebo.csv` en de andere CSV's zijn in #19 zonder herkomst opgenomen: hun `bron` is `onbekend` |
@@ -82,6 +82,27 @@ periode, als terugval) en `geen_inschrijving` (lege sleutel). Filter op `binnen_
 analyses die op de juiste periode leunen; `quality.json` → `star.periode_koppelstatus` telt ze.
 Bij TBGI-only input (geen ISP) is elke TBGI-inschrijving één periode vanaf `DatumInschrijving`;
 de sleutel en de koppelregel zijn verder gelijk, zodat het schema in beide routes uniform is.
+
+**Grain-contract detailfeiten (#327).** De business key van een detailfeit is de
+inschrijving van één levering plus het eigen volgnummer; de technische lineage en de koppeling
+naar de centrale laag staan apart:
+
+| Feit | Business key | Parent-FK | Lineage |
+|---|---|---|---|
+| `fact_bpv` | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | `_inschrijving_periode_id` | `levering`, `_periode_koppel_status` |
+| `fact_kzd`, `fact_amo` | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | `_inschrijving_periode_id` | `levering`, `_periode_koppel_status` |
+| `fact_geo` | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `CodeGeneriekExamenonderdeel` | `_inschrijving_periode_id` | `levering`, `_periode_koppel_status` |
+| `fact_bekostiging` | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Teldatum` | `_inschrijving_periode_id` | `levering`, `Bron` (`BII`/`TBGI`), `_periode_koppel_status` |
+| `fact_bekostiging_diploma` | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | `_inschrijving_periode_id` | `levering`, `Bron` (`BID`/`TBGI`), `_periode_koppel_status` |
+
+`levering` hoort erbij omdat `Inschrijvingvolgnummer` alleen uniek is per persoon binnen één
+instelling (PvE §16.5.1): dezelfde persoon en hetzelfde volgnummer bij twee instellingen zijn
+twee verschillende inschrijvingen. Zonder `levering` in de sleutel telt een test met twee
+instellingen dubbelen (BPV, KZD en GEO). `BRIN` staat niet betrouwbaar in elk detailfeit (bij
+RO-only ontbreekt de kolom in `fact_bpv`); gebruik daarom `levering` als onderscheid en
+`_inschrijving_periode_id` om naar `fact_inschrijving` en zo naar `BRIN` te gaan. De
+uniciteitscontrole op deze sleutels en een vaste `BRIN`-kolom zijn nog open (#328). De
+`Inschrijvingvolgnummer` van een TBGI-diploma zonder inschrijving is leeg (zie hieronder).
 
 **Bekostiging over leveringen heen.** TBGI-bekostiging komt altijd uit een andere levering dan
 de RO-inschrijvingen. `fact_bekostiging` en `fact_bekostiging_diploma` koppelen daarom eerst
@@ -228,8 +249,8 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
 | QlikView | Deze ETL | Status |
 |---|---|---|
 | `Facttabel` | `fact_inschrijving` | Geïmplementeerd |
-| `Studiesucces` JR | `_jr_noemer` / `_jr_teller` in `fact_inschrijving_schooljaar` | Geïmplementeerd |
-| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving_schooljaar` | Indicatief: zesjaarsvenster en diplomaniveau (#119), maar alleen diploma's en uitstroom binnen de leveringen in de dataset (#118) |
+| `Studiesucces` JR | `_jr_noemer` / `_jr_teller` in `fact_inschrijving_schooljaar` | Proxy (#296, #297): de noemer is de hoofdinschrijving, niet gediplomeerden plus ongediplomeerde instellingsverlaters; het dashboard noemt het `JR-proxy` |
+| `Studiesucces` DR | `_dr_noemer` / `_dr_teller` in `fact_inschrijving_schooljaar` | Proxy (`DR-proxy` in het dashboard): zesjaarsvenster en diplomaniveau (#119), maar alleen diploma's en uitstroom binnen de leveringen in de dataset (#118) |
 | `Studiesucces` SR | — | Vereist 6-jaar inschrijvingshistorie buiten eigen leveringen; buiten scope |
 | `CREBOs` | `dim_opleiding` | Geïmplementeerd |
 | `Deelnemers` | `dim_deelnemer` | Geïmplementeerd |

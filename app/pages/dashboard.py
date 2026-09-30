@@ -307,12 +307,16 @@ def _toon_rendement(tabel: pl.DataFrame | None, naam: str, leeg: str) -> None:
     if tabel.is_empty():
         st.info(leeg)
         return
-    weergave = tabel.with_columns(pl.col("Schooljaar").cast(pl.Utf8))
+    proxykolom = f"{naam}-proxy (%)"
+    weergave = tabel.with_columns(pl.col("Schooljaar").cast(pl.Utf8)).rename(
+        {"Percentage": proxykolom}
+    )
     st.dataframe(weergave, width="stretch", hide_index=True)
-    st.bar_chart(weergave, x="Niveau", y="Percentage", color="Schooljaar")
+    st.bar_chart(weergave, x="Niveau", y=proxykolom, color="Schooljaar")
     st.caption(
-        f"{naam}-normen komen uit `metadata/normen.toml`; `Voldoet` vergelijkt "
-        "met de voldoende-norm. Zie de toelichting voor de definitie."
+        f"{naam}-normen komen uit `metadata/normen.toml`; `Voldoet` is een "
+        "indicatieve vergelijking van de proxy met de voldoende-norm, geen formele "
+        "beoordeling. Zie de toelichting voor de definitie."
     )
 
 
@@ -433,12 +437,12 @@ st.divider()
 # ---------------------------------------------------------------------------
 
 with tab_rendementen:
-    st.subheader("Jaarresultaat (JR) — indicatief, per schooljaar en niveau")
+    st.subheader("Jaarresultaat (JR-proxy) — per schooljaar en niveau")
     chart_help("jr_indicatief")
     jr = rendement(jaren_f, "jr") if _heeft_kolommen(jaren_f, _JR_KOLOMMEN) else None
     _toon_rendement(jr, "JR", "Geen JR-noemer in de geselecteerde schooljaren.")
 
-    st.subheader("Diplomaresultaat (DR) — indicatief, per schooljaar en niveau")
+    st.subheader("Diplomaresultaat (DR-proxy) — per schooljaar en niveau")
     chart_help("dr_indicatief")
     dr = rendement(jaren_f, "dr") if _heeft_kolommen(jaren_f, _DR_KOLOMMEN) else None
     _toon_rendement(
@@ -448,11 +452,11 @@ with tab_rendementen:
         "waarneembaar volgend schooljaar).",
     )
     st.caption(
-        "DR is indicatief: diploma's van vóór de eerste levering ontbreken. "
+        "DR-proxy: diploma's van vóór de eerste levering ontbreken. "
         f"{_uitstroom_scope(kwaliteitsrapport)}"
     )
 
-    st.subheader("Berekend oordeel Studiesucces (indicatief)")
+    st.subheader("Proxy-oordeel Studiesucces (indicatief)")
     chart_help("berekend_oordeel")
     per_niveau = _rendement_per_niveau(jr, dr)
     if per_niveau:
@@ -462,18 +466,22 @@ with tab_rendementen:
             oordeel, _, _ = bereken_oordeel(
                 ind.get("jr"), ind.get("dr"), None, niveau=niv
             )
-            row: dict = {"Niveau": niv_str, "Berekend oordeel": oordeel}
+            row: dict = {"Niveau": niv_str, "Proxy-oordeel": oordeel}
             for naam, sleutel in (("JR", "jr"), ("DR", "dr")):
                 waarde = ind.get(sleutel, {}).get("waarde")
                 if waarde is not None:
-                    row[f"{naam} (%)"] = round(waarde, 1)
-                    row[f"Norm vold. {naam} (%)"] = norm_voor(sleutel, niv, "voldoende")
+                    row[f"{naam}-proxy (%)"] = round(waarde, 1)
+                    row[f"Voldoende-norm {naam} (%)"] = norm_voor(
+                        sleutel, niv, "voldoende"
+                    )
             rows.append(row)
         st.dataframe(pl.DataFrame(rows), width="stretch", hide_index=True)
         st.warning(
             "SR (startersresultaat) is niet beschikbaar — dit vereist zes "
             "jaar inschrijvingshistorie die buiten de eigen leveringen valt. "
-            "Het oordeel is op JR + DR gebaseerd en daarmee indicatief. "
+            "Het oordeel is op JR-proxy + DR-proxy gebaseerd en daarmee indicatief. "
+            "Het telt de geselecteerde schooljaren op en is niet het formele "
+            "driejaarsvenster. "
             "Bij één ontbrekende "
             "indicator is een oordeel alleen mogelijk als de twee aanwezige "
             "indicatoren dezelfde richting uitwijzen (§3.5)."

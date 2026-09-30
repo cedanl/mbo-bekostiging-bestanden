@@ -46,7 +46,7 @@ CHART_DOCS: dict[str, dict] = {
         ),
     },
     "jr_indicatief": {
-        "titel": "Jaarresultaat (JR) — indicatief, per schooljaar en niveau",
+        "titel": "Jaarresultaat (JR-proxy) — per schooljaar en niveau",
         "variabelen": [
             "fact_inschrijving_schooljaar.Schooljaar",
             "fact_inschrijving_schooljaar.Niveau",
@@ -76,7 +76,7 @@ CHART_DOCS: dict[str, dict] = {
         ),
     },
     "dr_indicatief": {
-        "titel": "Diplomaresultaat (DR) — indicatief, per schooljaar en niveau",
+        "titel": "Diplomaresultaat (DR-proxy) — per schooljaar en niveau",
         "variabelen": [
             "fact_inschrijving_schooljaar.Schooljaar",
             "fact_inschrijving_schooljaar.Niveau",
@@ -109,7 +109,7 @@ CHART_DOCS: dict[str, dict] = {
         ),
     },
     "berekend_oordeel": {
-        "titel": "Berekend oordeel Studiesucces (indicatief)",
+        "titel": "Proxy-oordeel Studiesucces (indicatief)",
         "variabelen": [
             "fact_inschrijving_schooljaar.Niveau",
             "fact_inschrijving_schooljaar._jr_noemer",
@@ -125,10 +125,13 @@ CHART_DOCS: dict[str, dict] = {
             "tabel 3 toegepast (via `_indicatoren.bereken_oordeel`): hoog als "
             "alle drie de indicatoren voldoen en JR of DR de hoge norm haalt; "
             "voldoende als ≥ 2 van de 3 voldoen; anders onvoldoende.  De "
-            "normen komen uit `metadata/normen.toml`."
+            "normen komen uit `metadata/normen.toml`.  De kolommen heten `JR-proxy` "
+            "en `DR-proxy`; de vergelijking met de voldoende-norm is indicatief."
         ),
         "kanttekening": (
-            "SR (startersresultaat) is **niet beschikbaar** — de inspectie "
+            "Het oordeel telt de **geselecteerde** schooljaren op, niet het "
+            "formele driejaarsvenster.  SR (startersresultaat) is **niet "
+            "beschikbaar** — de inspectie "
             "berekent dit over drie cohorten met zes jaar inschrijvings­"
             "historie, die buiten de eigen leveringen valt.  Bij één "
             "ontbrekende indicator is een oordeel alleen mogelijk als de twee "
