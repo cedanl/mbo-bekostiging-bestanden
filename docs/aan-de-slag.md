@@ -98,6 +98,8 @@ uv run mbo stapel \
     --relative-to data/02-prepared/demo
 ```
 
+`mbo star` eindigt met exitcode 3 als `quality.json` de status `fail` heeft (#289). De ster en het rapport zijn dan wel geschreven, als diagnose. Met `--allow-quality-errors` bouwt de run door voor exploratief werk; dat staat in `provenance.kwaliteitsfouten_toegestaan`. Een kapot bronbestand geeft exitcode 1 met een korte melding (#291). De app blijft bouwen en toont de fout op Home (#290).
+
 ---
 
 ## Python API

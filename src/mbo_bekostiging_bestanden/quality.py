@@ -108,6 +108,19 @@ _REGELINVENTARIS_MELDINGEN = {
 }
 
 
+class KwaliteitsFout(Exception):
+    """De kwaliteitsstatus van een run is ``fail`` en de aanroeper staat dat niet toe.
+
+    ``quality.json`` is op dat moment al geschreven, zodat de oorzaak leesbaar blijft.
+    """
+
+
+def lees_status(quality_json: Path | str) -> tuple[str, int]:
+    """``(status, aantal errors)`` uit een geschreven ``quality.json``."""
+    samenvatting = json.loads(Path(quality_json).read_text())["summary"]
+    return samenvatting["status"], samenvatting["total_errors"]
+
+
 def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
     """Aantal afwijkende waarden, met de lege waarden apart benoemd (#320)."""
     leeg = afwijking.get("leeg")
@@ -699,6 +712,7 @@ def compile_quality_report(
     deliveries: dict[str, QualityReport] | None = None,
     scenario: str = SCENARIO_ONBEKEND,
     invoer: dict[str, pl.DataFrame] | None = None,
+    fouten_toegestaan: bool = False,
 ) -> dict[str, Any]:
     """Stel ``quality.json`` samen voor een ster-run (``docs/quality.schema.json``).
 
@@ -708,6 +722,8 @@ def compile_quality_report(
         scenario:   Label voor de run, bijv. ``"demo"`` of ``"prod"``.
         invoer:     Gestapelde prepared-tabellen waaruit de ster is gebouwd;
                     zonder invoer blijft de dekkingstabel leeg.
+        fouten_toegestaan: De run mocht doorgaan bij quality-errors (#289);
+                    komt in de provenance, zodat een exploratieve run herkenbaar is.
     """
     deliveries_list = []
     if deliveries:
@@ -747,7 +763,8 @@ def compile_quality_report(
     return {
         "timestamp": datetime.now(UTC).isoformat(),
         "scenario": scenario,
-        "provenance": run_provenance(),
+        "provenance": run_provenance()
+        | {"kwaliteitsfouten_toegestaan": fouten_toegestaan},
         "deliveries": deliveries_list,
         "star": star_checks,
         "summary": {
