@@ -29,7 +29,7 @@ def _kopie(tmp_path: Path, *vervangingen: tuple[str, str]) -> Path:
 
 def _rapport(bron: Path, tmp_path: Path) -> dict:
     doel = tmp_path / "prepared"
-    run_auto_pipeline(bron, doel)
+    run_auto_pipeline(bron, doel, fail_on_errors=False)
     return json.loads((doel / "quality.json").read_text(encoding="utf-8"))
 
 

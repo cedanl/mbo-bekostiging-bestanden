@@ -110,7 +110,7 @@ def test_pipeline_meldt_domeinfout_als_error(tmp_path):
         encoding="utf-8",
     )
     doel = tmp_path / "prepared"
-    run_auto_pipeline(bron, doel)
+    run_auto_pipeline(bron, doel, fail_on_errors=False)
     rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
     assert rapport["domeinafwijkingen"]["VLP"]["BRIN"] == {
         "aantal": 1,
@@ -151,7 +151,7 @@ def test_pipeline_faalt_op_lege_brin(tmp_path):
         encoding="utf-8",
     )
     doel = tmp_path / "prepared"
-    run_auto_pipeline(bron, doel)
+    run_auto_pipeline(bron, doel, fail_on_errors=False)
     rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
     assert rapport["domeinafwijkingen"]["VLP"]["BRIN"]["leeg"] == 1
     assert any("BRIN" in e and "leeg" in e for e in rapport["errors"])

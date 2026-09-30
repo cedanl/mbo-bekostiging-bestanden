@@ -37,7 +37,12 @@ def _meld_resultaat(actie: str, frames: dict[str, pl.DataFrame], doel: Path) -> 
 
 
 def _verwerk(args: argparse.Namespace) -> None:
-    frames = run_auto_pipeline(args.source, args.target, fmt=args.fmt)
+    frames = run_auto_pipeline(
+        args.source,
+        args.target,
+        fmt=args.fmt,
+        fail_on_errors=not getattr(args, "allow_quality_errors", False),
+    )
     _meld_resultaat("Verwerkt", frames, args.target)
 
 
@@ -82,6 +87,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="parquet",
         choices=["parquet", "csv"],
         help="Uitvoerformaat (standaard: parquet)",
+    )
+    p_verwerk.add_argument(
+        "--allow-quality-errors",
+        action="store_true",
+        dest="allow_quality_errors",
+        help="Verwerk ook met kwaliteitsfouten (exploratief; komt in quality.json)",
     )
     p_verwerk.set_defaults(func=_verwerk)
 
