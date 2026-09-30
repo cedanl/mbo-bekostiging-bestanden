@@ -140,8 +140,25 @@ def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
 
 
 # Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.
-# JR/DR zijn proxy's tot #296 besloten is; de waarde staat hier op één plek.
-INDICATOREN_STATUS = "proxy"
+# JR/DR zijn proxy's tot #296 besloten is; per proxy de afwijkingen vastleggen (#369).
+INDICATOREN_STATUS = {
+    "JR": {
+        "status": "proxy",
+        "afwijkingen": [
+            {"code": "geen_driejaarsvenster", "tekst": "geen formeel 3-jaarsvenster"},
+            {
+                "code": "noemer_inclusief_ongediplomeerden",
+                "tekst": "noemer bevat instellingsverlaters",
+            },
+        ],
+    },
+    "DR": {
+        "status": "proxy",
+        "afwijkingen": [
+            {"code": "geen_driejaarsvenster", "tekst": "geen formeel 3-jaarsvenster"},
+        ],
+    },
+}
 # Manifest-hash en upstream-check van de PvE-bron draaien in CI (#364, #299);
 # `test_pve_bron.py` en de `pve-upstream`-workflow breken zodra de bron afwijkt.
 PVE_BRON_INTEGRITEIT = "pass"

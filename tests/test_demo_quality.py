@@ -35,3 +35,18 @@ def test_demo_quality_slr_status_is_match(tmp_path, bestand):
         f"{bestand.name}: verwacht 'match', kreeg "
         f"{report['slr_status']!r}: {report['slr_details']}"
     )
+
+
+def test_conformiteit_indicatoren_heeft_afwijkingen_per_proxy(demo_star, demo_stacked):
+    """Proxy-indicatoren (JR/DR) documenteren formele afwijkingen (#369)."""
+    from mbo_bekostiging_bestanden.quality import compile_quality_report
+
+    rapport = compile_quality_report(demo_star, invoer=demo_stacked)
+    # conformiteit.indicatoren moet per proxy-indicator afwijkingen hebben
+    indicatoren = rapport["conformiteit"]["indicatoren"]
+    assert isinstance(indicatoren, dict), (
+        "indicatoren moet een dict zijn met per-indicator data"
+    )
+    assert "JR" in indicatoren, "JR proxy-indicator moet afwijkingen hebben"
+    assert "DR" in indicatoren, "DR proxy-indicator moet afwijkingen hebben"
+    assert "afwijkingen" in indicatoren["JR"], "JR moet afwijkingen lijst hebben"

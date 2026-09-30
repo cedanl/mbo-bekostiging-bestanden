@@ -269,8 +269,31 @@
           "description": "Veld- en businessregelconformiteit; nog niet formeel afgetekend (#364)"
         },
         "indicatoren": {
-          "enum": ["formeel", "proxy", "niet_bepaalbaar"],
-          "description": "JR/DR zijn proxy's, geen formele Inspectie-indicatoren (#296, #297)"
+          "type": "object",
+          "description": "Per proxy-indicator (JR, DR) de status en afwijkingen van de formele PvE (#369)",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": ["formeel", "proxy", "niet_bepaalbaar"],
+                "description": "JR/DR zijn proxy's, geen formele Inspectie-indicatoren (#296, #297)"
+              },
+              "afwijkingen": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {"type": "string"},
+                    "tekst": {"type": "string"}
+                  },
+                  "required": ["code", "tekst"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["status"],
+            "additionalProperties": false
+          }
         },
         "privacyprofiel": {
           "enum": ["brondata", "gepseudonimiseerd"],

@@ -33,9 +33,12 @@ def test_ster_rapport_bevat_conformiteit():
     assert "pve_versie" in conformiteit
     assert "pve_bron_integriteit" in conformiteit
     assert "pve_inhoudelijke_conformiteit" in conformiteit
-    assert conformiteit["indicatoren"] == "proxy"
     assert conformiteit["privacyprofiel"] == "gepseudonimiseerd"
     assert conformiteit["pgn_stabiliteit"] == "onbekend"
+    # Indicatoren bevat per proxy-indicator status en afwijkingen (#369)
+    assert "JR" in conformiteit["indicatoren"]
+    assert "DR" in conformiteit["indicatoren"]
+    assert conformiteit["indicatoren"]["JR"]["status"] == "proxy"
 
 
 def test_indicatorstatus_komt_uit_een_constante():

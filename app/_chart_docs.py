@@ -36,8 +36,9 @@ CHART_DOCS: dict[str, dict] = {
             "(`quality.kwaliteitsmeldingen`).  De tabel toont per levering de "
             "aanmaakdatum, het observatievenster (tot welke peildatum de levering "
             "iets kan zeggen) en de SLR-reconciliatie.  Onder de status staat de "
-            "conformiteit: of JR/DR formeel of proxy zijn, het privacyprofiel "
-            "van het artefact en de PvE-schemastatus; die komen uit "
+            "conformiteit: per proxy-indicator (JR, DR) de status en de formele "
+            "afwijkingen (#369), het privacyprofiel van het artefact, de gebruikte "
+            "PvE-versie en of de PvE-bron intact is (#364); die komen uit "
             "`quality.json.conformiteit`."
         ),
         "kanttekening": (
