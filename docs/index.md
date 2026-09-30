@@ -150,5 +150,5 @@ Lees meer over de inhoud van elk bestand in [Databestanden](databestanden/index.
 
 ## Bronnen
 
-- Bestandsbeschrijving DUO PvE MBO-instelling v4.8.2 (12-05-2026), `bestandsbeschrijving_beknopt.pdf` in deze repo; versie, datum en sha256 staan in `metadata/pve_bron.json`. Een test controleert dat elk schema naar die versie verwijst, en een wekelijkse workflow (`pve-upstream`) meldt als duo.nl een andere versie publiceert (#299)
+- Bestandsbeschrijving DUO PvE MBO-instelling (hoofdstuk 13–17), `bestandsbeschrijving_beknopt.pdf` in deze repo; versie, datum en sha256 staan alleen in `metadata/pve_bron.json`. Een wekelijkse workflow (`pve-upstream`) meldt als duo.nl een andere versie publiceert (#299); hoe je die verwerkt en wat er per versie veranderde, staat in [PvE-versies](pve-wijzigingen.md) (#298)
 - Demo-data: [cedanl/duo-mbo-datafiles](https://github.com/cedanl/duo-mbo-datafiles)

@@ -1,5 +1,5 @@
 # Veldschema voor RO (Registratieoverzicht)
-# Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §15 (Bijlage 7)
+# Gebaseerd op het DUO PvE MBO-instelling, §15 (Bijlage 7); versie in pve_bron.json
 # (bestandsbeschrijving_beknopt.pdf).
 # Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
 # optionele_achtervelden: de staart van velden die het PvE niet verplicht stelt
@@ -8,7 +8,6 @@
 # verplicht = true op een recordtype: het bestand moet minstens één regel van dit
 # type bevatten (PvE: geen optioneel recordtype); ontbreekt het, dan faalt de
 # ingest (#322). Recordtypes zonder vlag (DIP, GEO, ...) mogen ontbreken.
-schema_version = "4.8.2"
 
 [VLP]
 verplicht = true

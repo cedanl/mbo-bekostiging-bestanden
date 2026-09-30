@@ -1,5 +1,5 @@
 # Veldschema voor GRONDSLAG IP MBO (afslag register-levering IP)
-# Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §17.5
+# Gebaseerd op het DUO PvE MBO-instelling, §17.5; versie in pve_bron.json
 # (bestandsbeschrijving_beknopt.pdf). Positioneel getoetst in tests/test_grondslag_pve.py.
 # Veldnamen zijn PascalCase-versies van de officiële Nederlandse namen.
 # optionele_achtervelden: de staart van velden die het PvE niet verplicht stelt
@@ -15,7 +15,6 @@
 # domein uit `domeinen`) passen; geen of meer dan één passende layout, of
 # gemengde layouts in één bestand, is een error. Kolommen die een variant mist
 # blijven leeg, behalve `uit_bestandsnaam` (named group in `bestandsnaam`).
-schema_version = "4.8.2"
 # PvE §17.3: GRONDSLAG_IP_MBO_<BRIN>_<einddatum selectie>_<studiejaar>.csv
 bestandsnaam = '(?i)^GRONDSLAG_IP_MBO_(?P<BRIN>[^_]+)_'
 

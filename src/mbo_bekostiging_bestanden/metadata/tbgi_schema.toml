@@ -1,12 +1,12 @@
 # Veldschema voor TBGI (Terugmelding BekostigingsGrondslagen individueel)
-# Gebaseerd op DUO PvE MBO-instelling 4.8.2 (12-05-2026), §16 (Bijlage 8: Bestandsbeschrijving TBG-i)
+# Gebaseerd op het DUO PvE MBO-instelling, §16 (Bijlage 8: Bestandsbeschrijving TBG-i);
+# versie in pve_bron.json
 # (bestandsbeschrijving_beknopt.pdf).
 # XML-structuur wordt door read_tbgi platgeslagen naar vijf tabellen: Inschrijving,
 # Teldatum, BekostigingsrelevanteBPV, Diploma en Signaal (één rij per parameter).
 # domeinen: waardedomein per veld uit waardenlijsten.toml (PvE §16.6), zoals bij
 # RO en GRONDSLAG (#205, #323). Velden zonder domein: vrije tekst, datum, getal of
 # een boolean (IndicatieSpecialistendiploma) waarvoor nog geen domein bestaat.
-schema_version = "4.8.2"
 
 [Inschrijving]
 fields = [

@@ -59,7 +59,7 @@ In de GRONDSLAG is de BSN vervangen door een **PGN** (pseudonummer) en de geboor
 | 21 | *(niet in spec)* `Nationaliteit1_positie21` | — | AN4 | In demo-data zelfde waarde als Nationaliteit 1 (pos 17) | `0001` |
 
 !!! warning "Extra velden in leveringsdata"
-    De PvE-spec v4.8.2 beschrijft 18 velden (incl. recordsoort). In de werkelijke leveringen bevatten PER-records echter **21 velden** — drie extra velden op posities 19–21 die niet in de spec zijn gedocumenteerd. Ze herhalen meestal postcode, verblijfstitel en nationaliteit 1, maar **niet altijd**: in de demo heeft 1 van de 10 rijen op positie 19 een andere postcode dan op positie 8.
+    Het PvE (4.8.2 en 4.8.3) beschrijft 18 velden (incl. recordsoort). In de werkelijke leveringen bevatten PER-records echter **21 velden** — drie extra velden op posities 19–21 die niet in de spec zijn gedocumenteerd. Ze herhalen meestal postcode, verblijfstitel en nationaliteit 1, maar **niet altijd**: in de demo heeft 1 van de 10 rijen op positie 19 een andere postcode dan op positie 8.
 
     Hun betekenis staat niet in het PvE. Een afwijkende waarde kan een verschoven veld zijn, maar net zo goed een eerdere waarde (zoals het PvE bij andere gegevens vorige en huidige waarden onderscheidt). Zolang dat niet vaststaat, bewaart de ingest ze onder hun positie — `Postcodecijfers_positie19`, `Verblijfstitel_positie20`, `Nationaliteit1_positie21` (`spiegelvelden` in `grondslag_schema.toml`) — in de brondata, zonder interpretatie. Het analysemodel neemt ze niet over (#260).
 

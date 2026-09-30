@@ -10,7 +10,7 @@ def test_load_schema_default_is_ro():
 
 
 def test_load_schema_filters_scalar_entries():
-    """schema_version en andere scalars mogen niet in de output voorkomen."""
+    """Scalars (zoals ``bestandsnaam``) zijn geen recordtype."""
     schema = load_schema("ro")
     for key, value in schema.items():
         assert isinstance(value, dict), f"{key!r} is geen recordtype-dict"
