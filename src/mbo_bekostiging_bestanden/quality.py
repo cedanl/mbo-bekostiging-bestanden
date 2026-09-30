@@ -21,6 +21,7 @@ from mbo_bekostiging_bestanden.filters import (
     _PERIODE_SLEUTEL,
     detail_zonder_inschrijving,
 )
+from mbo_bekostiging_bestanden.koppelingen import UNIEK
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
 from mbo_bekostiging_bestanden.niveau import ONBEKEND as _NIVEAU_ONBEKEND
 from mbo_bekostiging_bestanden.niveau import SBB_NVT as _NIVEAU_SBB_NVT
@@ -1003,15 +1004,24 @@ def _meldingen_canonicalisatie(canonicalisatie: dict[str, Any]) -> Iterator[Meld
 
 
 def _meldingen_join_keuzes(keuzes: list[dict[str, Any]]) -> Iterator[Melding]:
+    """Meervoudige matches (#209): een error bij regel ``uniek``, want het PvE
+    staat daar één kandidaat toe; anders een warning (#239). Rapporten van vóór
+    #239 hebben geen regel en blijven een warning."""
     meervoudig = [k for k in keuzes if k["meervoudige_sleutels"]]
-    if meervoudig:
-        yield _ster(
-            ERNST_WARNING,
-            "meervoudige matches bij koppelen: "
-            + ", ".join(
-                f"{k['koppeling']} ({k['meervoudige_sleutels']})" for k in meervoudig
-            ),
-        )
+    for ernst_, groep in (
+        (ERNST_ERROR, [k for k in meervoudig if k.get("regel") == UNIEK]),
+        (ERNST_WARNING, [k for k in meervoudig if k.get("regel") != UNIEK]),
+    ):
+        if groep:
+            yield _ster(
+                ernst_,
+                "meervoudige matches bij koppelen: "
+                + ", ".join(
+                    f"{k['koppeling']} ({k['meervoudige_sleutels']}, regel "
+                    f"{k.get('regel', 'onbekend')})"
+                    for k in groep
+                ),
+            )
 
 
 def _meldingen_zonder_schooljaar(leveringen: list[dict[str, Any]]) -> Iterator[Melding]:

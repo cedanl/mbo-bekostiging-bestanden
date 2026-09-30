@@ -460,7 +460,7 @@
         },
         "join_keuzes": {
           "type": "array",
-          "description": "Koppelingen waar een sleutel meer dan één kandidaat had; de gekozen rij is deterministisch (#209)",
+          "description": "Koppelingen waar een sleutel meer dan één kandidaat had, met de regel die de keuze bepaalde (#209, #239)",
           "items": {
             "type": "object",
             "properties": {
@@ -468,6 +468,13 @@
                 "type": "string"
               },
               "sleutel": {
+                "type": "string"
+              },
+              "regel": {
+                "enum": ["uniek", "hoogste", "ambigu"],
+                "description": "Koppelregel (#239): uniek = PvE staat één kandidaat toe (meervoud is een error); hoogste = voorkeurkolom wint; ambigu = geen businessregel, deterministisch op inhoud"
+              },
+              "toelichting": {
                 "type": "string"
               },
               "meervoudige_sleutels": {
@@ -480,6 +487,8 @@
             "required": [
               "koppeling",
               "sleutel",
+              "regel",
+              "toelichting",
               "meervoudige_sleutels",
               "weggelaten_rijen"
             ],
