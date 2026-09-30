@@ -99,8 +99,6 @@ def _bepaal_schema_type(frames: dict[str, pl.DataFrame]) -> str:
 
 # Waarschuwing per onderdeel van ``ingest.inventariseer_regels`` (#120).
 _REGELINVENTARIS_MELDINGEN = {
-    "onbekende_recordtypes": "Regels met onbekend recordtype niet ingelezen",
-    "velden_voorbij_schema": "Regels met gevulde velden voorbij het schema",
     "spiegel_afwijkingen": (
         "Posities buiten het PvE verschillen van het veld dat ze meestal "
         "herhalen; betekenis onbekend, waarde bewaard in de brondata"
@@ -141,7 +139,7 @@ class QualityReport:
             )
 
     def meld_regelinventaris(self, inventaris: dict[str, dict]) -> None:
-        """Neem op wat de ingest niet inlas (zie ``ingest.inventariseer_regels``)."""
+        """Neem de spiegelafwijkingen op (zie ``ingest.inventariseer_regels``)."""
         self.regelinventaris = inventaris
         for sleutel, tekst in _REGELINVENTARIS_MELDINGEN.items():
             if inventaris.get(sleutel):

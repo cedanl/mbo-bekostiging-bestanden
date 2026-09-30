@@ -153,49 +153,35 @@ def read_multi_record_csv(
 
 
 def inventariseer_regels(path: str | Path, schema_name: str) -> dict:
-    """Tel afwijkende regels in een bronbestand, los van :func:`read_multi_record_csv`.
+    """Tel per spiegelpositie de regels die afwijken van het veld dat ze herhalen.
 
-    Onbekend recordtype en velden voorbij de schemabreedte laten
-    :func:`read_multi_record_csv` sinds #257 fail-closed falen — voor een
-    bestand dat de pipeline doorloopt zijn die twee categorieën dus altijd
-    leeg. Deze functie leest het bestand onafhankelijk opnieuw en blijft
-    nuttig als losstaand diagnosemiddel (bijv. om te controleren wát er zou
-    zijn misgegaan) en voor ``spiegel_afwijkingen``, dat wél door de
-    pipeline heen komt (#120): een waardeverschil op een spiegelpositie is
-    geen schemaoverschrijding.
+    Onbekende recordtypes en velden voorbij de schemabreedte breken
+    :func:`read_multi_record_csv` sinds #257 fail-closed; ze kunnen in een
+    bestand dat de pipeline haalt niet voorkomen en staan daarom niet in dit
+    rapport (#292). Een waardeverschil op een spiegelpositie is geen
+    schemaoverschrijding en komt wél door de ingest heen (#120).
 
     Returns:
-        ``onbekende_recordtypes``: recordtype → aantal regels buiten het schema.
-        ``velden_voorbij_schema``: recordtype → aantal regels met een gevuld
-        veld voorbij de schemabreedte (na eventuele spiegelvelden).
         ``spiegel_afwijkingen``: recordtype → kolom (:func:`extra_kolommen`)
         → aantal regels waarin die positie níet gelijk is aan het veld dat ze
         lijkt te herhalen.
     """
     schema = load_schema(schema_name)
-    onbekend: dict[str, int] = {}
-    voorbij: dict[str, int] = {}
     spiegel: dict[str, dict[str, int]] = {}
     for fields in _lees_regels(Path(path)):
         rt = fields[0]
         if rt not in schema:
-            onbekend[rt] = onbekend.get(rt, 0) + 1
             continue
         kolommen = schema[rt]["fields"]
-        spiegelkolommen = extra_kolommen(schema[rt])
         rij = dict(zip(kolommen, _normalize_row(fields, len(kolommen)), strict=True))
         extra = fields[len(kolommen) :]
-        for (kolom, veld), waarde in zip(spiegelkolommen.items(), extra, strict=False):
+        for (kolom, veld), waarde in zip(
+            extra_kolommen(schema[rt]).items(), extra, strict=False
+        ):
             if waarde != rij[veld]:
                 per_kolom = spiegel.setdefault(rt, {})
                 per_kolom[kolom] = per_kolom.get(kolom, 0) + 1
-        if any(extra[len(spiegelkolommen) :]):
-            voorbij[rt] = voorbij.get(rt, 0) + 1
-    return {
-        "onbekende_recordtypes": dict(sorted(onbekend.items())),
-        "velden_voorbij_schema": dict(sorted(voorbij.items())),
-        "spiegel_afwijkingen": dict(sorted(spiegel.items())),
-    }
+    return {"spiegel_afwijkingen": dict(sorted(spiegel.items()))}
 
 
 def read_ro(path: str | Path) -> dict[str, pl.DataFrame]:

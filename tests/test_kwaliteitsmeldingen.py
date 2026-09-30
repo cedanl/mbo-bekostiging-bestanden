@@ -109,7 +109,7 @@ def test_resultaten_toont_brondata_uit_schijf_fallback_zonder_sessie(
     basis, _ = demo_prepared
     monkeypatch.setattr(_utils, "prepared_dir", lambda: basis)
 
-    app = AppTest.from_file("app/pages/resultaten.py", default_timeout=60)
+    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
     app.run()
 
     assert not app.exception
