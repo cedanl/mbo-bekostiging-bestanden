@@ -128,6 +128,12 @@ patroon = '^[1-9][0-9]{8}$'
 [domein.postcodecijfers]
 patroon = '^[0-9]{4}$'
 
+[domein.datum_verplicht]
+# Verplicht datumveld: mag niet leeg zijn (PvE §15.5.1 voor RO-VLP.DatumBeginPeriode, e.d.)
+patroon = '^.+$'
+ernst = "error"
+verplicht = true
+
 # Velden zonder domein (#288), per veldnaam over RO en GRONDSLAG: waarom er
 # bewust geen domein is. tests/test_domeindekking.py eist voor elk veld een
 # domein, een type (datum/getal: parseverlies) of een reden hier.
