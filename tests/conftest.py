@@ -83,6 +83,25 @@ def demo_prepared(tmp_path_factory) -> tuple[Path, list[Path]]:
     return prepared, [d for d in sorted(prepared.glob("*/*")) if d.is_dir()]
 
 
+@pytest.fixture
+def prepared_met_fout(tmp_path) -> tuple[Path, list[Path]]:
+    """Brondata met een lege verplichte BRIN: een echte quality-error (#320).
+
+    Zelfde vorm als ``demo_prepared``: ``(basismap, leveringmappen)``. De demo
+    zelf blijft ongewijzigd; de afwijking zit in een kopie.
+    """
+    bron_demo = RAW / "h15" / "RO_21CY_20250730_20250731.csv"
+    bron = tmp_path / bron_demo.name
+    bron.write_text(
+        bron_demo.read_text(encoding="utf-8").replace("VLP;21CY;", "VLP;;", 1),
+        encoding="utf-8",
+    )
+    basis = tmp_path / "prepared"
+    levering = basis / "h15" / bron.stem
+    run_auto_pipeline(bron, levering)
+    return basis, [levering]
+
+
 @pytest.fixture(scope="session")
 def demo_stacked(demo_prepared):
     """Gestapelde demo-data (data/01-raw/demo)."""

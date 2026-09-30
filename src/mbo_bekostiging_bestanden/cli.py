@@ -5,6 +5,7 @@ Gebruik:
     mbo stapel <dir...> --output <dir> [--fmt parquet|csv]
               [--label-col <naam>] [--relative-to <pad>]
     mbo star <dir...> --output <dir> [--relative-to <pad>] [--scenario <label>]
+              [--allow-quality-errors]
 """
 
 import argparse
@@ -13,8 +14,15 @@ from pathlib import Path
 
 from mbo_bekostiging_bestanden.export import export_frames
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
-from mbo_bekostiging_bestanden.quality import SCENARIO_ONBEKEND
+from mbo_bekostiging_bestanden.quality import (
+    SCENARIO_ONBEKEND,
+    KwaliteitsFout,
+    lees_status,
+)
 from mbo_bekostiging_bestanden.stack import stack_prepared
+
+# Exitcode bij quality-status fail (#289); 1 is een ingestfout (#291).
+EXIT_KWALITEIT = 3
 
 
 def _verwerk(args: argparse.Namespace) -> None:
@@ -40,9 +48,13 @@ def _star(args: argparse.Namespace) -> None:
         args.output,
         relative_to=args.relative_to,
         scenario=args.scenario,
+        fail_on_errors=not args.allow_quality_errors,
     )
     total = sum(df.height for df in star.values())
     print(f"Star schema gebouwd: {len(star)} tabellen, {total} rijen → {args.output}")
+    status, fouten = lees_status(args.output / "quality.json")
+    if status == "fail":
+        print(f"Let op: kwaliteitsstatus {status} ({fouten} error(s)), toegestaan.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -128,6 +140,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=SCENARIO_ONBEKEND,
         help="Scenariolabel in quality.json, bijv. 'demo' of 'prod'",
     )
+    p_star.add_argument(
+        "--allow-quality-errors",
+        action="store_true",
+        dest="allow_quality_errors",
+        help="Bouw ook bij kwaliteitsfouten (exploratief; komt in quality.json)",
+    )
     p_star.set_defaults(func=_star)
 
     return parser
@@ -141,3 +159,6 @@ def main() -> None:
         # Fail-closed ingest (#257, #281): de melding noemt bestand en regel.
         print(f"mbo {args.command}: {fout}", file=sys.stderr)
         sys.exit(1)
+    except KwaliteitsFout as fout:
+        print(f"mbo {args.command}: {fout}", file=sys.stderr)
+        sys.exit(EXIT_KWALITEIT)

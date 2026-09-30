@@ -14,6 +14,7 @@ import pytest
 from mbo_bekostiging_bestanden import star as star_module
 from mbo_bekostiging_bestanden.pipeline import run_grondslag_pipeline, run_star
 from mbo_bekostiging_bestanden.quality import (
+    KwaliteitsFout,
     compile_quality_report,
     controleer_dekking,
     kwaliteitsmeldingen,
@@ -154,7 +155,8 @@ def test_bid_zonder_doorvertaling_faalt_de_run(
     monkeypatch.setattr(
         star_module, "_build_fact_bekostiging_diploma", lambda _: pl.DataFrame()
     )
-    run_star([grondslag_prepared], tmp_path)
+    with pytest.raises(KwaliteitsFout):
+        run_star([grondslag_prepared], tmp_path)
 
     assert _quality(tmp_path)["summary"]["status"] == "fail"
 

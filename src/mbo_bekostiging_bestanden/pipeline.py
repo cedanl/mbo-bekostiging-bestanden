@@ -18,6 +18,7 @@ from mbo_bekostiging_bestanden.ingest import (
 from mbo_bekostiging_bestanden.provenance import bronbestand, met_bronbestanden
 from mbo_bekostiging_bestanden.quality import (
     SCENARIO_ONBEKEND,
+    KwaliteitsFout,
     check_slr_reconciliation,
     compile_quality_report,
     lees_leveringsrapport,
@@ -200,6 +201,7 @@ def run_star(
     target: str | Path,
     relative_to: Path | str | None = None,
     scenario: str = SCENARIO_ONBEKEND,
+    fail_on_errors: bool = True,
 ) -> dict[str, pl.DataFrame]:
     """Stapel prepared-mappen, bouw het star schema en exporteer het.
 
@@ -208,10 +210,18 @@ def run_star(
         target:      Doelmap; star schema komt in ``<target>/datamodel/``.
         relative_to: Basispad voor automatische leveringslabels (optioneel).
         scenario:    Label voor ``quality.json`` (bijv. ``"demo"``, ``"prod"``).
+        fail_on_errors: Werp :class:`KwaliteitsFout` als de status ``fail`` is
+                     (#289). ``False`` is de override voor exploratief werk en de
+                     app, die de status zelf toont; de override staat in de
+                     provenance van ``quality.json``.
 
     Returns:
         Dict met de star-schema-tabellen; tevens geschreven naar
         ``<target>/datamodel/``.
+
+    Raises:
+        KwaliteitsFout: Bij status ``fail`` en ``fail_on_errors``; de ster en
+            ``quality.json`` zijn dan wel al geschreven, als diagnose.
     """
     target = Path(target)
     labels = leveringslabels(sources, relative_to)
@@ -228,9 +238,19 @@ def run_star(
     )
     export_frames(star_tables, target / "datamodel")
     quality_report = compile_quality_report(
-        star_tables, deliveries=deliveries, scenario=scenario, invoer=invoer
+        star_tables,
+        deliveries=deliveries,
+        scenario=scenario,
+        invoer=invoer,
+        fouten_toegestaan=not fail_on_errors,
     )
-    write_quality_json(quality_report, target / "quality.json")
+    rapport_pad = write_quality_json(quality_report, target / "quality.json")
+    samenvatting = quality_report["summary"]
+    if fail_on_errors and samenvatting["status"] == "fail":
+        raise KwaliteitsFout(
+            f"Kwaliteitsstatus fail ({samenvatting['total_errors']} error(s)); "
+            f"zie {rapport_pad}"
+        )
 
     return star_tables
 

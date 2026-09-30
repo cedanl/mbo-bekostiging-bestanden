@@ -97,3 +97,29 @@ def test_mislukt_bestand_laat_geen_oude_brondata_achter(paden, monkeypatch):
     assert not app.exception
     assert not any(prepared.rglob("*.parquet"))
     assert _knop(app, "Bouw analysemodel").disabled
+
+
+def test_home_toont_fout_i_p_v_succes_bij_quality_fail(
+    prepared_met_fout, paden, monkeypatch
+):
+    """Een ster met status ``fail`` is geen 'klaar' (#290)."""
+    import _utils
+
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: prepared_met_fout[0])
+    app = _home()
+    _knop(app, "Bouw analysemodel").click().run()
+
+    assert not app.exception
+    assert not any("analysemodel klaar" in s.value.lower() for s in app.success)
+    assert any("kwaliteitsfout" in e.value for e in app.error)
+
+
+def test_home_toont_succes_bij_schone_run(demo_prepared, paden, monkeypatch):
+    import _utils
+
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: demo_prepared[0])
+    app = _home()
+    _knop(app, "Bouw analysemodel").click().run()
+
+    assert any("analysemodel klaar" in s.value.lower() for s in app.success)
+    assert not any("kwaliteitsfout" in e.value for e in app.error)

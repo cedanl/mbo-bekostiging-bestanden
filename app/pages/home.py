@@ -25,6 +25,7 @@ from mbo_bekostiging_bestanden.quality import (
     controleer_koppelingen,
     controleer_niveau,
     controleer_sleuteluniciteit,
+    lees_status,
     slr_status_icoon,
 )
 
@@ -115,7 +116,11 @@ def _bouw_analysemodel(prep_dirs: list[Path], prepared: Path) -> tuple[dict, lis
     try:
         with st.spinner("Stapel alle leveringen en bouw het analysemodel…"):
             star = run_star(
-                prep_dirs, star_output, relative_to=prepared, scenario=scenario()
+                prep_dirs,
+                star_output,
+                relative_to=prepared,
+                scenario=scenario(),
+                fail_on_errors=False,
             )
     except Exception as exc:
         melding = str(exc)
@@ -127,7 +132,10 @@ def _bouw_analysemodel(prep_dirs: list[Path], prepared: Path) -> tuple[dict, lis
                 "wél onder Resultaten."
             )
         return {}, [f"Star schema: {melding}"]
+    status, kwaliteitsfouten = lees_status(star_output / "quality.json")
     return {
+        "status": status,
+        "kwaliteitsfouten": kwaliteitsfouten,
         "isp_rijen": star["fact_inschrijving"].height,
         "bekostiging_rijen": star["fact_bekostiging"].height,
         "bpv_rijen": star["fact_bpv"].height,
@@ -333,7 +341,14 @@ if st.button(
 _toon_fouten(st.session_state.get("fouten_ster", []))
 star_summary: dict = st.session_state.get("star_summary", {})
 if star_summary:
-    st.success("Analysemodel klaar — star schema gebouwd")
+    if star_summary.get("status") == "fail":
+        st.error(
+            f"Analysemodel gebouwd, maar met {star_summary['kwaliteitsfouten']} "
+            "kwaliteitsfout(en): gebruik het niet als betrouwbaar resultaat. "
+            "Zie `quality.json` en het kwaliteitsoverzicht in het dashboard."
+        )
+    else:
+        st.success("Analysemodel klaar — star schema gebouwd")
     for sleutel, toelichting in _KWALITEITSMELDINGEN.items():
         _toon_kwaliteitsmeldingen(toelichting, star_summary.get(sleutel, []))
     col1, col2, col3 = st.columns(3)

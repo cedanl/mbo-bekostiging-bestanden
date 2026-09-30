@@ -62,7 +62,7 @@ def test_bid_zonder_dip_is_onverklaarde_wees(prepared, tmp_path):
         if bestand.name != "DIP.parquet":
             (tmp_path / bestand.name).write_bytes(bestand.read_bytes())
 
-    ster = run_star([tmp_path], tmp_path / "star")
+    ster = run_star([tmp_path], tmp_path / "star", fail_on_errors=False)
     wees = _check_orphaned_facts_structured(ster)["orphaned_facts"]
     assert wees["fact_bekostiging_diploma"]["orphaned_rows"] == 1
     assert wees["fact_bekostiging_diploma"]["explained_rows"] == 0
