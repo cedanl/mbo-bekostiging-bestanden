@@ -75,8 +75,19 @@ MBO = { vanaf = 2020-08-01 }
 [domein.certificaat]
 waarden = ["J", "N", "1", "0"]
 
+[domein.boolean]
+waarden = ["TRUE", "FALSE"]
+ernst = "error"
+verplicht = true
+
+[domein.boolean_optioneel]
+waarden = ["TRUE", "FALSE"]
+ernst = "error"
+
 [domein.indicatie_bekostigbaar]
 waardenlijst = "indicatie_bekostigbaar"
+ernst = "error"
+verplicht = true
 
 [domein.kzd_resultaat]
 waardenlijst = "kzd_resultaat"
