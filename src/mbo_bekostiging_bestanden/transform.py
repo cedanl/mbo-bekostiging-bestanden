@@ -1320,14 +1320,7 @@ def _bouw_inschrijvingen(
         dip_sel = dip.select([*_JOIN_INSCHRIJVING, *dip_extra]).rename(
             {c: f"DIP_{c}" for c in dip_extra}
         )
-        # Meerdere diploma's op één inschrijving: het meest recente telt.
-        df = koppelingen.links(
-            df,
-            dip_sel,
-            on=_JOIN_INSCHRIJVING,
-            naam="DIP",
-            voorkeur=["DIP_DatumResultaat"],
-        )
+        df = koppelingen.links(df, dip_sel, on=_JOIN_INSCHRIJVING, naam="DIP")
 
     # ── DIP wordt ook gebruikt als fallback voor GEO/KZD/AMO Inschrijvingvolgnummer
     dip_raw = stacked.get("DIP")
@@ -1434,9 +1427,7 @@ def _bid_met_dip(
     van_dip = _add_persoon_id(dip).select(
         *_JOIN_DIPLOMA, *(pl.col(k).alias(v) for k, v in _BID_VAN_DIP.items())
     )
-    return koppelingen.links(
-        bid, van_dip, on=_JOIN_DIPLOMA, naam="BID.DIP", voorkeur=["DatumBehaald"]
-    )
+    return koppelingen.links(bid, van_dip, on=_JOIN_DIPLOMA, naam="BID.DIP")
 
 
 def _bouw_detail_bekostiging_diploma(
