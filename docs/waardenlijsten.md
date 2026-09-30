@@ -2,6 +2,15 @@
 
 Overzicht van alle gecodeerde waarden in de bekostigingsbestanden.
 
+!!! info "Wat de pipeline controleert"
+    De ingest toetst elk veld van RO en GRONDSLAG aan een waardedomein uit
+    `metadata/waardenlijsten.toml`, of legt vast waarom niet (`[geen_domein]`,
+    #288). Een waarde buiten het domein staat in `quality.json` →
+    `domeinafwijkingen`; `domeindekking` telt per levering de velden per soort.
+    Voor **Reden uitschrijving** en **Leerroute** staat de PvE-lijst niet in de
+    beknopte PDF: daar controleert de pipeline alleen het formaat (1–2 cijfers,
+    resp. maximaal 3 tekens). De lijsten hieronder zijn dan informatief.
+
 ---
 
 ## Niveau

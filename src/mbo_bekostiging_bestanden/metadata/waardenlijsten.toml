@@ -71,3 +71,71 @@ waardenlijst = "kzd_resultaat"
 [domein.leeg]
 leeg = true
 ernst = "error"
+
+# PvE §15.5.2 (RO-PER): M, V, O (vastgesteld onbekend). Ook GRONDSLAG-PER.
+[domein.geslacht]
+waarden = ["M", "V", "O"]
+verplicht = true
+
+[domein.ja_nee]
+waarden = ["J", "N"]
+
+# Formaatdomeinen (#288): het PvE geeft het formaat, maar de waardenlijst staat
+# niet in de beknopte PDF. Het patroon vangt verschoven waarden (een datum, een
+# code van een ander veld), niet een onbekende code met het juiste formaat.
+# Reden uitschrijving: AN2; echte leveringen hebben ook codes zonder voorloopnul.
+[domein.reden_uitschrijving]
+patroon = '^[0-9]{1,2}$'
+
+# Leerroute: AN3 (§15.5.4); lijst "Leerroute" niet in de beknopte PDF.
+[domein.leerroute]
+patroon = '^[0-9A-Z]{1,3}$'
+
+# Locatiecode VSV: AN12..12 (§15.5.4).
+[domein.locatiecode_vsv]
+patroon = '^[0-9A-Z]{12}$'
+
+# Onderwijslocatie: nnnXnnn (§15.5.4, RIO).
+[domein.onderwijslocatie]
+patroon = '^[0-9]{3}X[0-9]{3}$'
+
+# BPV-omvang in uren: N1..4 in RO (§15.5.6), 10 N in GRONDSLAG (§17.5).
+[domein.omvang_bpv_ro]
+patroon = '^[0-9]{1,4}$'
+
+[domein.omvang_bpv_grondslag]
+patroon = '^[0-9]{1,10}$'
+
+# LeerbedrijfID: 100000000 t/m 999999999 (§15.5.6).
+[domein.leerbedrijf_id]
+patroon = '^[1-9][0-9]{8}$'
+
+# Postcodecijfers: N4, incl. 0010/0020/0030/0040 voor buitenland (§17.5).
+[domein.postcodecijfers]
+patroon = '^[0-9]{4}$'
+
+# Velden zonder domein (#288), per veldnaam over RO en GRONDSLAG: waarom er
+# bewust geen domein is. tests/test_domeindekking.py eist voor elk veld een
+# domein, een type (datum/getal: parseverlies) of een reden hier.
+[geen_domein]
+Burgerservicenummer = "persoonsidentifier; wordt gepseudonimiseerd en niet gepubliceerd, formaat (11-proef) niet gecontroleerd"
+Onderwijsnummer = "persoonsidentifier; wordt gepseudonimiseerd en niet gepubliceerd, formaat (11-proef) niet gecontroleerd"
+PseudoNummer = "persoonsidentifier (omgenummerd PGN); wordt gepseudonimiseerd"
+Inschrijvingvolgnummer = "vrij volgnummer van de instelling (AN1..20); koppelsleutel, een verschuiving valt op als wees-feit"
+Resultaatvolgnummer = "vrij volgnummer van de instelling (AN1..20); koppelsleutel, een verschuiving valt op als wees-feit"
+ResultaatvolgnummerDiploma = "vrij volgnummer van de instelling (AN1..20); koppelsleutel, een verschuiving valt op als wees-feit"
+Volgnummer = "vrij volgnummer van de instelling (AN1..20)"
+CodeAMvBOnderdeel = "code uit een extern register; geen lijst in het PvE"
+CodeGeneriekExamenonderdeel = "code uit een extern register; geen lijst in het PvE"
+CodeKeuzedeel = "code uit het S-BB-register; geen lijst in het PvE"
+VrijstellingGeneriekExamenonderdeel = "grond van vrijstelling (AN1..4); geen lijst in het PvE"
+VrijstellingIE = "grond van vrijstelling (AN3); geen lijst in het PvE"
+VrijstellingCE = "grond van vrijstelling (AN3); geen lijst in het PvE"
+Verblijfstitel = "code uit de verblijfstiteltabel; niet in de beknopte PDF"
+Nationaliteit1 = "code uit nationaliteitscode.csv; een onbekende code blijft zichtbaar als niet gedecodeerd (enrich)"
+Nationaliteit2 = "code uit nationaliteitscode.csv; een onbekende code blijft zichtbaar als niet gedecodeerd (enrich)"
+CodeGeboorteland = "code uit landcode.csv; een onbekende code blijft zichtbaar als niet gedecodeerd (enrich)"
+CodeGeboortelandOuder1 = "code uit landcode.csv; een onbekende code blijft zichtbaar als niet gedecodeerd (enrich)"
+CodeGeboortelandOuder2 = "code uit landcode.csv; een onbekende code blijft zichtbaar als niet gedecodeerd (enrich)"
+CodeLandWaarnaarVertrokken = "code uit landcode.csv; een onbekende code blijft zichtbaar als niet gedecodeerd (enrich)"
+DatumTijdBepalingBekostigingsgrondslagen = "tijdstempel (DT) van DUO; alleen provenance, niet gebruikt in het analysemodel"

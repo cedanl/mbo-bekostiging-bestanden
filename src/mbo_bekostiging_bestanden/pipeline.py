@@ -33,7 +33,10 @@ from mbo_bekostiging_bestanden.validate import (
     validate_ro,
     validate_tbgi,
 )
-from mbo_bekostiging_bestanden.waardenlijsten import controleer_waardedomeinen
+from mbo_bekostiging_bestanden.waardenlijsten import (
+    controleer_waardedomeinen,
+    dekkingsoverzicht,
+)
 
 # Bestandsnaam-prefix (hoofdletters) → bestandstype-sleutel.
 # Langere prefixen eerst: "GRONDSLAG_IP_MBO_" vóór een eventuele "GRONDSLAG_".
@@ -107,6 +110,7 @@ def _run(
     quality_report = check_slr_reconciliation(frames, levering, schema_naam=schema_naam)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
     quality_report.meld_domeinafwijkingen(controleer_waardedomeinen(ruw, schema_naam))
+    quality_report.domeindekking = dekkingsoverzicht(schema_naam)
     quality_report.bronbestand = bronbestand(source_path, schema_naam)
     quality_report.meld_regelinventaris(inventaris(source_path, schema_naam))
     if layouts is not None:

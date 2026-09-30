@@ -176,6 +176,18 @@
               }
             }
           },
+          "domeindekking": {
+            "type": "object",
+            "description": "Schemavelden per soort domeindekking: waardedomein, type (parseverlies), recordsoort, vastgelegde reden zonder domein, of geen (#288)",
+            "properties": {
+              "domein": { "type": "integer" },
+              "type": { "type": "integer" },
+              "recordsoort": { "type": "integer" },
+              "reden": { "type": "integer" },
+              "geen": { "type": "integer" }
+            },
+            "additionalProperties": false
+          },
           "warnings": {
             "type": "array",
             "description": "Non-fatal issues",

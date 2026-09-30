@@ -92,6 +92,64 @@ def voldoet_aan_domein(waarde: pl.Expr, naam: str) -> pl.Expr:
     return gevuld & _binnen_domein(waarde, domein)
 
 
+# Getypeerde velden: een verschoven waarde valt op als parseverlies.
+_GETYPEERD = {
+    "date_fields": "datum",
+    "partial_date_fields": "datum",
+    "int_fields": "getal",
+    "float_fields": "getal",
+}
+_RECORDSOORT = "Recordsoort"
+
+
+def velden_zonder_domein() -> dict[str, str]:
+    """Veldnaam → reden waarom het veld bewust geen domein heeft (#288)."""
+    return _laad()["geen_domein"]
+
+
+def _dekking(veld: str, recordschema: dict, redenen: dict[str, str]) -> str | None:
+    if veld in recordschema.get("domeinen", {}):
+        return f"domein:{recordschema['domeinen'][veld]}"
+    for sleutel, soort in _GETYPEERD.items():
+        if veld in recordschema.get(sleutel, []):
+            return f"type:{soort}"
+    if veld == _RECORDSOORT:
+        return "recordsoort"
+    if veld in redenen:
+        return f"reden:{redenen[veld]}"
+    return None
+
+
+def domeindekking(schema_name: str) -> dict[str, dict[str, str | None]]:
+    """Per recordtype en veld hoe een verschoven waarde opvalt (#288).
+
+    ``domein:<naam>``, ``type:datum``/``type:getal`` (parseverlies),
+    ``recordsoort`` (de ingest splitst erop) of ``reden:<tekst>`` uit
+    ``[geen_domein]``; ``None`` als niets het veld dekt.
+    """
+    redenen = velden_zonder_domein()
+    return {
+        rt: {
+            veld: _dekking(veld, recordschema, redenen)
+            for veld in recordschema["fields"]
+        }
+        for rt, recordschema in load_schema(schema_name).items()
+    }
+
+
+def dekkingsoverzicht(schema_name: str) -> dict[str, int]:
+    """Aantal schemavelden per soort dekking, voor ``quality.json`` (#288).
+
+    ``geen`` telt de velden waar een verschoven waarde niet opvalt; voor RO en
+    GRONDSLAG is dat 0 (tests/test_domeindekking.py).
+    """
+    aantallen = dict.fromkeys(("domein", "type", "recordsoort", "reden", "geen"), 0)
+    for velden in domeindekking(schema_name).values():
+        for dekking in velden.values():
+            aantallen[dekking.split(":")[0] if dekking else "geen"] += 1
+    return aantallen
+
+
 def controleer_waardedomeinen(
     frames: dict[str, pl.DataFrame], schema_name: str
 ) -> dict[str, dict[str, dict[str, int | str]]]:
