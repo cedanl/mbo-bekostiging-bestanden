@@ -1,111 +1,84 @@
-"""Verhindert Verwendung von veralteten Spalten in neuem Code (#370)."""
+"""Guard: de app gebruikt geen verouderde jaarvlaggen uit fact_inschrijving (#370).
 
+De kolommen in ``contracts.VEROUDERDE_KOLOMMEN`` verdwijnen in
+``VEROUDERD_TOT`` (#201). Een deel (``_telling``, ``_jr_*``, ``_dr_*``, …)
+bestaat onder dezelfde naam in ``fact_inschrijving_schooljaar``, waar de app
+ze terecht leest; een naamscan kan die niet onderscheiden. Voor die namen
+bewijst ``test_dashboard_jaren.test_dashboard_leest_geen_verouderde_kolommen``
+het gedrag op een ster zonder legacy-kolommen. Deze scan dekt de rest: namen
+die alleen in de periode-fact bestaan, dus elk gebruik is legacy.
+"""
+
+import ast
 from pathlib import Path
-import re
 
-# Veraltete Spalten aus fact_inschrijving (planmäßig entfernt in v4.0.0, siehe #201)
-_LEGACY_COLUMNS = {
-    "_driejaars_teljaar",
-    "_telling",
-    "_jr_noemer",
-    "_jr_teller",
-    "_dr_noemer",
-    "_dr_teller",
-    "_tellingen_aanwezig",
-}
+import pytest
 
-# Ausnahmen: bestehende Plätze die noch erlaubt sind (mit Grund)
-_EXCEPTIONS = {
-    # (file_path_pattern, column_name): reason
-    ("app/_chart_docs.py", "_jr_noemer"): "UI-Dokumentation bestehender Graphiken",
-    ("app/_chart_docs.py", "_dr_noemer"): "UI-Dokumentation bestehender Graphiken",
-    ("app/_chart_docs.py", "_jr_teller"): "UI-Dokumentation bestehender Graphiken",
-    ("app/_chart_docs.py", "_dr_teller"): "UI-Dokumentation bestehender Graphiken",
-    ("app/_indicatoren.py", "_jr_noemer"): "Indikatoren-Berechnung (JR/DR) in Verwendung",
-    ("app/_indicatoren.py", "_dr_noemer"): "Indikatoren-Berechnung (JR/DR) in Verwendung",
-    ("app/_indicatoren.py", "_jr_teller"): "Indikatoren-Berechnung (JR/DR) in Verwendung",
-    ("app/_indicatoren.py", "_dr_teller"): "Indikatoren-Berechnung (JR/DR) in Verwendung",
-    ("app/_dashboard/grafieken.py", "_telling"): "Bestandsgraphik (wird mit Datenumzug ersetzt)",
-    ("app/_dashboard/kerncijfers.py", "_telling"): "Kerncijfers in Verwendung",
-    ("app/_dashboard/tab_opleidingen.py", "_telling"): "Opleidungen-Tab aktuelle Anzeige",
-    ("app/_dashboard/tab_rendementen.py", "_jr_noemer"): "Rendementen-Tab für JR/DR",
-    ("app/_dashboard/tab_rendementen.py", "_dr_noemer"): "Rendementen-Tab für JR/DR",
-    ("app/_dashboard/tab_rendementen.py", "_jr_teller"): "Rendementen-Tab für JR/DR",
-    ("app/_dashboard/tab_rendementen.py", "_dr_teller"): "Rendementen-Tab für JR/DR",
-}
+from mbo_bekostiging_bestanden.contracts import SCHOOLJAAR_FEIT, VEROUDERDE_KOLOMMEN
+
+APP = Path(__file__).parents[1] / "app"
+
+# Bestand → verouderde kolom → reden. Leeg houden; een nieuwe uitzondering
+# verwijst naar #201.
+UITZONDERINGEN: dict[str, dict[str, str]] = {}
 
 
-def test_app_code_does_not_use_legacy_columns():
-    """Guardtest: App-Code darf nicht auf veraltete Spalten zugreifen."""
-    repo_root = Path(__file__).parent.parent
-    app_dir = repo_root / "app"
+@pytest.fixture(scope="module")
+def alleen_legacy(demo_star) -> set[str]:
+    return set(VEROUDERDE_KOLOMMEN) - set(demo_star[SCHOOLJAAR_FEIT].columns)
 
-    violations = []
 
-    for py_file in app_dir.rglob("*.py"):
-        content = py_file.read_text()
-        rel_path = py_file.relative_to(repo_root)
-        rel_path_str = str(rel_path).replace("\\", "/")
-
-        # Suche nach Referenzen auf Legacy-Spalten
-        for col_name in _LEGACY_COLUMNS:
-            if col_name in content:
-                # Prüfe auf Ausnahme
-                is_exception = (rel_path_str, col_name) in _EXCEPTIONS
-
-                if not is_exception:
-                    # Finde Zeilennummern
-                    lines = content.split("\n")
-                    for i, line in enumerate(lines, 1):
-                        if col_name in line:
-                            violations.append(f"{rel_path_str}:{i}: {col_name}")
-
-    if violations:
-        msg = (
-            "Neue Code darf veraltete Spalten aus fact_inschrijving nicht verwenden "
-            "(werden in v4.0.0 entfernt, siehe #201).\n"
-            "Stattdessen: fact_inschrijving_schooljaar nutzen.\n\n"
-            "Violationen:\n" + "\n".join(violations)
+def _gebruikte_strings(bron: str) -> set[str]:
+    """String-constanten in code; docstrings en comments tellen niet."""
+    boom = ast.parse(bron)
+    docstrings = {
+        id(knoop.body[0].value)
+        for knoop in ast.walk(boom)
+        if isinstance(
+            knoop, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
         )
-        raise AssertionError(msg)
-
-
-def test_legacy_columns_not_used_in_new_code_other_than_app():
-    """Verhindert Legacy-Spalten in new code außerhalb von app/ (#370)."""
-    repo_root = Path(__file__).parent.parent
-    src_dir = repo_root / "src" / "mbo_bekostiging_bestanden"
-
-    # Exceptions für existing code (definiert per Funktion/Modul, nicht einzelne Spalten)
-    # Diese Ausnahmen sollten minimal sein und nur für absolut notwendige Plätze
-    _allowed_modules = {
-        # "module_name": "reason",
+        and knoop.body
+        and isinstance(knoop.body[0], ast.Expr)
+        and isinstance(knoop.body[0].value, ast.Constant)
+    }
+    return {
+        knoop.value
+        for knoop in ast.walk(boom)
+        if isinstance(knoop, ast.Constant)
+        and isinstance(knoop.value, str)
+        and id(knoop) not in docstrings
     }
 
-    violations = []
 
-    for py_file in src_dir.rglob("*.py"):
-        module_name = py_file.stem
+def test_er_zijn_kolommen_die_alleen_legacy_zijn(alleen_legacy):
+    """Zonder deze namen zou de scan hieronder niets bewaken."""
+    assert alleen_legacy
 
-        # Skip wenn das Modul eine Ausnahme hat
-        if module_name in _allowed_modules:
-            continue
 
-        content = py_file.read_text()
-
-        for col_name in _LEGACY_COLUMNS:
-            if col_name in content:
-                lines = content.split("\n")
-                for i, line in enumerate(lines, 1):
-                    if col_name in line and not line.strip().startswith("#"):
-                        violations.append(f"{py_file.relative_to(repo_root)}:{i}: {col_name}")
-
-    if violations:
-        msg = (
-            "Neuer Code (src/) sollte nicht auf veraltete Spalten zugreifen.\n"
-            "Diese werden in v4.0.0 entfernt (#201).\n\n"
-            "Violationen:\n" + "\n".join(violations)
+def test_app_gebruikt_geen_verouderde_kolommen(alleen_legacy):
+    overtredingen = {
+        str(bestand.relative_to(APP.parent)): sorted(gevonden)
+        for bestand in sorted(APP.rglob("*.py"))
+        if (
+            gevonden := (
+                _gebruikte_strings(bestand.read_text(encoding="utf-8")) & alleen_legacy
+            )
+            - set(UITZONDERINGEN.get(str(bestand.relative_to(APP.parent)), {}))
         )
-        # Hinweis: das ist eine Warnung, keine harte Constraint wie app/
-        # Falls tatsächlicher Codepfad notwendig: hier exceptions hinzufügen
-        if violations:  # Vereinfacht für jetzt: nur warnen, nicht fail
-            pass  # TODO: bei Bedarf zu AssertionError erheben
+    }
+    assert overtredingen == {}, (
+        "Gebruik fact_inschrijving_schooljaar; deze kolommen verdwijnen in v4.0.0 "
+        f"(#201): {overtredingen}"
+    )
+
+
+def test_scan_ziet_een_expres_toegevoegd_gebruik(alleen_legacy):
+    kolom = sorted(alleen_legacy)[0]
+    bron = f'df.filter(pl.col("{kolom}"))\n'
+    assert kolom in _gebruikte_strings(bron)
+
+
+def test_scan_negeert_docstrings(alleen_legacy):
+    kolom = sorted(alleen_legacy)[0]
+    bron = f'"""{kolom}"""\n\n\nclass C:\n    """{kolom}"""\n'
+    assert _gebruikte_strings(bron) == set()
