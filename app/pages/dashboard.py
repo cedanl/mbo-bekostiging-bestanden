@@ -179,6 +179,13 @@ def _toon_kwaliteit(rapport: dict | None, meta_leveringen: pl.DataFrame) -> None
         f"Kwaliteitsstatus: {status} — {samenvatting['total_errors']} errors, "
         f"{samenvatting['total_warnings']} warnings"
     )
+    conformiteit = rapport.get("conformiteit")
+    if conformiteit:
+        st.caption(
+            f"Indicatoren (JR/DR): **{conformiteit['indicatoren']}**, geen formele "
+            f"Inspectie-uitkomst · privacyprofiel: {conformiteit['privacyprofiel']} "
+            f"· PvE-schema: {conformiteit['pve_schema'].replace('_', ' ')}"
+        )
     with st.expander("Kwaliteitsmeldingen en bronleveringen"):
         chart_help("kwaliteit")
         for m in kwaliteitsmeldingen(rapport):

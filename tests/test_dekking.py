@@ -83,6 +83,71 @@ def test_ander_recordtype_zonder_doorvertaling_is_warning():
     assert rij["ernst"] == "warning"
 
 
+def test_dip_met_gevulde_kolommen_in_het_feit_is_gedekt():
+    """DIP heeft geen eigen feit maar voedt ``DIP_*``-kolommen (#326)."""
+    invoer = {"DIP": _records(L1, 2)}
+    ster = {
+        "fact_inschrijving": _records(
+            L1, 3, DIP_DatumResultaat=["2025-06-15", None, "2025-07-01"]
+        )
+    }
+
+    rij = _rij(controleer_dekking(invoer, ster), L1, "DIP")
+
+    assert (rij["feit"], rij["ingelezen"], rij["bereikt"], rij["ernst"]) == (
+        "fact_inschrijving",
+        2,
+        2,
+        None,
+    )
+
+
+def test_dip_zonder_gevulde_kolommen_is_warning():
+    """Een regressie in de DIP→feit-projectie bleef ongezien: status bleef pass."""
+    invoer = {"DIP": _records(L1, 2)}
+    ster = {"fact_inschrijving": _records(L1, 3, DIP_DatumResultaat=[None] * 3)}
+
+    rij = _rij(controleer_dekking(invoer, ster), L1, "DIP")
+
+    assert (rij["bereikt"], rij["ernst"]) == (0, "warning")
+
+
+def test_dip_zonder_dip_kolommen_in_het_feit_is_warning():
+    invoer = {"DIP": _records(L1, 1)}
+    ster = {"fact_inschrijving": _records(L1, 1)}
+
+    assert _rij(controleer_dekking(invoer, ster), L1, "DIP")["ernst"] == "warning"
+
+
+@pytest.mark.parametrize(
+    ("recordtype", "kolom"), [("ISE", "ISE_DatumBegin"), ("ISG", "DatumInschrijving")]
+)
+def test_kolomdekking_geldt_ook_voor_ise_en_isg(recordtype, kolom):
+    invoer = {recordtype: _records(L1, 1)}
+    leeg = {"fact_inschrijving": _records(L1, 1, **{kolom: [None]})}
+    gevuld = {"fact_inschrijving": _records(L1, 1, **{kolom: ["2025-08-01"]})}
+
+    assert _rij(controleer_dekking(invoer, leeg), L1, recordtype)["ernst"] == "warning"
+    assert _rij(controleer_dekking(invoer, gevuld), L1, recordtype)["ernst"] is None
+
+
+def test_kolomdekking_is_per_levering():
+    invoer = {"DIP": pl.concat([_records(L1, 1), _records(L2, 1)])}
+    ster = {
+        "fact_inschrijving": pl.concat(
+            [
+                _records(L1, 1, DIP_DatumResultaat=["2025-06-15"]),
+                _records(L2, 1, DIP_DatumResultaat=[None]),
+            ]
+        )
+    }
+
+    dekking = controleer_dekking(invoer, ster)
+
+    assert _rij(dekking, L1, "DIP")["ernst"] is None
+    assert _rij(dekking, L2, "DIP")["ernst"] == "warning"
+
+
 def test_bewust_niet_doorvertaald_heeft_een_verklaring_en_geen_ernst():
     rij = _rij(controleer_dekking({"VLP": _records(L1, 1)}, {}), L1, "VLP")
     assert rij["feit"] is None

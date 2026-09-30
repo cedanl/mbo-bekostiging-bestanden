@@ -158,6 +158,10 @@
               "type": "string"
             }
           },
+          "privacyprofiel": {
+            "enum": ["brondata", "gepseudonimiseerd"],
+            "description": "Brondata bevat persoons-identifiers (BSN/ONR/PGN); het analysemodel niet (#331)"
+          },
           "bronbestand": {
             "type": ["object", "null"],
             "description": "Het ruwe leveringsbestand: naam (geen pad), sha256 en de PvE-versie van het schema waarmee het is ingelezen (#300). Null in prepared-rapporten van vóór #300",
@@ -190,10 +194,31 @@
           "domeinafwijkingen",
           "warnings",
           "errors",
-          "bronbestand"
+          "bronbestand",
+          "privacyprofiel"
         ],
         "additionalProperties": false
       }
+    },
+    "conformiteit": {
+      "type": "object",
+      "description": "Wat de uitkomst betekent, naast of ze technisch klopt (#331)",
+      "properties": {
+        "pve_schema": {
+          "enum": ["pass", "warn", "fail", "niet_beoordeeld"],
+          "description": "Schema-versie tegen de gepinde PvE-bron; niet_beoordeeld zolang die controle er niet is (#299)"
+        },
+        "indicatoren": {
+          "enum": ["formeel", "proxy", "niet_bepaalbaar"],
+          "description": "JR/DR zijn proxy's, geen formele Inspectie-indicatoren (#296, #297)"
+        },
+        "privacyprofiel": {
+          "enum": ["brondata", "gepseudonimiseerd"],
+          "description": "Het analysemodel is gepseudonimiseerd; brondata bevat identifiers"
+        }
+      },
+      "required": ["pve_schema", "indicatoren", "privacyprofiel"],
+      "additionalProperties": false
     },
     "provenance": {
       "type": "object",
@@ -687,6 +712,7 @@
     "timestamp",
     "scenario",
     "provenance",
+    "conformiteit",
     "deliveries",
     "star",
     "summary"

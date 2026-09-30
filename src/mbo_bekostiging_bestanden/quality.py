@@ -129,6 +129,15 @@ def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
     return f"{afwijking['aantal']} (waarvan leeg: {leeg})"
 
 
+# Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.
+# JR/DR zijn proxy's tot #296 besloten is; de waarde staat hier op één plek.
+INDICATOREN_STATUS = "proxy"
+# Nog geen gepinde PvE-bron om tegen te toetsen (#299): niet raden.
+PVE_SCHEMA_STATUS = "niet_beoordeeld"
+PROFIEL_BRONDATA = "brondata"
+PROFIEL_GEPSEUDONIMISEERD = "gepseudonimiseerd"
+
+
 @dataclass
 class QualityReport:
     """Gestructureerd kwaliteitsrapport per leveringsbestand."""
@@ -207,6 +216,7 @@ class QualityReport:
             "warnings": self.warnings,
             "errors": self.errors,
             "bronbestand": self.bronbestand,
+            "privacyprofiel": PROFIEL_BRONDATA,
         }
 
 
@@ -765,6 +775,11 @@ def compile_quality_report(
         "scenario": scenario,
         "provenance": run_provenance()
         | {"kwaliteitsfouten_toegestaan": fouten_toegestaan},
+        "conformiteit": {
+            "pve_schema": PVE_SCHEMA_STATUS,
+            "indicatoren": INDICATOREN_STATUS,
+            "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
+        },
         "deliveries": deliveries_list,
         "star": star_checks,
         "summary": {
@@ -884,6 +899,11 @@ class _Doorvertaling:
     bron: str | None = None
     # Een gat in de bekostiging is een error, anders een warning.
     bekostiging: bool = False
+    # Recordtypes zonder eigen feit vullen kolommen van een ander feit (#326):
+    # bereikt = rijen waarin minstens één van die kolommen gevuld is. De kolommen
+    # komen uit het feit zelf (``kolomprefix``) of staan expliciet in ``kolommen``.
+    kolomprefix: str | None = None
+    kolommen: tuple[str, ...] = ()
 
 
 _DOORVERTALING = {
@@ -896,15 +916,15 @@ _DOORVERTALING = {
     "Teldatum": _Doorvertaling("fact_bekostiging", BRON_TBGI, bekostiging=True),
     "BID": _Doorvertaling("fact_bekostiging_diploma", BRON_BID, bekostiging=True),
     "Diploma": _Doorvertaling("fact_bekostiging_diploma", BRON_TBGI, bekostiging=True),
+    "DIP": _Doorvertaling(_CENTRAAL_FEIT, kolomprefix="DIP_"),
+    "ISE": _Doorvertaling(_CENTRAAL_FEIT, kolomprefix="ISE_"),
+    "ISG": _Doorvertaling(_CENTRAAL_FEIT, kolommen=("DatumInschrijving",)),
 }
 # Recordtypes zonder eigen feit, bewust: hun rijtelling zegt niets over dekking.
 _NIET_DOORVERTAALD = {
     "VLP": "leveringsmetadata in meta_leveringen",
     "SLR": "controletotalen in meta_leveringen en slr_details",
     "PER": "persoonskenmerken in dim_deelnemer",
-    "ISG": "kolommen van fact_inschrijving",
-    "ISE": "kolommen van fact_inschrijving",
-    "DIP": "kolommen van fact_inschrijving en fact_bekostiging_diploma (BID)",
     "Inschrijving": (
         "context van Teldatum en Diploma; eigen rij in fact_inschrijving alleen "
         "zonder ISP-periode (#196)"
@@ -920,6 +940,26 @@ def _per_levering(df: pl.DataFrame | None) -> dict[str, int]:
     return dict(df.group_by("levering").len().iter_rows())
 
 
+def _bereikt_per_levering(
+    doel: _Doorvertaling, star: dict[str, pl.DataFrame]
+) -> dict[str, int]:
+    """Rijen per levering in het feit van ``doel`` (bij kolomdekking: gevulde rijen)."""
+    feit = star.get(doel.feit, pl.DataFrame())
+    if doel.bron is not None and BRON in feit.columns:
+        feit = feit.filter(pl.col(BRON) == doel.bron)
+    if doel.kolomprefix or doel.kolommen:
+        kolommen = [
+            c
+            for c in feit.columns
+            if c in doel.kolommen
+            or (doel.kolomprefix and c.startswith(doel.kolomprefix))
+        ]
+        if not kolommen:
+            return {}
+        feit = feit.filter(pl.any_horizontal(pl.col(kolommen).is_not_null()))
+    return _per_levering(feit)
+
+
 def controleer_dekking(
     invoer: dict[str, pl.DataFrame], star: dict[str, pl.DataFrame]
 ) -> list[dict[str, Any]]:
@@ -928,7 +968,9 @@ def controleer_dekking(
     Alleen een volledig gat krijgt een ernst: de aantallen hoeven niet gelijk te
     zijn (canonicalisatie, koppelingen), maar nul rijen uit een gevulde levering
     betekent dat het recordtype niet wordt doorvertaald (#258, #295). Een levering
-    die helemaal vervangen is door een recentere, is verklaard (#174).
+    die helemaal vervangen is door een recentere, is verklaard (#174). Recordtypes
+    die kolommen van een ander feit vullen (DIP, ISE, ISG) tellen de rijen waarin
+    die kolommen gevuld zijn (#326).
 
     Args:
         invoer: Gestapelde prepared-tabellen (:func:`~.stack.stack_prepared`).
@@ -945,12 +987,7 @@ def controleer_dekking(
     rijen = []
     for recordtype, records in sorted(invoer.items()):
         doel = _DOORVERTALING.get(recordtype)
-        bereikt: dict[str, int] = {}
-        if doel is not None:
-            feit = star.get(doel.feit, pl.DataFrame())
-            if doel.bron is not None and BRON in feit.columns:
-                feit = feit.filter(pl.col(BRON) == doel.bron)
-            bereikt = _per_levering(feit)
+        bereikt = _bereikt_per_levering(doel, star) if doel is not None else {}
         for levering, ingelezen in sorted(_per_levering(records).items()):
             rij = {
                 "levering": levering,
