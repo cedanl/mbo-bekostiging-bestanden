@@ -267,9 +267,13 @@
         "privacyprofiel": {
           "enum": ["brondata", "gepseudonimiseerd"],
           "description": "Het analysemodel is gepseudonimiseerd; brondata bevat identifiers"
+        },
+        "pgn_stabiliteit": {
+          "enum": ["ja", "nee", "onbekend"],
+          "description": "Of het omgenummerde GRONDSLAG-PGN over studiejaren gelijk blijft; door DUO niet bevestigd, de koppeling neemt aan van wel (#128)"
         }
       },
-      "required": ["pve_schema", "indicatoren", "privacyprofiel"],
+      "required": ["pve_schema", "indicatoren", "privacyprofiel", "pgn_stabiliteit"],
       "additionalProperties": false
     },
     "provenance": {
@@ -456,6 +460,14 @@
               "inschrijvingen"
             ],
             "additionalProperties": false
+          }
+        },
+        "grondslag_studiejaren": {
+          "type": "object",
+          "description": "Per BRIN de studiejaren van de GRONDSLAG-leveringen; meer dan één betekent dat persoonskoppelingen op een onbevestigde PGN-stabiliteit leunen (#128)",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "integer" }
           }
         },
         "join_keuzes": {
@@ -729,6 +741,7 @@
         "periode_koppelstatus",
         "dr_scope",
         "referentiedata",
+        "grondslag_studiejaren",
         "dekking"
       ],
       "additionalProperties": false

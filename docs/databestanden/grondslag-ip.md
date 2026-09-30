@@ -112,6 +112,14 @@ Per persoon (`PER`):
 
 PER-records zijn oplopend gesorteerd op **PGN** (pseudonummer).
 
+!!! warning "PGN is omgenummerd"
+    Het PGN is een door DUO **omgenummerd** persoonsnummer, geen BSN of
+    onderwijsnummer (PvE §17.1). De pipeline pseudonimiseert het met het domein
+    `PGN` erbij, zodat een PGN nooit op persoon koppelt aan een BSN uit RO of
+    TBG-i met dezelfde cijfers. Of het PGN over studiejaren gelijk blijft, is
+    niet door DUO bevestigd; de koppeling tussen studiejaren neemt aan van wel
+    (zie het datamodel, #128). In het schema heet het veld `PseudoNummer`.
+
 ## Voorbeeld (demo-data 27DV, studiejaar 2025)
 
 ```
