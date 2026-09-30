@@ -46,6 +46,11 @@ def stack_prepared(
     Raises:
         FileNotFoundError: Als een bronmap niet bestaat.
         ValueError:        Als ``labels`` een andere lengte heeft dan ``sources``.
+
+    Note:
+        Deze functie stapelt enkel de gegevens. Kwaliteitscontrole gebeurt in
+        :func:`~mbo_bekostiging_bestanden.pipeline.run_star`. Directe aanroep
+        van deze functie (script, notebook) geeft geen kwaliteitsoordeel.
     """
     paths = [Path(s) for s in sources]
     if not paths:
