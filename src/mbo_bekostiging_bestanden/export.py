@@ -13,19 +13,7 @@ def export_frames(
     output_dir: str | Path,
     fmt: OutputFormat = "parquet",
 ) -> list[Path]:
-    """Schrijf elk recordtype als apart bestand naar output_dir.
-
-    Args:
-        frames:     Dict van recordtype-code naar getypeerde DataFrame.
-        output_dir: Doelmap (wordt aangemaakt als die niet bestaat).
-        fmt:        Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
-
-    Returns:
-        Lijst van geschreven paden.
-
-    Raises:
-        ValueError: Als ``fmt`` geen ondersteund formaat is.
-    """
+    """Schrijf elk recordtype als apart bestand naar ``output_dir``; geeft de paden."""
     if fmt not in ("parquet", "csv"):
         raise ValueError(f"Onbekend formaat {fmt!r}. Kies 'parquet' of 'csv'.")
 

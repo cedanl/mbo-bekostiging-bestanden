@@ -11,4 +11,4 @@ scenario = "demo"
 # Voor alle omgevingen: zet een sterke, willekeurige sleutel in env var MBO_PSEUDONIMISERING_SALT
 # De applicatie faalt als deze sleutel niet is ingesteld (fail-closed).
 [security]
-# pseudonimisering_salt intentionally removed — set MBO_PSEUDONIMISERING_SALT environment variable instead
+# De salt staat hier bewust niet: alleen via de env-var MBO_PSEUDONIMISERING_SALT.

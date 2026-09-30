@@ -150,7 +150,6 @@ def build_star(
         set(_DIM_DEELNEMER_COLS) | set(_DIM_OPLEIDING_COLS) | set(_DIM_INSTELLING_COLS)
     ) - _FK_COLS
 
-    # GEO-pivotkolommen verwijderen: schema-instabiel en nu in fact_geo.
     geo_cols = {c for c in inschrijvingen.columns if _GEO_COL_RE.match(c)}
 
     fact_cols = [
@@ -158,7 +157,6 @@ def build_star(
     ]
     fact_inschrijving = inschrijvingen.select(fact_cols)
 
-    # Verwijder persoonsidentificerende gegevens en interne kolommen
     to_drop = []
     pii_to_drop = [c for c in _PII_DROP if c in fact_inschrijving.columns]
     internal_to_drop = [c for c in _INTERNAL_COLS if c in fact_inschrijving.columns]

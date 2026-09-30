@@ -48,7 +48,6 @@ def scenario() -> str:
 
 
 def star_dir() -> Path:
-    """Standaardlocatie van het star schema binnen de output-map."""
     return output_dir() / _STAR_SUBMAP
 
 
