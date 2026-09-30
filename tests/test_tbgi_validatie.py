@@ -108,29 +108,17 @@ def test_inventaris_van_demo_is_leeg():
     assert inventariseer_xml_elementen(DEMO_TBGI) == {"onbekende_xml_elementen": {}}
 
 
-def test_inschrijving_voor_correctiefactor_buiten_domein_is_error(tmp_path):
+@pytest.mark.parametrize(
+    "veld", ["InschrijvingVoorCorrectiefactor", "IndicatieBekostigbaar"]
+)
+def test_boolean_buiten_domein_is_error(tmp_path, veld):
     bron = _kopie(
         tmp_path,
-        ("<InschrijvingVoorCorrectiefactor>true</InschrijvingVoorCorrectiefactor>",
-         "<InschrijvingVoorCorrectiefactor>not-a-bool</InschrijvingVoorCorrectiefactor>"),
+        (f"<{veld}>true</{veld}>", f"<{veld}>not-a-bool</{veld}>"),
     )
     rapport = _rapport(bron, tmp_path)
-    assert rapport["domeinafwijkingen"]["Teldatum"]["InschrijvingVoorCorrectiefactor"] == {
+    assert rapport["domeinafwijkingen"]["Teldatum"][veld] == {
         "aantal": 1,
         "ernst": "error",
     }
-    assert any("InschrijvingVoorCorrectiefactor" in e for e in rapport["errors"])
-
-
-def test_indicatie_bekostigbaar_buiten_domein_is_error(tmp_path):
-    bron = _kopie(
-        tmp_path,
-        ("<IndicatieBekostigbaar>true</IndicatieBekostigbaar>",
-         "<IndicatieBekostigbaar>maybe</IndicatieBekostigbaar>"),
-    )
-    rapport = _rapport(bron, tmp_path)
-    assert rapport["domeinafwijkingen"]["Teldatum"]["IndicatieBekostigbaar"] == {
-        "aantal": 1,
-        "ernst": "error",
-    }
-    assert any("IndicatieBekostigbaar" in e for e in rapport["errors"])
+    assert any(veld in e for e in rapport["errors"])
