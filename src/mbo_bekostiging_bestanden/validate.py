@@ -12,6 +12,7 @@ def validate_multi_record(
     """Valideer een volledig pakket na decoding.
 
     Controles (schema-gedreven):
+    - Elk recordtype met ``verplicht = true`` komt minstens één keer voor (#322).
     - Alle verwachte kolommen aanwezig per recordtype.
     - Recordtypes met ``single_row = true`` in het schema bevatten exact 1 rij.
 
@@ -27,6 +28,16 @@ def validate_multi_record(
         ValueError:        Als een harde controle faalt.
     """
     schema = load_schema(schema_name)
+
+    ontbrekend = [
+        rt
+        for rt, rt_schema in schema.items()
+        if rt_schema.get("verplicht") and (rt not in frames or frames[rt].height == 0)
+    ]
+    if ontbrekend:
+        raise ValueError(
+            f"Verplichte recordtypes ontbreken in het bestand: {ontbrekend}"
+        )
 
     for rt, df in frames.items():
         if rt not in schema:

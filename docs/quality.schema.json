@@ -123,6 +123,10 @@
                   "ernst": {
                     "type": "string",
                     "enum": ["error", "warning"]
+                  },
+                  "leeg": {
+                    "type": "integer",
+                    "description": "Deel van aantal dat een lege waarde is in een verplicht veld (#320)"
                   }
                 },
                 "required": ["aantal", "ernst"],
