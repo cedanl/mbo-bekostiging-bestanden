@@ -44,6 +44,14 @@ waarden = ["BOL", "BOL_DT", "BBL", "OVO", "EX", "ODT"]
 # ex tellen mee in de indicatorpopulatie (JR/DR). OVO en ODT niet (#286).
 buiten_indicatorpopulatie = ["OVO", "ODT"]
 
+# PvE §16.6: alleen "D" (definitief) en "V" (voorlopig).
+[domein.status_bepaling_bekostigingsstatus]
+waarden = ["D", "V"]
+
+# PvE §16.6: voortgezet onderwijs of mbo.
+[domein.leerroutefase]
+waarden = ["VO", "MBO"]
+
 [domein.certificaat]
 waarden = ["J", "N", "1", "0"]
 
