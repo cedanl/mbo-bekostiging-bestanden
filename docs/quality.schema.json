@@ -345,7 +345,7 @@
         },
         "key_duplicates": {
           "type": "object",
-          "description": "Per uniciteitscontract (bijv. fact_inschrijving, fact_inschrijving_schooljaar, hoofdinschrijving_per_schooljaar): sleutels die meer dan één keer voorkomen",
+          "description": "Per uniciteitscontract (fact_inschrijving, fact_inschrijving_schooljaar, hoofdinschrijving_per_schooljaar en elk detailfeit op zijn business key, #328): sleutels die meer dan één keer voorkomen",
           "additionalProperties": {
             "type": "object",
             "properties": {

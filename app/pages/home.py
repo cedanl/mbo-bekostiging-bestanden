@@ -37,9 +37,9 @@ _KWALITEITSMELDINGEN = {
         "periode) en tellen niet mee in analyses per inschrijving:"
     ),
     "dubbele_sleutels": (
-        "**Dubbele periodesleutels** — dezelfde inschrijvingsperiode staat "
-        "meer dan één keer in de bron; joins op `_inschrijving_periode_id` "
-        "tellen deze rijen dubbel:"
+        "**Dubbele sleutels** — een rij staat meer dan één keer op de sleutel "
+        "van haar feit (inschrijvingsperiode, schooljaar of de business key "
+        "van een detailfeit); joins en tellingen tellen deze rijen dubbel:"
     ),
     "niveau_onbekend": (
         "**Niveau onbekend** — voor deze opleidingscodes kent geen bron of "

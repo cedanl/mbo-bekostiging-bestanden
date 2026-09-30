@@ -40,6 +40,7 @@ from mbo_bekostiging_bestanden.schooljaar import (
     HOOFDINSCHRIJVING,
     HOOFDINSCHRIJVING_GROEP,
 )
+from mbo_bekostiging_bestanden.star import DETAIL_GRAIN
 from mbo_bekostiging_bestanden.transform import (
     BRON,
     BRON_BID,
@@ -450,6 +451,11 @@ _UNICITEIT = {
         "{n} persoon × instelling × schooljaar met meer dan één hoofdinschrijving",
         alleen=HOOFDINSCHRIJVING,
     ),
+    # Detailfeiten op hun business key (#328).
+    **{
+        feit: _Uniciteit(feit, grain, "{n} {sleutels} meer dan één keer voor")
+        for feit, grain in DETAIL_GRAIN.items()
+    },
 }
 
 

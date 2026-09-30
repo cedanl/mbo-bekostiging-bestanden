@@ -98,11 +98,13 @@ naar de centrale laag staan apart:
 `levering` hoort erbij omdat `Inschrijvingvolgnummer` alleen uniek is per persoon binnen één
 instelling (PvE §16.5.1): dezelfde persoon en hetzelfde volgnummer bij twee instellingen zijn
 twee verschillende inschrijvingen. Zonder `levering` in de sleutel telt een test met twee
-instellingen dubbelen (BPV, KZD en GEO). `BRIN` staat niet betrouwbaar in elk detailfeit (bij
-RO-only ontbreekt de kolom in `fact_bpv`); gebruik daarom `levering` als onderscheid en
-`_inschrijving_periode_id` om naar `fact_inschrijving` en zo naar `BRIN` te gaan. De
-uniciteitscontrole op deze sleutels en een vaste `BRIN`-kolom zijn nog open (#328). De
-`Inschrijvingvolgnummer` van een TBGI-diploma zonder inschrijving is leeg (zie hieronder).
+instellingen dubbelen (BPV, KZD en GEO). De keys staan in de code als `star.DETAIL_GRAIN`; een
+test houdt deze tabel en de code gelijk, en `quality.json` → `star.key_duplicates` toetst per
+detailfeit de uniciteit (een dubbele sleutel is een error, #328). Elk detailfeit heeft een
+`BRIN`-kolom, afgeleid van de parent-inschrijving via `_inschrijving_periode_id`; alleen een rij
+zonder parent houdt de BRIN uit haar eigen bron. Zo hangt het schema niet af van de bronmix
+(RO-BPV heeft zelf geen BRIN, GRONDSLAG-BPV wel). De `Inschrijvingvolgnummer` van een
+TBGI-diploma zonder inschrijving is leeg (zie hieronder).
 
 **Bekostiging over leveringen heen.** TBGI-bekostiging komt altijd uit een andere levering dan
 de RO-inschrijvingen. `fact_bekostiging` en `fact_bekostiging_diploma` koppelen daarom eerst

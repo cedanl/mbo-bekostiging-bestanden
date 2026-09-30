@@ -6,6 +6,7 @@ expliciete feittabellen met een stabiel schema.
 
 Publieke API:
     build_star(stacked) -> dict[str, pl.DataFrame]
+    DETAIL_GRAIN: business key per detailfeit
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import re
 import polars as pl
 
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
+from mbo_bekostiging_bestanden.filters import _PERIODE_SLEUTEL
 from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
 from mbo_bekostiging_bestanden.referentiedata import meta_referentiedata
 from mbo_bekostiging_bestanden.schooljaar import FEIT as SCHOOLJAAR_FEIT
@@ -94,6 +96,19 @@ _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 # (PGN, BSN, ONr) staan nog rechtstreeks in de brondata en moeten weg.
 _PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
+
+# Business key per detailfeit (#327, tabel in docs/datamodel.md); de
+# uniciteitscontrole in quality.py leest deze (#328). ``levering`` hoort erbij:
+# Inschrijvingvolgnummer is alleen uniek per persoon binnen één instelling.
+_INSCHRIJVING = ("levering", "_persoon_id", "Inschrijvingvolgnummer")
+DETAIL_GRAIN: dict[str, tuple[str, ...]] = {
+    "fact_bpv": (*_INSCHRIJVING, "Volgnummer"),
+    "fact_kzd": (*_INSCHRIJVING, "Resultaatvolgnummer"),
+    "fact_amo": (*_INSCHRIJVING, "Resultaatvolgnummer"),
+    "fact_geo": (*_INSCHRIJVING, "CodeGeneriekExamenonderdeel"),
+    "fact_bekostiging": (*_INSCHRIJVING, "Teldatum"),
+    "fact_bekostiging_diploma": (*_INSCHRIJVING, "Resultaatvolgnummer"),
+}
 
 # Interne tussenstap-kolommen, niet bedoeld voor het exporteerbare star schema.
 # List aggregaat uit _bepaal_actief_per_schooljaar (transform.py).
@@ -176,12 +191,17 @@ def build_star(
             tables["meta_leveringen"],
             teldata=tables.get("detail_bekostiging"),
         ),
-        "fact_bpv": _build_fact_bpv(tables),
-        "fact_kzd": _build_fact_kzd(tables),
-        "fact_amo": _build_fact_amo(tables),
-        "fact_geo": _build_fact_geo(tables),
-        "fact_bekostiging": _build_fact_bekostiging(tables),
-        "fact_bekostiging_diploma": _build_fact_bekostiging_diploma(tables),
+        **{
+            naam: _met_brin_van_inschrijving(detail, fact_inschrijving)
+            for naam, detail in {
+                "fact_bpv": _build_fact_bpv(tables),
+                "fact_kzd": _build_fact_kzd(tables),
+                "fact_amo": _build_fact_amo(tables),
+                "fact_geo": _build_fact_geo(tables),
+                "fact_bekostiging": _build_fact_bekostiging(tables),
+                "fact_bekostiging_diploma": _build_fact_bekostiging_diploma(tables),
+            }.items()
+        },
         "meta_leveringen": _build_meta_leveringen(tables),
         "meta_canonicalisatie": tables["meta_canonicalisatie"],
         "meta_koppelkeuzes": tables["meta_koppelkeuzes"],
@@ -282,6 +302,28 @@ def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 # Interne helpers
 # ---------------------------------------------------------------------------
+
+
+def _met_brin_van_inschrijving(
+    detail: pl.DataFrame, fact_inschrijving: pl.DataFrame
+) -> pl.DataFrame:
+    """BRIN uit de parent-inschrijving via de FK (#328).
+
+    Het schema van een detailfeit hangt zo niet af van de bronmix: RO-BPV heeft
+    zelf geen BRIN, GRONDSLAG-BPV wel. De eigen bronwaarde telt alleen voor
+    rijen zonder parent (bijv. een TBG-i-diploma zonder inschrijving, #196).
+    """
+    if detail.is_empty() or "BRIN" not in fact_inschrijving.columns:
+        return detail
+    parent = fact_inschrijving.select(
+        *_PERIODE_SLEUTEL, pl.col("BRIN").alias("_brin_parent")
+    ).unique(subset=_PERIODE_SLEUTEL, keep="first")
+    eigen = pl.col("BRIN") if "BRIN" in detail.columns else pl.lit(None, pl.Utf8)
+    return (
+        detail.join(parent, on=_PERIODE_SLEUTEL, how="left")
+        .with_columns(pl.coalesce("_brin_parent", eigen).alias("BRIN"))
+        .drop("_brin_parent")
+    )
 
 
 def _build_meta_leveringen(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
