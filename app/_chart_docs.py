@@ -22,6 +22,7 @@ CHART_DOCS: dict[str, dict] = {
         "titel": "Kwaliteitsstatus en bronleveringen",
         "variabelen": [
             "quality.json.summary",
+            "quality.json.conformiteit",
             "quality.json.deliveries",
             "quality.json.star",
             "meta_leveringen.Peilgrens",
@@ -34,7 +35,10 @@ CHART_DOCS: dict[str, dict] = {
             "ernst en de telling in de status komen uit dezelfde functie "
             "(`quality.kwaliteitsmeldingen`).  De tabel toont per levering de "
             "aanmaakdatum, het observatievenster (tot welke peildatum de levering "
-            "iets kan zeggen) en de SLR-reconciliatie."
+            "iets kan zeggen) en de SLR-reconciliatie.  Onder de status staat de "
+            "conformiteit: of JR/DR formeel of proxy zijn, het privacyprofiel "
+            "van het artefact en de PvE-schemastatus; die komen uit "
+            "`quality.json.conformiteit`."
         ),
         "kanttekening": (
             "Grafieken op een ster met status `fail` zijn niet betrouwbaar: los "
