@@ -130,7 +130,8 @@ CHART_DOCS: dict[str, dict] = {
         ),
         "kanttekening": (
             "Het oordeel telt de **geselecteerde** schooljaren op, niet het "
-            "formele driejaarsvenster.  SR (startersresultaat) is **niet beschikbaar** — de inspectie "
+            "formele driejaarsvenster.  SR (startersresultaat) is **niet "
+            "beschikbaar** — de inspectie "
             "berekent dit over drie cohorten met zes jaar inschrijvings­"
             "historie, die buiten de eigen leveringen valt.  Bij één "
             "ontbrekende indicator is een oordeel alleen mogelijk als de twee "
