@@ -19,6 +19,22 @@ aanroept. `indicatoren.py` verhuisde daarom naar `app/_indicatoren.py`
 (#253) — de indicatorberekeningen (JR/DR-normen, oordeel, entree) dienen
 uitsluitend het dashboard.
 
+### Het dashboard is een map, geen bestand
+
+`app/_dashboard/` is de enige map in `app/`: het dashboard telt te veel
+tabellen om in één bestand te blijven (#301). De page
+(`app/pages/dashboard.py`) orkestreert alleen — laden en jaarselectie in
+`_dashboard.data`, de weergave per tab in `_dashboard.tab_*`, de gedeelde
+grafiekhelpers in `_dashboard.grafieken`. Tegenover de losse modules hierboven
+is dit een echt pakket (`from _dashboard import data`), omdat de tabs elkaar
+niet importeren maar wel één vocabulary delen.
+
+Een getoonde tabel of grafiek moet reproduceerbaar zijn: de volgorde van
+gelijke tellingen wordt daarom overal via `grafieken.sorteer_aantal` bepaald
+(aantal aflopend, label oplopend). `group_by` legt zelf geen stabiele
+rijvolgorde vast, dus zonder die tweede sleutel wisselde de volgorde per run —
+en in een top-N ook welke regels zichtbaar waren.
+
 ## Quality leest de ster onafhankelijk
 
 `quality.py` beoordeelt de output van `transform.py`/`star.py`, maar mag die
