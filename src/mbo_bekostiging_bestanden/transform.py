@@ -39,6 +39,23 @@ from mbo_bekostiging_bestanden.canonicalisatie import (
     vervangen_inschrijvingen,
     verwijder_vervangen,
 )
+from mbo_bekostiging_bestanden.contracts import (
+    BRON,
+    BRON_BID,
+    BRON_BII,
+    BRON_ISP,
+    BRON_TBGI,
+    KOPPELSTATUS,
+    KOPPELSTATUS_BINNEN,
+    KOPPELSTATUS_GEEN_INSCHRIJVING,
+    PERIODE_ID,
+    STUDIEJAAR_EIND_DAG,
+    STUDIEJAAR_EIND_MAAND,
+    STUDIEJAAR_START_DAG,
+    STUDIEJAAR_START_MAAND,
+    TELDATUM_DAG,
+    TELDATUM_MAAND,
+)
 from mbo_bekostiging_bestanden.enrich import (
     _laad_sbb_koppeltabel,
     enrich_inschrijvingen,
@@ -148,15 +165,6 @@ _PERSOON_COLS = list(_PERSOON_DOMEIN)
 _JOIN_PERSOON = ["levering", "_persoon_id"]
 _JOIN_INSCHRIJVING = ["levering", "_persoon_id", "Inschrijvingvolgnummer"]
 
-_PERIODE_ID = "_inschrijving_periode_id"
-# Herkomst van een rij in de centrale inschrijvingstabel (#196): een ISP-periode
-# (RO/GRONDSLAG) of een TBGI-inschrijving zonder ISP-perioden. In de
-# bekostigingsfeiten het recordtype waar de rij vandaan komt (BII/BID/TBGI).
-BRON = "Bron"
-BRON_ISP = "ISP"
-BRON_TBGI = "TBGI"
-BRON_BII = "BII"
-BRON_BID = "BID"
 # Een GRONDSLAG-BID mist inschrijving, opleiding en behaaldatum; die staan op
 # het DIP-record van hetzelfde diploma (PvE §17.5). Namen zoals TBG-i (#208).
 _JOIN_DIPLOMA = ["levering", "BRIN", "_persoon_id", "Resultaatvolgnummer"]
@@ -188,56 +196,12 @@ _PERIODE_REFERENTIEDATUM = {
 # lukt koppelen binnen de eigen levering niet, dan — alleen als er een passende
 # inschrijving is — via instelling, persoon en inschrijving.
 _JOIN_INSTELLING_INSCHRIJVING = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer"]
-# Waarom een detailrij aan haar periode hangt (#121). Alleen binnen_periode is
-# de periode waarin de referentiedatum valt; datum_leeg, voor_eerste_periode en
-# geen_datumkolom vallen terug op de eerste periode van de inschrijving.
-KOPPELSTATUS = "_periode_koppel_status"
-KOPPELSTATUS_BINNEN = "binnen_periode"
-KOPPELSTATUS_GEEN_INSCHRIJVING = "geen_inschrijving"
-KOPPELSTATUSSEN = (
-    KOPPELSTATUS_BINNEN,
-    "datum_leeg",
-    "voor_eerste_periode",
-    "geen_datumkolom",
-    KOPPELSTATUS_GEEN_INSCHRIJVING,
-)
 _PERIODE_KOPPELSLEUTELS = {
     "detail_bekostiging": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
     "detail_bekostiging_diploma": (_JOIN_INSCHRIJVING, _JOIN_INSTELLING_INSCHRIJVING),
 }
 
-# Jaargebonden vlaggen op periode-grain: verouderd sinds fact_inschrijving_schooljaar
-# (#164). Migratiepad (#201): een release markeert ze, de major daarna verwijdert ze.
-VEROUDERD_TOT = "v4.0.0"
-VEROUDERDE_KOLOMMEN = (
-    "_actief_1_oktober",
-    "_bekostigd_eerste_1okt",
-    "_gediplomeerd_in_jaar",
-    "_ingeschreven_jaar_later",
-    "_deelnemer_niet_bekostigd_eerste_1okt",
-    "_hoogste_niveau",
-    "_laagste_CREBO",
-    "_hoofdinschrijving",
-    "_telling",
-    "_jr_noemer",
-    "_jr_teller",
-    "_dr_noemer",
-    "_dr_teller",
-    "_entree_uitstroom",
-    "_entree_doorstroom",
-    "Opbrengstjaar_uitsplitsing",
-    "_driejaars_teljaar",
-    "Opbrengstjaar_3jaars_voortschrijdend",
-    "_num_opbrengstjaar_3jr",
-)
-
 # Domeinconstanten (DUO-bekostigingsregels).
-_TELDATUM_MONTH = 10  # telling op 1 oktober
-_TELDATUM_DAG = 1
-_STUDIEJAAR_START_MONTH = 8  # studiejaar loopt 1 aug – 31 jul
-_STUDIEJAAR_START_DAG = 1
-_STUDIEJAAR_EIND_MONTH = 7
-_STUDIEJAAR_EIND_DAG = 31
 _CREBO_PREFIX = "MBO-"
 _SBB_GEEN_NIVEAU = "n.v.t."
 
@@ -383,11 +347,11 @@ def _koppel_periode_id(
     leveringen voorkomen; dan wint de levering die alfabetisch als laatste komt
     (leveringsnamen eindigen op hun datums), zodat er nooit fan-out ontstaat.
     """
-    if detail.is_empty() or _PERIODE_ID not in inschrijvingen.columns:
+    if detail.is_empty() or PERIODE_ID not in inschrijvingen.columns:
         return detail
     if not set(sleutel) <= set(detail.columns) & set(inschrijvingen.columns):
         return detail.with_columns(
-            pl.lit(None, dtype=pl.Utf8).alias(_PERIODE_ID),
+            pl.lit(None, dtype=pl.Utf8).alias(PERIODE_ID),
             pl.lit(KOPPELSTATUS_GEEN_INSCHRIJVING).alias(KOPPELSTATUS),
         )
 
@@ -396,7 +360,7 @@ def _koppel_periode_id(
             *sleutel,
             pl.col("levering").alias("_levering"),
             _periode_begin(inschrijvingen).alias("_periode_begin"),
-            _PERIODE_ID,
+            PERIODE_ID,
         )
         .sort("_levering")
         .unique(subset=[*sleutel, "_periode_begin"], keep="last")
@@ -405,7 +369,7 @@ def _koppel_periode_id(
     eerste = (
         perioden.sort("_periode_begin", nulls_last=True)
         .unique(subset=sleutel, keep="first")
-        .select([*sleutel, pl.col(_PERIODE_ID).alias("_eerste_periode")])
+        .select([*sleutel, pl.col(PERIODE_ID).alias("_eerste_periode")])
     )
 
     rij = "_rij"
@@ -419,12 +383,12 @@ def _koppel_periode_id(
         by=sleutel,
         strategy="backward",
         check_sortedness=False,  # beide kanten zijn hierboven gesorteerd
-    ).select(rij, _PERIODE_ID)
+    ).select(rij, PERIODE_ID)
 
     status = (
         pl.when(pl.col("_eerste_periode").is_null())
         .then(pl.lit(KOPPELSTATUS_GEEN_INSCHRIJVING))
-        .when(pl.col(_PERIODE_ID).is_not_null())
+        .when(pl.col(PERIODE_ID).is_not_null())
         .then(pl.lit(KOPPELSTATUS_BINNEN))
         .when(pl.lit(datum_kolom not in detail.columns))
         .then(pl.lit("geen_datumkolom"))
@@ -437,7 +401,7 @@ def _koppel_periode_id(
         .join(eerste, on=sleutel, how="left")
         .with_columns(
             status.alias(KOPPELSTATUS),
-            pl.coalesce(_PERIODE_ID, "_eerste_periode").alias(_PERIODE_ID),
+            pl.coalesce(PERIODE_ID, "_eerste_periode").alias(PERIODE_ID),
         )
         .sort(rij)
         .drop(rij, "_referentie", "_eerste_periode")
@@ -459,17 +423,17 @@ def _koppel_periode_id_met_terugval(
     statussen: list[pl.Series] = []
     for sleutel in sleutels:
         gekoppeld = _koppel_periode_id(detail, inschrijvingen, datum_kolom, sleutel)
-        if _PERIODE_ID in gekoppeld.columns:
-            perioden.append(gekoppeld[_PERIODE_ID])
+        if PERIODE_ID in gekoppeld.columns:
+            perioden.append(gekoppeld[PERIODE_ID])
             statussen.append(
                 gekoppeld.select(
-                    pl.when(pl.col(_PERIODE_ID).is_not_null()).then(KOPPELSTATUS)
+                    pl.when(pl.col(PERIODE_ID).is_not_null()).then(KOPPELSTATUS)
                 ).to_series()
             )
     if not perioden:
         return detail
     return detail.with_columns(
-        pl.coalesce(perioden).alias(_PERIODE_ID),
+        pl.coalesce(perioden).alias(PERIODE_ID),
         pl.coalesce(*statussen, pl.lit(KOPPELSTATUS_GEEN_INSCHRIJVING)).alias(
             KOPPELSTATUS
         ),
@@ -587,7 +551,7 @@ def _leid_studiejaar_af(df: pl.DataFrame) -> pl.DataFrame:
 
     def _studiejaar_expr(col_naam: str) -> pl.Expr:
         return (
-            pl.when(pl.col(col_naam).dt.month() >= _STUDIEJAAR_START_MONTH)
+            pl.when(pl.col(col_naam).dt.month() >= STUDIEJAAR_START_MAAND)
             .then(pl.col(col_naam).dt.year())
             .otherwise(pl.col(col_naam).dt.year() - 1)
             .cast(pl.Int64)
@@ -712,7 +676,7 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
     # Elke periode tegen elk schooljaar van dezelfde persoon × BRIN × levering:
     # actief als de periode 1 oktober van dat jaar dekt. Vectoraal i.p.v. een
     # filter per schooljaar (#201: die lus kostte ~75% van build_star).
-    peildatum = pl.date(pl.col("_schooljaar_peildatum"), _TELDATUM_MONTH, _TELDATUM_DAG)
+    peildatum = pl.date(pl.col("_schooljaar_peildatum"), TELDATUM_MAAND, TELDATUM_DAG)
     schooljaren_per_periode = (
         df.select(*periode, _PERIODE_EINDE)
         .drop_nulls("DatumBegin")
@@ -751,8 +715,8 @@ def _bepaal_actief_per_schooljaar(df: pl.DataFrame) -> pl.DataFrame:
                 pl.col("DatumInschrijving")
                 > pl.date(
                     pl.col("_schooljaren_actief").list.first(),
-                    _TELDATUM_MONTH,
-                    _TELDATUM_DAG,
+                    TELDATUM_MAAND,
+                    TELDATUM_DAG,
                 )
             )
             .otherwise(pl.lit(False))
@@ -803,11 +767,9 @@ def _voeg_bekostigingsvlaggen_toe(df: pl.DataFrame) -> pl.DataFrame:
     )
     if "DIP_DatumResultaat" in df.columns and sj_col in df.columns:
         jaar_begin = pl.date(
-            pl.col(sj_col) - 1, _STUDIEJAAR_START_MONTH, _STUDIEJAAR_START_DAG
+            pl.col(sj_col) - 1, STUDIEJAAR_START_MAAND, STUDIEJAAR_START_DAG
         )
-        jaar_eind = pl.date(
-            pl.col(sj_col), _STUDIEJAAR_EIND_MONTH, _STUDIEJAAR_EIND_DAG
-        )
+        jaar_eind = pl.date(pl.col(sj_col), STUDIEJAAR_EIND_MAAND, STUDIEJAAR_EIND_DAG)
         dip_datum = pl.col("DIP_DatumResultaat")
         gediplomeerd = (
             (
@@ -1155,7 +1117,7 @@ def _voeg_periode_id_toe(df: pl.DataFrame) -> pl.DataFrame:
             lambda rij: _hash_periode_key(*(rij[k] for k in sleutel)),
             return_dtype=pl.Utf8,
         )
-        .alias(_PERIODE_ID)
+        .alias(PERIODE_ID)
     )
 
 
@@ -1171,8 +1133,8 @@ def _per_periode(
     """
     return (
         _koppel_periode_id(detail, perioden, datum_kolom)
-        .drop_nulls(_PERIODE_ID)
-        .group_by(_PERIODE_ID)
+        .drop_nulls(PERIODE_ID)
+        .group_by(PERIODE_ID)
         .agg(*aggregaten)
     )
 
@@ -1258,7 +1220,7 @@ def _bouw_inschrijvingen(
     df = _voeg_periode_id_toe(isp)
     # Periodes waarop BPV/KZD/AMO-aantallen worden geaggregeerd, zodat een
     # inschrijving met meerdere perioden haar aantallen niet herhaalt (#105).
-    perioden = df.select([*_JOIN_INSCHRIJVING, "DatumBegin", _PERIODE_ID])
+    perioden = df.select([*_JOIN_INSCHRIJVING, "DatumBegin", PERIODE_ID])
 
     # ── PER: persoonskenmerken ────────────────────────────────────────────────
     per = _add_persoon_id(stacked["PER"])
@@ -1334,18 +1296,18 @@ def _bouw_inschrijvingen(
     # ── BPV/KZD/AMO-aggregaten per ISP-periode ───────────────────────────────
     if "BPV" in stacked and not stacked["BPV"].is_empty():
         df = df.join(
-            _bpv_aggregaat(stacked["BPV"], perioden), on=_PERIODE_ID, how="left"
+            _bpv_aggregaat(stacked["BPV"], perioden), on=PERIODE_ID, how="left"
         )
     if "KZD" in stacked and not stacked["KZD"].is_empty():
         df = df.join(
             _kzd_aggregaat(stacked["KZD"], perioden, dip=dip_raw),
-            on=_PERIODE_ID,
+            on=PERIODE_ID,
             how="left",
         )
     if "AMO" in stacked and not stacked["AMO"].is_empty():
         df = df.join(
             _amo_aggregaat(stacked["AMO"], perioden, dip=dip_raw),
-            on=_PERIODE_ID,
+            on=PERIODE_ID,
             how="left",
         )
 

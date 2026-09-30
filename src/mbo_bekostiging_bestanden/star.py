@@ -6,7 +6,8 @@ expliciete feittabellen met een stabiel schema.
 
 Publieke API:
     build_star(stacked) -> dict[str, pl.DataFrame]
-    DETAIL_GRAIN: business key per detailfeit
+
+De business key per detailfeit staat in ``contracts.DETAIL_GRAIN``.
 """
 
 from __future__ import annotations
@@ -15,11 +16,10 @@ import re
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.contracts import PERIODE_SLEUTEL, SCHOOLJAAR_FEIT
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
-from mbo_bekostiging_bestanden.filters import _PERIODE_SLEUTEL
 from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
 from mbo_bekostiging_bestanden.referentiedata import meta_referentiedata
-from mbo_bekostiging_bestanden.schooljaar import FEIT as SCHOOLJAAR_FEIT
 from mbo_bekostiging_bestanden.schooljaar import (
     bouw_inschrijving_schooljaar,
     observatievenster,
@@ -97,18 +97,6 @@ _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 _PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
 
-# Business key per detailfeit (#327, tabel in docs/datamodel.md); de
-# uniciteitscontrole in quality.py leest deze (#328). ``levering`` hoort erbij:
-# Inschrijvingvolgnummer is alleen uniek per persoon binnen één instelling.
-_INSCHRIJVING = ("levering", "_persoon_id", "Inschrijvingvolgnummer")
-DETAIL_GRAIN: dict[str, tuple[str, ...]] = {
-    "fact_bpv": (*_INSCHRIJVING, "Volgnummer"),
-    "fact_kzd": (*_INSCHRIJVING, "Resultaatvolgnummer"),
-    "fact_amo": (*_INSCHRIJVING, "Resultaatvolgnummer"),
-    "fact_geo": (*_INSCHRIJVING, "CodeGeneriekExamenonderdeel"),
-    "fact_bekostiging": (*_INSCHRIJVING, "Teldatum"),
-    "fact_bekostiging_diploma": (*_INSCHRIJVING, "Resultaatvolgnummer"),
-}
 
 # Interne tussenstap-kolommen, niet bedoeld voor het exporteerbare star schema.
 # List aggregaat uit _bepaal_actief_per_schooljaar (transform.py).
@@ -316,11 +304,11 @@ def _met_brin_van_inschrijving(
     if detail.is_empty() or "BRIN" not in fact_inschrijving.columns:
         return detail
     parent = fact_inschrijving.select(
-        *_PERIODE_SLEUTEL, pl.col("BRIN").alias("_brin_parent")
-    ).unique(subset=_PERIODE_SLEUTEL, keep="first")
+        *PERIODE_SLEUTEL, pl.col("BRIN").alias("_brin_parent")
+    ).unique(subset=PERIODE_SLEUTEL, keep="first")
     eigen = pl.col("BRIN") if "BRIN" in detail.columns else pl.lit(None, pl.Utf8)
     return (
-        detail.join(parent, on=_PERIODE_SLEUTEL, how="left")
+        detail.join(parent, on=PERIODE_SLEUTEL, how="left")
         .with_columns(pl.coalesce("_brin_parent", eigen).alias("BRIN"))
         .drop("_brin_parent")
     )

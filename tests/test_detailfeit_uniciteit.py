@@ -1,6 +1,6 @@
 """Uniciteit op de business key van elk detailfeit en een vaste BRIN-kolom (#328).
 
-De keys staan in ``star.DETAIL_GRAIN`` (#327, ``docs/datamodel.md``). De
+De keys staan in ``contracts.DETAIL_GRAIN`` (#327, ``docs/datamodel.md``). De
 twee-instellingenproef uit de audit: dezelfde RO-inhoud onder een tweede BRIN
 geeft op een key zonder ``levering`` dubbelen, op de vastgelegde key niet.
 De tweede levering is een kopie in ``tmp_path``; de demo zelf blijft ongewijzigd.
@@ -12,10 +12,11 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from mbo_bekostiging_bestanden.contracts import DETAIL_GRAIN
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.quality import compile_quality_report
 from mbo_bekostiging_bestanden.stack import leveringslabels, stack_prepared
-from mbo_bekostiging_bestanden.star import DETAIL_GRAIN, build_star
+from mbo_bekostiging_bestanden.star import build_star
 
 DEMO = Path("data/01-raw/demo")
 RO = next(DEMO.glob("h15/RO_27DV_*.csv"))

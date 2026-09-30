@@ -37,12 +37,15 @@ en in een top-N ook welke regels zichtbaar waren.
 
 ## Quality leest de ster onafhankelijk
 
-`quality.py` beoordeelt de output van `transform.py`/`star.py`, maar mag die
-lagen niet importeren: een kwaliteitscontrole die afhangt van de code die ze
-controleert, kan een fout in die code niet onafhankelijk signaleren.
+`quality.py` beoordeelt de output van de sterbouw (`transform.py`,
+`schooljaar.py`, `star.py`, `enrich.py`), maar mag die lagen niet importeren,
+ook niet via een tussenmodule: een kwaliteitscontrole die afhangt van de code
+die ze controleert, kan een fout in die code niet onafhankelijk signaleren.
 
-Kolomwaarden die zowel `transform.py` (schrijft ze) als `quality.py` (leest
-ze) moeten kennen — zoals de herkomst-codes van de kolom `_niveau_herkomst`
-— staan daarom in een eigen, afhankelijkheidsloze module (`niveau.py`, #253)
-die beide importeren, in plaats van dat `quality.py` rechtstreeks uit
-`transform.py` importeert.
+Kolomnamen, codes en grains die zowel de sterbouw (schrijft ze) als
+`quality.py` (leest ze) moeten kennen, staan daarom in afhankelijkheidsloze
+modules die beide importeren: `contracts.py` (bron- en koppelstatuscodes,
+periodesleutel, business key per detailfeit, schooljaar-grain, DUO-kalender;
+#365) en `niveau.py` (herkomst-codes van `_niveau_herkomst`, #253).
+`tests/test_architectuur.py` volgt de imports van `quality.py` transitief en
+faalt zodra er een pad naar de sterbouw ontstaat.

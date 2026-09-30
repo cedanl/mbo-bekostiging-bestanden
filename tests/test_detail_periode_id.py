@@ -11,9 +11,9 @@ from datetime import date
 import polars as pl
 import pytest
 
+from mbo_bekostiging_bestanden.contracts import KOPPELSTATUSSEN
 from mbo_bekostiging_bestanden.quality import compile_quality_report
 from mbo_bekostiging_bestanden.transform import (
-    KOPPELSTATUSSEN,
     _koppel_periode_id,
     _koppel_periode_id_met_terugval,
 )

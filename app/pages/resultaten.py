@@ -16,12 +16,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
 from _utils import groepeer_prepared, vind_prepared_dirs, vind_star_dir
 
-from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
-from mbo_bekostiging_bestanden.transform import (
+from mbo_bekostiging_bestanden.contracts import (
     KOPPELSTATUS,
     KOPPELSTATUS_BINNEN,
     KOPPELSTATUSSEN,
 )
+from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
 
 _MAX_WEERGAVE_RIJEN = 1_000  # rijen in de tabelweergave; de download is volledig
 _SECTIE_ANALYSEMODEL = "Analysemodel (star schema)"
