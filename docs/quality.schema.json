@@ -93,6 +93,23 @@
               }
             ]
           },
+          "onbekende_datums": {
+            "type": "object",
+            "description": "Dates delivered with year 0000: null in the output, <field>_precisie = onbekend; a warning, not parse loss (#391)",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "examples": [
+              {
+                "PER": {
+                  "Geboortedatum": 1
+                }
+              }
+            ]
+          },
           "regelinventaris": {
             "type": "object",
             "description": "Posities buiten het PvE die afwijken van het veld dat ze herhalen (#120) en, voor TBGI (XML), elementen buiten het schema (#324)",
@@ -254,6 +271,7 @@
           "slr_status",
           "slr_details",
           "parseverlies",
+          "onbekende_datums",
           "regelinventaris",
           "domeinafwijkingen",
           "warnings",

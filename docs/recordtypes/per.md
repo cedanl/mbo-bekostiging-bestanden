@@ -11,7 +11,7 @@ In het RO staan de werkelijke BSN/ONR en geboortedatum.
 | 1 | Recordsoort | Ja | AN3 | Waarde `PER` | `PER` |
 | 2 | Burgerservicenummer | Nee* | AN9 | 9-cijferig BSN, voldoet aan elfproef; voorloopnullen altijd aanwezig | — |
 | 3 | Onderwijsnummer | Nee* | AN9 | Alternatief voor BSN; 9 cijfers, elfproef | — |
-| 4 | Geboortedatum | Ja | D `ccyy-mm-dd` | Dag of dag+maand kan onbekend zijn (gevuld met `00`). In de output wordt dat de 1e van de maand/het jaar, met `Geboortedatum_precisie` = `dag`/`maand`/`jaar` | `1987-11-23` |
+| 4 | Geboortedatum | Ja | D `ccyy-mm-dd` | Dag of dag+maand kan onbekend zijn (gevuld met `00`). In de output wordt dat de 1e van de maand/het jaar, met `Geboortedatum_precisie` = `dag`/`maand`/`jaar`. Jaar `0000` wordt null met precisie `onbekend` | `1987-11-23` |
 | 5 | Geslacht | Ja | AN1 | Zie waardenlijst | `V` |
 
 *Ofwel BSN ofwel ONR is gevuld, nooit beide.

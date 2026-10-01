@@ -49,7 +49,7 @@ geschreven.
 
 | Tabel | Grain | Sleutelkolom(men) | Omschrijving |
 |---|---|---|---|
-| `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …). `Geboortedatum_precisie` (`dag`/`maand`/`jaar`) geeft aan of dag of maand onbekend was (`00` in de bron); de datum is dan de 1e van de maand/het jaar |
+| `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …). `Geboortedatum_precisie` (`dag`/`maand`/`jaar`) geeft aan of dag of maand onbekend was (`00` in de bron); de datum is dan de 1e van de maand/het jaar. Bij jaar `0000` is de datum null en de precisie `onbekend` |
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
 | `fact_inschrijving` | ISP-inschrijvingsperiode, of TBGI-inschrijving zonder ISP | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. `Bron` = `ISP` (RO/GRONDSLAG-periode) of `TBGI` (inschrijving die alleen in TBG-i staat, #196). De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |

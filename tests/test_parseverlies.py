@@ -67,6 +67,25 @@ def test_pipeline_meldt_parseverlies_in_quality_json(tmp_path):
     assert any("ISG.DatumInschrijving: 1" in e for e in rapport["errors"])
 
 
+def test_pipeline_meldt_onbekende_datum_als_warning(tmp_path):
+    """#391: ``00-00-0000`` als geboortedatum is geen fout maar wel zichtbaar."""
+    bron = tmp_path / RO_DEMO.name
+    regels = RO_DEMO.read_text(encoding="utf-8").splitlines(keepends=True)
+    i = next(i for i, r in enumerate(regels) if r.startswith("PER;"))
+    velden = regels[i].split(";")
+    velden[3] = "0-0-0000"  # Geboortedatum (PER veld 4)
+    regels[i] = ";".join(velden)
+    bron.write_text("".join(regels), encoding="utf-8")
+    doel = tmp_path / "prepared"
+
+    run_auto_pipeline(bron, doel)
+
+    rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
+    assert rapport["onbekende_datums"] == {"PER": {"Geboortedatum": 1}}
+    assert rapport["errors"] == []
+    assert any("PER.Geboortedatum: 1" in w for w in rapport["warnings"])
+
+
 def test_parseverlies_blokkeert_standaard(tmp_path):
     """#390: een verloren waarde was een warning bij een geslaagde run (exit 0)."""
     bron = tmp_path / RO_DEMO.name

@@ -23,6 +23,7 @@ from mbo_bekostiging_bestanden.quality import (
     check_slr_reconciliation,
     compile_quality_report,
     lees_leveringsrapport,
+    tel_onbekende_datums,
     tel_parseverlies,
     write_quality_json,
 )
@@ -115,6 +116,7 @@ def _run(
     levering = source_path.stem  # bijv. "RO_27DV_20240731_20260324"
     quality_report = check_slr_reconciliation(frames, levering, schema_naam=schema_naam)
     quality_report.meld_parseverlies(tel_parseverlies(ruw, frames))
+    quality_report.meld_onbekende_datums(tel_onbekende_datums(frames))
     quality_report.meld_domeinafwijkingen(
         controleer_waardedomeinen(ruw, schema_naam, getypeerd=frames)
     )
