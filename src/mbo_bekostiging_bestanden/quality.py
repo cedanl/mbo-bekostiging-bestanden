@@ -209,7 +209,12 @@ class QualityReport:
     kwaliteitsfouten_toegestaan: bool = False
 
     def meld_parseverlies(self, verlies: dict[str, dict[str, int]]) -> None:
-        """Neem parseverlies (zie :func:`tel_parseverlies`) op, met waarschuwing."""
+        """Neem parseverlies (zie :func:`tel_parseverlies`) op, als error (#390).
+
+        Een gevulde waarde die niet parseert is verloren gegaan; dat mag niet
+        als geslaagde run met een waarschuwing eindigen. De override
+        ``--allow-quality-errors`` blijft voor exploratief werk.
+        """
         self.parseverlies = verlies
         if verlies:
             details = "; ".join(
@@ -217,7 +222,7 @@ class QualityReport:
                 for tabel, per_kolom in verlies.items()
                 for kolom, n in per_kolom.items()
             )
-            self.warnings.append(
+            self.errors.append(
                 f"Parseverlies (gevulde waarden die na typering leeg zijn): {details}"
             )
 

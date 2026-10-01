@@ -140,7 +140,8 @@ def decode_frames(
     - Integer-velden worden ``pl.Int64``.
     - Float-velden worden ``pl.Float64``; een decimaalkomma wordt geaccepteerd.
     - Alle casts zijn niet-strikt: een ongeldige waarde wordt null en telt als
-      parseverlies in ``quality.json`` (zie :func:`quality.tel_parseverlies`).
+      parseverlies in ``quality.json`` (zie :func:`quality.tel_parseverlies`),
+      een error voor de kwaliteitspoort (#390).
     - ``IndicatieBekostigbaar`` wordt genormaliseerd naar ``"J"``/``"N"``.
     - Overige velden blijven ``pl.Utf8``.
 
