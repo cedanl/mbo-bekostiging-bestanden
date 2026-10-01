@@ -104,3 +104,23 @@ def test_read_multi_record_csv_grondslag_spiegelvelden_zijn_toegestaan(tmp_path)
     bron.write_text(f"VLP;99XX;2025;20251119;V\n{per};9999;01;0001\n", encoding="utf-8")
     result = read_multi_record_csv(bron, "grondslag")
     assert "PER" in result
+
+
+def test_niet_utf8_bestand_wordt_als_cp1252_gelezen(tmp_path):
+    """#393: byte 0x80 is in cp1252 een euroteken, geen controlekarakter."""
+    bron = tmp_path / "RO_99XX_20250801_20260731.csv"
+    bron.write_bytes(
+        (b"VLP|99XX|2025-08-01|2026-07-31|2026-08-01\n")
+        + "ISG|BSN2||€|2025-08-01|2027-07-31|\n".encode("cp1252")
+    )
+    isg = read_multi_record_csv(bron, "ro")["ISG"]
+    assert "€" in isg.row(0)
+
+
+def test_bestand_met_ongedefinieerde_cp1252_byte_valt_terug_op_latin1(tmp_path):
+    """Byte 0x81 bestaat niet in cp1252; latin-1 decodeert elke byte."""
+    bron = tmp_path / "RO_99XX_20250801_20260731.csv"
+    bron.write_bytes(
+        b"VLP|99XX|2025-08-01|2026-07-31|2026-08-01\nISG|BSN2||\x81|2025-08-01|2027-07-31|\n"
+    )
+    assert "\x81" in read_multi_record_csv(bron, "ro")["ISG"].row(0)

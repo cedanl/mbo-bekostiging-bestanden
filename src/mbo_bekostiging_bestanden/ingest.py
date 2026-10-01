@@ -14,6 +14,8 @@ from mbo_bekostiging_bestanden.metadata import (
 )
 from mbo_bekostiging_bestanden.waardenlijsten import voldoet_aan_domein
 
+# Volgorde van proberen; de laatste decodeert altijd (zie ``_lees_tekst``).
+_ENCODINGEN = ("utf-8-sig", "cp1252", "latin-1")
 _XSI_NIL = "{http://www.w3.org/2001/XMLSchema-instance}nil"
 # Naam van de standaardlayout als het schema er geen noemt (``layout``).
 _STANDAARD_LAYOUT = "standaard"
@@ -48,6 +50,21 @@ def _normalize_row(row: list[str], n: int) -> list[str]:
     return row + [""] * (n - len(row))
 
 
+def _lees_tekst(path: Path) -> str:
+    """Lees een tekstbestand met de eerste encoding die het zonder fout decodeert.
+
+    cp1252 gaat voor latin-1: dezelfde byte (``0x80``) is daar een ``€`` en
+    in latin-1 een controlekarakter (#393). latin-1 blijft het vangnet omdat
+    het elke byte decodeert.
+    """
+    for encoding in _ENCODINGEN[:-1]:
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    return path.read_text(encoding=_ENCODINGEN[-1])
+
+
 def _lees_regels(path: Path) -> list[list[str]]:
     """Niet-lege regels van een multi-record CSV, gesplitst op het scheidingsteken.
 
@@ -60,10 +77,7 @@ def _lees_regels(path: Path) -> list[list[str]]:
     """
     if not path.exists():
         raise FileNotFoundError(f"Bronbestand niet gevonden: {path}")
-    try:
-        content = path.read_text(encoding="utf-8-sig")
-    except UnicodeDecodeError:
-        content = path.read_text(encoding="latin-1")
+    content = _lees_tekst(path)
 
     lines = [line.rstrip("\r") for line in content.splitlines() if line.strip()]
     if not lines:
