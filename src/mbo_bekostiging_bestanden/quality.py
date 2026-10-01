@@ -30,6 +30,8 @@ from mbo_bekostiging_bestanden.contracts import (
     KOPPELSTATUS_BINNEN,
     KOPPELSTATUS_GEEN_INSCHRIJVING,
     PERIODE_SLEUTEL,
+    PRECISIE_ONBEKEND,
+    PRECISIE_SUFFIX,
     SCHOOLJAAR_FEIT,
     SCHOOLJAAR_GRAIN,
     VEROUDERD_TOT,
@@ -191,6 +193,7 @@ class QualityReport:
     slr_checks: dict[str, dict[str, int]] = field(default_factory=dict)
     slr_status: str = "unknown"  # match | mismatch | unknown | not_applicable
     parseverlies: dict[str, dict[str, int]] = field(default_factory=dict)
+    onbekende_datums: dict[str, dict[str, int]] = field(default_factory=dict)
     regelinventaris: dict[str, dict] = field(default_factory=dict)
     # Gekozen layout per recordtype met varianten (``ingest.layoutvarianten``).
     layoutvarianten: dict[str, dict] = field(default_factory=dict)
@@ -217,13 +220,22 @@ class QualityReport:
         """
         self.parseverlies = verlies
         if verlies:
-            details = "; ".join(
-                f"{tabel}.{kolom}: {n}"
-                for tabel, per_kolom in verlies.items()
-                for kolom, n in per_kolom.items()
-            )
             self.errors.append(
-                f"Parseverlies (gevulde waarden die na typering leeg zijn): {details}"
+                "Parseverlies (gevulde waarden die na typering leeg zijn): "
+                f"{_per_kolom(verlies)}"
+            )
+
+    def meld_onbekende_datums(self, onbekend: dict[str, dict[str, int]]) -> None:
+        """Neem datums met jaar ``0000`` op (:func:`tel_onbekende_datums`).
+
+        Een warning en geen error: de waarde is niet verloren maar door de
+        bron als onbekend aangeleverd (#391).
+        """
+        self.onbekende_datums = onbekend
+        if onbekend:
+            self.warnings.append(
+                "Onbekende datums (jaar 0000, null in de output): "
+                f"{_per_kolom(onbekend)}"
             )
 
     def meld_regelinventaris(self, inventaris: dict[str, dict]) -> None:
@@ -266,6 +278,7 @@ class QualityReport:
             "slr_status": self.slr_status,
             "slr_details": self.slr_checks,
             "parseverlies": self.parseverlies,
+            "onbekende_datums": self.onbekende_datums,
             "regelinventaris": self.regelinventaris,
             "layoutvarianten": self.layoutvarianten,
             "domeinafwijkingen": self.domeinafwijkingen,
@@ -278,12 +291,47 @@ class QualityReport:
         }
 
 
+def _per_kolom(telling: dict[str, dict[str, int]]) -> str:
+    return "; ".join(
+        f"{tabel}.{kolom}: {n}"
+        for tabel, per_kolom in telling.items()
+        for kolom, n in per_kolom.items()
+    )
+
+
+def _is_onbekende_datum(typed: pl.DataFrame, kolom: str) -> pl.Series:
+    precisie = kolom + PRECISIE_SUFFIX
+    if precisie not in typed.columns:
+        return pl.repeat(False, typed.height, eager=True)
+    return (typed[precisie] == PRECISIE_ONBEKEND).fill_null(False)
+
+
+def tel_onbekende_datums(
+    getypeerd: dict[str, pl.DataFrame],
+) -> dict[str, dict[str, int]]:
+    """Datums die de bron met jaar ``0000`` als onbekend aanlevert (#391)."""
+    onbekend: dict[str, dict[str, int]] = {}
+    for tabel, typed in getypeerd.items():
+        per_kolom = {
+            kolom.removesuffix(PRECISIE_SUFFIX): aantal
+            for kolom in typed.columns
+            if kolom.endswith(PRECISIE_SUFFIX)
+            and (aantal := int((typed[kolom] == PRECISIE_ONBEKEND).sum()))
+        }
+        if per_kolom:
+            onbekend[tabel] = per_kolom
+    return onbekend
+
+
 def tel_parseverlies(
     ruw: dict[str, pl.DataFrame], getypeerd: dict[str, pl.DataFrame]
 ) -> dict[str, dict[str, int]]:
     """Alleen kolommen die van tekst naar een ander type gingen tellen mee: een
     ongeldige datum of een getal met tekst wordt bij het decoderen niet-strikt
     null.  ``ruw`` en ``getypeerd`` hebben per tabel dezelfde rijvolgorde.
+
+    Een onbekende datum (jaar ``0000``) is geen verlies: die telt
+    :func:`tel_onbekende_datums`.
     """
     verlies: dict[str, dict[str, int]] = {}
     for tabel, typed in getypeerd.items():
@@ -297,7 +345,8 @@ def tel_parseverlies(
             if bron[kolom].dtype != pl.Utf8:
                 continue
             gevuld = bron[kolom].is_not_null() & (bron[kolom] != "")
-            aantal = int((gevuld & typed[kolom].is_null()).sum())
+            verloren = gevuld & typed[kolom].is_null()
+            aantal = int((verloren & ~_is_onbekende_datum(typed, kolom)).sum())
             if aantal:
                 per_kolom[kolom] = aantal
         if per_kolom:
@@ -327,6 +376,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         slr_status=data.get("slr_status", "unknown"),
         slr_checks=data.get("slr_details", {}),
         parseverlies=data.get("parseverlies", {}),
+        onbekende_datums=data.get("onbekende_datums", {}),
         regelinventaris=data.get("regelinventaris", {}),
         layoutvarianten=data.get("layoutvarianten", {}),
         domeinafwijkingen=data.get("domeinafwijkingen", {}),

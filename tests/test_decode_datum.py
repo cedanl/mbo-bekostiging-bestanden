@@ -11,7 +11,7 @@ import polars as pl
 import pytest
 
 from mbo_bekostiging_bestanden.decode import decode_frames
-from mbo_bekostiging_bestanden.quality import tel_parseverlies
+from mbo_bekostiging_bestanden.quality import tel_onbekende_datums, tel_parseverlies
 
 # (formaat, [volledig, dag onbekend, dag+maand onbekend])
 NOTATIES = {
@@ -60,6 +60,37 @@ def test_00_alleen_voor_velden_die_het_pve_toestaat():
     isp = decode_frames(ruw, "ro")["ISP"]
     assert isp["DatumBegin"].to_list() == [date(2024, 8, 1), None]
     assert "DatumBegin_precisie" not in isp.columns
+
+
+ONBEKEND_JAAR = {
+    "iso": ["0000-00-00", "0000-05-17"],
+    "compact": ["00000000", "00000517"],
+    "dutch": ["0-0-0000", "17-5-0000"],
+}
+
+
+@pytest.mark.parametrize("formaat", sorted(ONBEKEND_JAAR))
+def test_onbekend_jaar_wordt_null_met_precisie_onbekend(formaat):
+    """#391: jaar 0 werd 0000-01-01, onleesbaar voor Python ``datetime``."""
+    per = decode_frames(_per(ONBEKEND_JAAR[formaat]), "ro")["PER"]
+    assert per["Geboortedatum"].to_list() == [None, None]
+    assert per["Geboortedatum_precisie"].to_list() == ["onbekend", "onbekend"]
+
+
+def test_onbekend_jaar_is_geen_parseverlies_maar_wel_geteld():
+    """Het PvE kent geen jaar 0; de waarde is een bewuste 'onbekend', geen
+    parsefout. Daarom een warning en geen error (#390)."""
+    ruw = _per(["1992-05-17", "0000-00-00", ""])
+    getypeerd = decode_frames(ruw, "ro")
+    assert tel_parseverlies(ruw, getypeerd) == {}
+    assert tel_onbekende_datums(getypeerd) == {"PER": {"Geboortedatum": 1}}
+
+
+def test_jaar_0_zonder_00_toestemming_blijft_parseverlies():
+    ruw = {"ISP": pl.DataFrame({"DatumBegin": ["0000-08-01"]})}
+    isp = decode_frames(ruw, "ro")["ISP"]
+    assert isp["DatumBegin"].to_list() == [None]
+    assert tel_parseverlies(ruw, {"ISP": isp}) == {"ISP": {"DatumBegin": 1}}
 
 
 def test_dim_deelnemer_bevat_precisie(demo_star):

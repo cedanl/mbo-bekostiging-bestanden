@@ -4,6 +4,7 @@ import re
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.contracts import PRECISIE_ONBEKEND, PRECISIE_SUFFIX
 from mbo_bekostiging_bestanden.metadata import load_schema
 from mbo_bekostiging_bestanden.waardenlijsten import indicatie_bekostigbaar
 
@@ -53,22 +54,35 @@ _NAAR_ISO = {
 # Onbekende dag/maand ("00", PvE §15.5.2) → eerste van de maand/het jaar.
 _ONBEKENDE_MAAND = r"-00-00$"
 _ONBEKENDE_DAG = r"-00$"
-_PRECISIE_SUFFIX = "_precisie"
 _PRECISIE_DAG, _PRECISIE_MAAND, _PRECISIE_JAAR = "dag", "maand", "jaar"
+# Jaar 0 bestaat niet (geen PvE-notatie, Python ``datetime`` kan het niet aan);
+# Polars parst het wel, dus het moet expliciet null worden (#391).
+_JAAR_NUL = r"^0000-"
 
 
 def _naar_datum(iso: pl.Expr) -> pl.Expr:
-    return iso.str.to_date("%Y-%m-%d", strict=False)
+    return (
+        pl.when(iso.str.contains(_JAAR_NUL))
+        .then(None)
+        .otherwise(iso.str.to_date("%Y-%m-%d", strict=False))
+    )
 
 
 def _deels_bekende_datum(iso: pl.Expr) -> tuple[pl.Expr, pl.Expr]:
-    """``(datum, precisie)`` voor een ISO-string waarin dag of maand ``00`` mag zijn."""
+    """``(datum, precisie)`` voor een ISO-string waarin dag of maand ``00`` mag zijn.
+
+    Jaar ``0000`` geeft een null-datum met precisie ``onbekend``: geen
+    parsefout, maar een bewust onbekende waarde die ``quality`` als warning
+    telt (:func:`quality.tel_onbekende_datums`).
+    """
     aangevuld = iso.str.replace(_ONBEKENDE_MAAND, "-01-01").str.replace(
         _ONBEKENDE_DAG, "-01"
     )
     datum = _naar_datum(aangevuld)
     precisie = (
-        pl.when(datum.is_null())
+        pl.when(iso.str.contains(_JAAR_NUL))
+        .then(pl.lit(PRECISIE_ONBEKEND))
+        .when(datum.is_null())
         .then(None)
         .when(iso.str.contains(_ONBEKENDE_MAAND))
         .then(pl.lit(_PRECISIE_JAAR))
@@ -136,7 +150,8 @@ def decode_frames(
     - Datumvelden worden ``pl.Date`` (null bij lege waarde). Velden in
       ``partial_date_fields`` mogen een onbekende dag/maand (``00``) hebben:
       die wordt de eerste van de maand/het jaar, met ``<veld>_precisie``
-      (``dag``/``maand``/``jaar``).
+      (``dag``/``maand``/``jaar``). Jaar ``0000`` wordt null met precisie
+      ``onbekend`` (#391); in een gewoon datumveld is het parseverlies.
     - Integer-velden worden ``pl.Int64``.
     - Float-velden worden ``pl.Float64``; een decimaalkomma wordt geaccepteerd.
     - Alle casts zijn niet-strikt: een ongeldige waarde wordt null en telt als
@@ -177,7 +192,7 @@ def decode_frames(
                     naar_iso(_leeg_naar_null(pl.col(col)))
                 )
                 exprs.append(datum.alias(col))
-                exprs.append(precisie.alias(col + _PRECISIE_SUFFIX))
+                exprs.append(precisie.alias(col + PRECISIE_SUFFIX))
             elif col in date_fields:
                 exprs.append(
                     _naar_datum(naar_iso(_leeg_naar_null(pl.col(col)))).alias(col)

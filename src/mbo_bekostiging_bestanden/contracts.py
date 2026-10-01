@@ -13,6 +13,11 @@ STUDIEJAAR_START_DAG = 1
 STUDIEJAAR_EIND_MAAND = 7
 STUDIEJAAR_EIND_DAG = 31
 
+# Begeleidende kolom ``<datumveld>_precisie`` bij een datum waarin het PvE ``00``
+# toestaat (#206). ``onbekend``: jaar 0, de datum is null (#391).
+PRECISIE_SUFFIX = "_precisie"
+PRECISIE_ONBEKEND = "onbekend"
+
 # Eén ISP-periode (of TBGI-inschrijving zonder ISP) in fact_inschrijving; elk
 # detailfeit wijst er via deze sleutel naartoe zonder fan-out.
 PERIODE_ID = "_inschrijving_periode_id"
