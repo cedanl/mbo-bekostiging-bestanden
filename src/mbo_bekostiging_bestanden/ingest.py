@@ -194,21 +194,10 @@ def _kies_layout(
     fouten = {
         layout.naam: _passingsfouten(regels, layout, recordschema) for layout in layouts
     }
-    gekozen: set[str] = set()
-    for i, (regelnr, _) in enumerate(regels):
-        passend = [naam for naam, per_regel in fouten.items() if per_regel[i] is None]
-        if len(passend) == 1:
-            gekozen.add(passend[0])
-            continue
-        plek = f"{path}: regel {regelnr} ({rt})"
-        if len(layouts) == 1:
-            raise ValueError(f"{plek} {fouten[layouts[0].naam][i]}")
-        if not passend:
-            details = "; ".join(
-                f"{naam}: {per_regel[i]}" for naam, per_regel in fouten.items()
-            )
-            raise ValueError(f"{plek} past op geen enkele layout ({details})")
-        raise ValueError(f"{plek} past op meer dan één layout: {passend}")
+    gekozen = {
+        _passende_layout(path, rt, regelnr, fouten, i)
+        for i, (regelnr, _) in enumerate(regels)
+    }
     if len(gekozen) > 1:
         raise ValueError(
             f"{path}: {rt} gebruikt meerdere layouts in één bestand: {sorted(gekozen)}"
@@ -220,6 +209,28 @@ def _kies_layout(
         if naam != gekozen_naam and (reden := per_regel[0])
     }
     return next(layout for layout in layouts if layout.naam == gekozen_naam), afgewezen
+
+
+def _passende_layout(
+    path: Path,
+    rt: str,
+    regelnr: int,
+    fouten: dict[str, list[str | None]],
+    i: int,
+) -> str:
+    """Naam van de enige layout waarop regel ``i`` past; anders ``ValueError``."""
+    passend = [naam for naam, per_regel in fouten.items() if per_regel[i] is None]
+    if len(passend) == 1:
+        return passend[0]
+    plek = f"{path}: regel {regelnr} ({rt})"
+    if len(fouten) == 1:
+        raise ValueError(f"{plek} {next(iter(fouten.values()))[i]}")
+    if not passend:
+        details = "; ".join(
+            f"{naam}: {per_regel[i]}" for naam, per_regel in fouten.items()
+        )
+        raise ValueError(f"{plek} past op geen enkele layout ({details})")
+    raise ValueError(f"{plek} past op meer dan één layout: {passend}")
 
 
 def _uit_bestandsnaam(
@@ -394,13 +405,22 @@ def _heeft_waarde(rij: dict[str, str | None]) -> bool:
     return any(waarde is not None for waarde in rij.values())
 
 
+def _lees_niet_lege(
+    elementen: list[ET.Element], velden: list[str]
+) -> list[dict[str, str | None]]:
+    """``velden`` van elk element, zonder de lege placeholders."""
+    rijen = [_lees_velden(elem, velden) for elem in elementen]
+    return [rij for rij in rijen if _heeft_waarde(rij)]
+
+
 def _bpv_rijen(
     teldatum: ET.Element, context: dict[str, str | None], velden: list[str]
 ) -> list[dict[str, str | None]]:
     """Eén rij per niet-lege ``<BekostigingsrelevanteBPV>`` onder een teldatum."""
     eigen = [v for v in velden if v not in context]
-    rijen = [_lees_velden(bpv, eigen) for bpv in teldatum.findall(_TBGI_BPV)]
-    return [context | rij for rij in rijen if _heeft_waarde(rij)]
+    return [
+        context | rij for rij in _lees_niet_lege(teldatum.findall(_TBGI_BPV), eigen)
+    ]
 
 
 def _signaal_rijen(
@@ -415,10 +435,7 @@ def _signaal_rijen(
     rijen: list[dict[str, str | None]] = []
     for sig in ouder.findall("Signaal"):
         signaal = _lees_velden(sig, signaal_velden)
-        parameters = [
-            _lees_velden(p, parameter_velden) for p in sig.findall("Parameter")
-        ]
-        parameters = [p for p in parameters if _heeft_waarde(p)]
+        parameters = _lees_niet_lege(sig.findall("Parameter"), parameter_velden)
         if not _heeft_waarde(signaal) and not parameters:
             continue
         basis = dict.fromkeys(velden) | context | signaal

@@ -5,6 +5,41 @@ import polars as pl
 from mbo_bekostiging_bestanden.metadata import load_schema
 
 
+def _controleer_verplichte_recordtypes(
+    frames: dict[str, pl.DataFrame], schema: dict[str, dict]
+) -> None:
+    ontbrekend = [
+        rt
+        for rt, rt_schema in schema.items()
+        if rt_schema.get("verplicht") and (rt not in frames or frames[rt].height == 0)
+    ]
+    if ontbrekend:
+        raise ValueError(
+            f"Verplichte recordtypes ontbreken in het bestand: {ontbrekend}"
+        )
+
+
+def _controleer_kolommen(
+    frames: dict[str, pl.DataFrame], schema: dict[str, dict]
+) -> None:
+    for rt, df in frames.items():
+        if rt not in schema:
+            continue
+        missing = set(schema[rt]["fields"]) - set(df.columns)
+        if missing:
+            raise ValueError(f"{rt}: ontbrekende kolommen {sorted(missing)}")
+
+
+def _controleer_single_row(
+    frames: dict[str, pl.DataFrame], schema: dict[str, dict]
+) -> None:
+    for rt, rt_schema in schema.items():
+        if rt_schema.get("single_row") and rt in frames and frames[rt].height != 1:
+            raise ValueError(
+                f"{rt} moet exact 1 rij bevatten, gevonden: {frames[rt].height}"
+            )
+
+
 def validate_multi_record(
     frames: dict[str, pl.DataFrame],
     schema_name: str,
@@ -28,30 +63,9 @@ def validate_multi_record(
         ValueError:        Als een harde controle faalt.
     """
     schema = load_schema(schema_name)
-
-    ontbrekend = [
-        rt
-        for rt, rt_schema in schema.items()
-        if rt_schema.get("verplicht") and (rt not in frames or frames[rt].height == 0)
-    ]
-    if ontbrekend:
-        raise ValueError(
-            f"Verplichte recordtypes ontbreken in het bestand: {ontbrekend}"
-        )
-
-    for rt, df in frames.items():
-        if rt not in schema:
-            continue
-        missing = set(schema[rt]["fields"]) - set(df.columns)
-        if missing:
-            raise ValueError(f"{rt}: ontbrekende kolommen {sorted(missing)}")
-
-    for rt, rt_schema in schema.items():
-        if rt_schema.get("single_row") and rt in frames and frames[rt].height != 1:
-            raise ValueError(
-                f"{rt} moet exact 1 rij bevatten, gevonden: {frames[rt].height}"
-            )
-
+    _controleer_verplichte_recordtypes(frames, schema)
+    _controleer_kolommen(frames, schema)
+    _controleer_single_row(frames, schema)
     return frames
 
 

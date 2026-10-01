@@ -923,18 +923,28 @@ def controleer_dekking(
                 "ernst": None,
                 "verklaring": _NIET_DOORVERTAALD.get(recordtype),
             }
-            if doel is None and rij["verklaring"] is None:
-                rij["ernst"] = ERNST_WARNING
-                rij["verklaring"] = "geen doorvertaling naar het analysemodel bekend"
-            elif doel is not None and rij["bereikt"] == 0:
-                if levering in vervangen_door and levering not in in_model:
-                    rij["verklaring"] = (
-                        f"levering vervangen door {vervangen_door[levering]}"
-                    )
-                else:
-                    rij["ernst"] = ERNST_ERROR if doel.bekostiging else ERNST_WARNING
+            _beoordeel_dekking(rij, doel, vervangen_door, in_model)
             rijen.append(rij)
     return rijen
+
+
+def _beoordeel_dekking(
+    rij: dict[str, Any],
+    doel: _Doorvertaling | None,
+    vervangen_door: dict[str, str],
+    in_model: set[str],
+) -> None:
+    """Vul ``ernst`` en ``verklaring`` van een dekkingsrij aan (#258, #295)."""
+    if doel is None:
+        if rij["verklaring"] is None:
+            rij["ernst"] = ERNST_WARNING
+            rij["verklaring"] = "geen doorvertaling naar het analysemodel bekend"
+    elif rij["bereikt"] == 0:
+        levering = rij["levering"]
+        if levering in vervangen_door and levering not in in_model:
+            rij["verklaring"] = f"levering vervangen door {vervangen_door[levering]}"
+        else:
+            rij["ernst"] = ERNST_ERROR if doel.bekostiging else ERNST_WARNING
 
 
 def _periode_koppelstatus(star: dict[str, pl.DataFrame]) -> dict[str, Any]:

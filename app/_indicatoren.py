@@ -234,6 +234,37 @@ def _bepaal_oordeel(
     return "onvoldoende"
 
 
+_INDICATOREN = ("jr", "dr", "sr")
+
+
+def _indicator_status(
+    indic: dict[str, float | int | None] | None,
+    norm: int | None,
+    mag_niet_uiterste: bool,
+) -> bool | None:
+    """Voldoet de indicator aan de norm; ``None`` als de waarde ontbreekt."""
+    waarde = indic.get("waarde") if indic else None
+    if waarde is None:
+        return None
+    noemer = indic.get("noemer") if indic else None
+    return indicator_voldoet(
+        float(waarde),
+        int(noemer) if noemer is not None else None,
+        norm,
+        mag_niet_uiterste=mag_niet_uiterste,
+    )
+
+
+def _haalt_hoge_norm(
+    indic: dict[str, float | int | None] | None, norm: int | None
+) -> bool:
+    """Haalt de waarde van de indicator de hoge norm; onbekend telt als nee."""
+    waarde = indic.get("waarde") if indic else None
+    return (
+        norm is not None and isinstance(waarde, (int, float)) and float(waarde) >= norm
+    )
+
+
 def bereken_oordeel(
     jr: dict[str, float | int | None] | None,
     dr: dict[str, float | int | None] | None,
@@ -253,60 +284,24 @@ def bereken_oordeel(
         de per-indicator-status in volgorde JR/DR/SR, en de hoge normen
         per indicator.
     """
-    normen_vold: dict[str, int | None] = {}
-    for indicator in ("jr", "dr", "sr"):
-        normen_vold[indicator] = norm_voor(indicator, niveau, "voldoende")
+    normen_vold = {i: norm_voor(i, niveau, "voldoende") for i in _INDICATOREN}
     hoge_normen: dict[str, int | None] = {
-        "jr": norm_voor("jr", niveau, "hoog"),
-        "dr": norm_voor("dr", niveau, "hoog"),
-        "sr": norm_voor("sr", niveau, "hoog"),
+        i: norm_voor(i, niveau, "hoog") for i in _INDICATOREN
     }
-
-    def _status(
-        indic: dict[str, float | int | None] | None,
-        norm: int | None,
-        mag_niet_uiterste: bool,
-    ) -> bool | None:
-        if indic is None:
-            return None
-        waarde = indic.get("waarde")
-        noemer = indic.get("noemer")
-        if waarde is None:
-            return None
-        return indicator_voldoet(
-            float(waarde),
-            int(noemer) if noemer is not None else None,
-            norm,
-            mag_niet_uiterste=mag_niet_uiterste,
-        )
-
     statuses = [
-        _status(jr, normen_vold["jr"], mag_niet_uiterste=True),
-        _status(dr, normen_vold["dr"], mag_niet_uiterste=True),
-        _status(sr, normen_vold["sr"], mag_niet_uiterste=False),
+        _indicator_status(jr, normen_vold["jr"], mag_niet_uiterste=True),
+        _indicator_status(dr, normen_vold["dr"], mag_niet_uiterste=True),
+        _indicator_status(sr, normen_vold["sr"], mag_niet_uiterste=False),
     ]
 
     # Hoog-oordeel: alle drie voldoende én (JR of DR) ≥ hoge norm.
-    if all(s is True for s in statuses):
-        _jr_w = jr.get("waarde") if jr else None
-        jr_val = float(_jr_w) if isinstance(_jr_w, (int, float)) else None
-        _dr_w = dr.get("waarde") if dr else None
-        dr_val = float(_dr_w) if isinstance(_dr_w, (int, float)) else None
-        jr_hoog = (
-            hoge_normen["jr"] is not None
-            and jr_val is not None
-            and jr_val >= hoge_normen["jr"]
-        )
-        dr_hoog = (
-            hoge_normen["dr"] is not None
-            and dr_val is not None
-            and dr_val >= hoge_normen["dr"]
-        )
-        if jr_hoog or dr_hoog:
-            return "hoog", statuses, hoge_normen
+    if all(s is True for s in statuses) and (
+        _haalt_hoge_norm(jr, hoge_normen["jr"])
+        or _haalt_hoge_norm(dr, hoge_normen["dr"])
+    ):
+        return "hoog", statuses, hoge_normen
 
-    oordeel = _bepaal_oordeel(statuses)
-    return oordeel, statuses, hoge_normen
+    return _bepaal_oordeel(statuses), statuses, hoge_normen
 
 
 # ---------------------------------------------------------------------------
