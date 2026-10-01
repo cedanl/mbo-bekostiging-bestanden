@@ -32,7 +32,14 @@ def test_bronbestand_komt_overeen_met_het_manifest():
 
 
 def test_manifest_heeft_alle_velden():
-    assert set(pve_bron()) == {"versie", "datum", "bestand", "sha256", "bron_url"}
+    assert set(pve_bron()) == {
+        "versie",
+        "datum",
+        "bestand",
+        "sha256",
+        "sha256_volledig",
+        "bron_url",
+    }
 
 
 def test_versie_uit_het_voorblad():
@@ -43,3 +50,43 @@ def test_versie_uit_het_voorblad():
 
 def test_voorblad_zonder_versie():
     assert _upstream_module().pve_versie("iets anders") is None
+
+
+_VOORBLAD = ("4.8.3", "12-05-2026")
+
+
+def test_gelijke_versie_en_inhoud_is_geen_fout():
+    bron = pve_bron()
+    fouten, meldingen = _upstream_module().beoordeel(
+        _VOORBLAD, [], bron["sha256_volledig"], bron
+    )
+    assert (fouten, meldingen) == ([], [])
+
+
+def test_gewijzigde_inhoud_op_dezelfde_versie_faalt():
+    """#368: DUO wijzigt de PDF zonder het versienummer te verhogen."""
+    bron = pve_bron()
+    fouten, _ = _upstream_module().beoordeel(
+        _VOORBLAD, [174, 175], bron["sha256_volledig"], bron
+    )
+    assert len(fouten) == 1
+    assert "[174, 175]" in fouten[0]
+
+
+def test_andere_versie_faalt_zonder_paginavergelijking():
+    bron = pve_bron()
+    fouten, _ = _upstream_module().beoordeel(("4.9.0", "01-01-2027"), [], "x", bron)
+    assert "4.9.0" in fouten[0]
+
+
+def test_andere_hash_bij_gelijke_inhoud_is_alleen_een_melding():
+    fouten, meldingen = _upstream_module().beoordeel(
+        _VOORBLAD, [], "afwijkend", pve_bron()
+    )
+    assert fouten == []
+    assert "inhoud is gelijk" in meldingen[0]
+
+
+def test_geen_versie_op_het_voorblad_faalt():
+    fouten, _ = _upstream_module().beoordeel(None, [], "x", pve_bron())
+    assert fouten
