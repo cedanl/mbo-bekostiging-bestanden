@@ -18,6 +18,12 @@ STUDIEJAAR_EIND_DAG = 31
 PRECISIE_SUFFIX = "_precisie"
 PRECISIE_ONBEKEND = "onbekend"
 
+# Koppelsleutels tussen recordtypes. ``Inschrijvingvolgnummer`` is alleen uniek
+# per persoon binnen één instelling, dus zonder ``levering`` hoort ``BRIN`` erbij.
+JOIN_PERSOON = ["levering", "_persoon_id"]
+JOIN_INSCHRIJVING = [*JOIN_PERSOON, "Inschrijvingvolgnummer"]
+JOIN_INSTELLING_INSCHRIJVING = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer"]
+
 # Eén ISP-periode (of TBGI-inschrijving zonder ISP) in fact_inschrijving; elk
 # detailfeit wijst er via deze sleutel naartoe zonder fan-out.
 PERIODE_ID = "_inschrijving_periode_id"
@@ -71,10 +77,8 @@ VEROUDERDE_KOLOMMEN = (
     "_num_opbrengstjaar_3jr",
 )
 
-# Business key per detailfeit (#327, tabel in docs/datamodel.md). ``levering``
-# hoort erbij: Inschrijvingvolgnummer is alleen uniek per persoon binnen één
-# instelling.
-_INSCHRIJVING = ("levering", "_persoon_id", "Inschrijvingvolgnummer")
+# Business key per detailfeit (#327, tabel in docs/datamodel.md).
+_INSCHRIJVING = tuple(JOIN_INSCHRIJVING)
 DETAIL_GRAIN: dict[str, tuple[str, ...]] = {
     "fact_bpv": (*_INSCHRIJVING, "Volgnummer"),
     "fact_kzd": (*_INSCHRIJVING, "Resultaatvolgnummer"),

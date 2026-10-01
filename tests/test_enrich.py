@@ -134,7 +134,7 @@ def _patch_lookups():
             return_value=_crebo_lookup(),
         ),
         patch(
-            "mbo_bekostiging_bestanden.enrich._laad_sbb_koppeltabel",
+            "mbo_bekostiging_bestanden.enrich.laad_sbb_koppeltabel",
             return_value=_sbb_koppeltabel_lookup(),
         ),
         patch(
@@ -443,7 +443,7 @@ def test_crebolijst_onbekende_code_geeft_null():
     ("laad", "sleutel"),
     [
         (enrich._laad_sbb_crebolijst, "kwalificatiecode"),
-        (enrich._laad_sbb_koppeltabel, "opleidingscode"),
+        (enrich.laad_sbb_koppeltabel, "opleidingscode"),
     ],
 )
 def test_sbb_referentietabel_heeft_een_rij_per_code(laad, sleutel):

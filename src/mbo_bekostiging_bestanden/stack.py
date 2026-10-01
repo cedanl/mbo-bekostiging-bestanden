@@ -6,6 +6,11 @@ from pathlib import Path
 import polars as pl
 
 
+def heeft_records(stacked: dict[str, pl.DataFrame], recordtype: str) -> bool:
+    """Of de gestapelde data rijen van ``recordtype`` bevat."""
+    return recordtype in stacked and not stacked[recordtype].is_empty()
+
+
 def leveringslabels(
     sources: Sequence[Path | str], relative_to: Path | str | None = None
 ) -> list[str]:

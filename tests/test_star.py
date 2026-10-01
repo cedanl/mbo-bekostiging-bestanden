@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from mbo_bekostiging_bestanden.identiteit import pseudoniem
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import (
@@ -13,7 +14,6 @@ from mbo_bekostiging_bestanden.star import (
     _build_dim,
     build_star,
 )
-from mbo_bekostiging_bestanden.transform import pseudoniem
 
 
 def _minimal_stacked() -> dict[str, pl.DataFrame]:

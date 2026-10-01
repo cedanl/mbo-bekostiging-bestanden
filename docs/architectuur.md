@@ -43,10 +43,29 @@ en in een top-N ook welke regels zichtbaar waren.
 kwaliteitsoordeel. Een script of notebook dat deze functies direct aanroept,
 rekent verder op ongevalideerde data (zie de docstrings van beide functies).
 
+## Sterbouw per domein
+
+`transform.py` orkestreert alleen; de analysetabellen worden per domein
+gebouwd (#198):
+
+| Module | Verantwoordelijkheid |
+|---|---|
+| `identiteit.py` | identifierdomeinen, salt, `_persoon_id` (pseudonimisering) |
+| `perioden.py` | periodesleutel, -begin en -einde, studiejaar, koppeling van detailrijen aan hun periode |
+| `inschrijvingen.py` | de centrale inschrijvingstabel: ISP-perioden met PER/ISG/VLP/ISE/DIP/GEO, aangevuld met TBGI |
+| `details.py` | detailtabellen (BPV, KZD/AMO, GEO, bekostiging) en hun aggregaten per periode |
+| `opleidingsniveau.py` | niveau-aanvulling bron → CREBO → S-BB |
+| `periodevlaggen.py` | jaargebonden vlaggen op periode-grain (legacy, verdwijnt in v4.0.0, #201) |
+| `schooljaar.py` | de schooljaar-grain: peildatum, hoofdinschrijving, JR/DR/Entree |
+
+Een module gebruikt van een andere module alleen publieke namen; een private
+naam (`_…`) is geen contract. `tests/test_architectuur.py` bewaakt dat voor
+`src/` en `app/`.
+
 ## Quality leest de ster onafhankelijk
 
-`quality.py` beoordeelt de output van de sterbouw (`transform.py`,
-`schooljaar.py`, `star.py`, `enrich.py`), maar mag die lagen niet importeren,
+`quality.py` beoordeelt de output van de sterbouw (`transform.py` en de
+domeinmodules hieronder, `schooljaar.py`, `star.py`, `enrich.py`), maar mag die lagen niet importeren,
 ook niet via een tussenmodule: een kwaliteitscontrole die afhangt van de code
 die ze controleert, kan een fout in die code niet onafhankelijk signaleren.
 

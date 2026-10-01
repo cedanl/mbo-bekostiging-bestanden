@@ -9,7 +9,7 @@ from datetime import date
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.transform import (
+from mbo_bekostiging_bestanden.periodevlaggen import (
     _bepaal_actief_per_schooljaar,
     _voeg_sr_vlaggen_toe,
 )

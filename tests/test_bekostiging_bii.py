@@ -66,7 +66,7 @@ def test_bii_bevat_alle_tbgi_bedragvelden():
 
 def test_bii_en_tbgi_delen_kolommen_in_detail_bekostiging():
     """Een gemengde run heeft per bedrag één gevulde kolom, niet twee halflege."""
-    from mbo_bekostiging_bestanden.transform import _bouw_detail_bekostiging
+    from mbo_bekostiging_bestanden.details import _bouw_detail_bekostiging
 
     sleutel = {"levering": ["L1"], "Inschrijvingvolgnummer": ["1"]}
     bii = decode_frames(_bii(), "grondslag")["BII"].with_columns(

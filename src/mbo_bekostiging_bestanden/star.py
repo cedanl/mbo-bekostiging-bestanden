@@ -18,13 +18,14 @@ import polars as pl
 
 from mbo_bekostiging_bestanden.contracts import PERIODE_SLEUTEL, SCHOOLJAAR_FEIT
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
+from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS
 from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
 from mbo_bekostiging_bestanden.referentiedata import meta_referentiedata
 from mbo_bekostiging_bestanden.schooljaar import (
     bouw_inschrijving_schooljaar,
     observatievenster,
 )
-from mbo_bekostiging_bestanden.transform import _PERSOON_COLS, _bouw_analysetabellen
+from mbo_bekostiging_bestanden.transform import bouw_analysetabellen
 
 # ---------------------------------------------------------------------------
 # Kolomdefinities per dimensie
@@ -94,12 +95,12 @@ _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 # Kolommen die PII bevatten en uit de output verwijderd worden.
 # _persoon_id is gepseudonimiseerd (HMAC-SHA256), maar de bron-identifiers
 # (PGN, BSN, ONr) staan nog rechtstreeks in de brondata en moeten weg.
-_PERSON_IDENTIFIER_COLS = set(_PERSOON_COLS)
+_PERSON_IDENTIFIER_COLS = set(PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
 
 
 # Interne tussenstap-kolommen, niet bedoeld voor het exporteerbare star schema.
-# List aggregaat uit _bepaal_actief_per_schooljaar (transform.py).
+# List aggregaat uit _bepaal_actief_per_schooljaar (periodevlaggen.py).
 _INTERNAL_COLS = {"_schooljaren_actief"}
 
 
@@ -148,7 +149,7 @@ def build_star(
         van deze functie (script, notebook) geeft geen kwaliteitsoordeel. Voor
         gevalideerde output: gebruik altijd ``run_star``.
     """
-    tables = _bouw_analysetabellen(stacked)
+    tables = bouw_analysetabellen(stacked)
     inschrijvingen = tables["inschrijvingen"]
 
     dim_deelnemer = _build_dim(inschrijvingen, _DIM_DEELNEMER_COLS, "_persoon_id")
