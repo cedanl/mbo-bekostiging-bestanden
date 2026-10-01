@@ -109,7 +109,8 @@ _REGELINVENTARIS_MELDINGEN = {
 class KwaliteitsFout(Exception):
     """De kwaliteitsstatus van een run is ``fail`` en de aanroeper staat dat niet toe.
 
-    ``quality.json`` is op dat moment al geschreven, zodat de oorzaak leesbaar blijft.
+    ``quality.json`` is op dat moment al geschreven, zodat de oorzaak leesbaar
+    blijft; bij ``run_star`` in ``diagnose/`` (#363).
     """
 
 
@@ -729,7 +730,8 @@ def compile_quality_report(
 
     ``deliveries`` gebruikt dezelfde labels als de ster; zonder ``invoer`` blijft de
     dekkingstabel leeg. ``fouten_toegestaan`` komt in de provenance, zodat een run
-    die quality-errors negeerde (#289) herkenbaar is.
+    die quality-errors negeerde (#289) herkenbaar is, net als of de ster daardoor
+    gepubliceerd wordt (``gepubliceerd``, #363).
     """
     deliveries_list = []
     if deliveries:
@@ -759,7 +761,10 @@ def compile_quality_report(
         "timestamp": datetime.now(UTC).isoformat(),
         "scenario": scenario,
         "provenance": run_provenance()
-        | {"kwaliteitsfouten_toegestaan": fouten_toegestaan},
+        | {
+            "kwaliteitsfouten_toegestaan": fouten_toegestaan,
+            "gepubliceerd": status != "fail" or fouten_toegestaan,
+        },
         "conformiteit": {
             "pve_versie": pve_bron()["versie"],
             "pve_bron_integriteit": PVE_BRON_INTEGRITEIT,

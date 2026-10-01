@@ -62,5 +62,5 @@ min_confidence = 60
 # Bewuste uitzonderingen (#199):
 # - main:       console entry point (project.scripts: mbo = "...cli:main")
 # - max_mtime:  cache-sleutel van lees_star_schema in app/_dashboard/data.py
-# - pseudoniem: publieke API; de tests gebruiken haar als orakel voor _persoon_id
-ignore_names = ["main", "max_mtime", "pseudoniem"]
+# - lees_ster:  publieke API voor afnemers buiten de app (#363)
+ignore_names = ["main", "max_mtime", "lees_ster"]

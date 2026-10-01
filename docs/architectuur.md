@@ -43,6 +43,11 @@ en in een top-N ook welke regels zichtbaar waren.
 kwaliteitsoordeel. Een script of notebook dat deze functies direct aanroept,
 rekent verder op ongevalideerde data (zie de docstrings van beide functies).
 
+`run_star` publiceert ook: de ster komt via een staging-map in `datamodel/`,
+alleen als de poort dat toelaat (`publicatie.py`, #363). Een afnemer leest
+haar met `publicatie.lees_ster`, dat een ster met status `fail` standaard
+weigert. De app gebruikt de override: Home moet een fout juist kunnen tonen.
+
 ## Sterbouw per domein
 
 `transform.py` orkestreert alleen; de analysetabellen worden per domein
