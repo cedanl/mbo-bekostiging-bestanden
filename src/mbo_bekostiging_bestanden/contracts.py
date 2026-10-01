@@ -77,6 +77,10 @@ VEROUDERDE_KOLOMMEN = (
     "_num_opbrengstjaar_3jr",
 )
 
+# Bron-BRIN van een detailrij die afwijkt van haar parent-inschrijving (#357);
+# de parent wint in ``BRIN``, de bronwaarde blijft zichtbaar.
+BRIN_BRON = "_brin_bron"
+
 # Business key per detailfeit (#327, tabel in docs/datamodel.md).
 _INSCHRIJVING = tuple(JOIN_INSCHRIJVING)
 DETAIL_GRAIN: dict[str, tuple[str, ...]] = {

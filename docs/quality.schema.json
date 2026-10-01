@@ -461,7 +461,7 @@
         },
         "brin_conflict": {
           "type": "object",
-          "description": "Per detailfeit: rijen waarvan de bron-BRIN afwijkt van de parent-inschrijving (#357)",
+          "description": "Per detailfeit: rijen waarvan de bron-BRIN afwijkt van de parent-inschrijving (warning, #357). BRIN volgt de parent; de bronwaarde staat in de kolom _brin_bron",
           "additionalProperties": {
             "type": "integer"
           }
