@@ -178,12 +178,17 @@ def _passingsfouten(
 
 def _kies_layout(
     path: Path, rt: str, regels: list[tuple[int, list[str]]], recordschema: dict
-) -> _Layout:
-    """De ene layout waarop alle regels van ``rt`` passen; anders ``ValueError``.
+) -> tuple[_Layout, dict[str, str]]:
+    """De ene layout waarop alle regels van ``rt`` passen, met de afgewezen
+    kandidaten en hun reden (#358); anders ``ValueError``.
 
     Een regel die op geen of op meer dan één layout past, zou stil in verkeerde
     kolommen landen; dat is altijd een error. Gemengde layouts binnen één
     bestand ook: één levering komt uit één aanmaakproces.
+
+    De reden van een afgewezen layout is de passingsfout van de eerste regel;
+    de gekozen layout is de enige die alle regels past, dus elke andere layout
+    wijst álle regels af.
     """
     layouts = _layouts(recordschema)
     fouten = {
@@ -208,7 +213,13 @@ def _kies_layout(
         raise ValueError(
             f"{path}: {rt} gebruikt meerdere layouts in één bestand: {sorted(gekozen)}"
         )
-    return next(layout for layout in layouts if layout.naam in gekozen)
+    gekozen_naam = next(iter(gekozen))
+    afgewezen = {
+        naam: reden
+        for naam, per_regel in fouten.items()
+        if naam != gekozen_naam and (reden := per_regel[0])
+    }
+    return next(layout for layout in layouts if layout.naam == gekozen_naam), afgewezen
 
 
 def _uit_bestandsnaam(
@@ -267,11 +278,11 @@ def _parseer(
     for rt, regels in regels_per_type.items():
         if not regels:
             continue
-        layout = _kies_layout(path, rt, regels, schema[rt])
+        layout, afgewezen = _kies_layout(path, rt, regels, schema[rt])
         aanvulling = _uit_bestandsnaam(path, schema_name, layout.uit_bestandsnaam)
         frames[rt] = _naar_frame(regels, layout, _layouts(schema[rt])[0], aanvulling)
         if "varianten" in schema[rt]:
-            varianten[rt] = {"variant": layout.naam}
+            varianten[rt] = {"variant": layout.naam, "afgewezen": afgewezen}
             if aanvulling:
                 varianten[rt]["uit_bestandsnaam"] = aanvulling
     return frames, varianten
@@ -316,9 +327,11 @@ def read_multi_record_csv(
 def layoutvarianten(path: str | Path, schema_name: str) -> dict[str, dict]:
     """Per recordtype met varianten: de gekozen layout, voor ``quality.json``.
 
-    ``{"VLP": {"variant": "officieel", "uit_bestandsnaam": {"BRIN": "97XX"}}}``:
-    waarden uit de bestandsnaam zijn een provenance-beslissing, geen stille
-    aanname (#236).
+    ``{"VLP": {"variant": "officieel", "afgewezen": {"praktijk": "..."},
+    "uit_bestandsnaam": {"BRIN": "97XX"}}}``: waarden uit de bestandsnaam zijn
+    een provenance-beslissing, geen stille aanname (#236). ``afgewezen`` noemt
+    per niet gekozen layout waarom hij niet past (#358), zodat een regel die
+    toevallig alleen op de officiële layout past, zichtbaar blijft.
     """
     return _parseer(Path(path), schema_name)[1]
 

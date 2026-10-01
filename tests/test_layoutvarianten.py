@@ -67,10 +67,9 @@ def test_officiele_vlp_krijgt_brin_uit_de_bestandsnaam(tmp_path):
     """PvE §17.3: GRONDSLAG_IP_MBO_<BRIN>_<einddatum>_<studiejaar>.csv."""
     pad = _grondslag(tmp_path, _VLP_OFFICIEEL)
     assert read_grondslag(pad)["VLP"]["BRIN"].to_list() == ["97XX"]
-    assert layoutvarianten(pad, "grondslag")["VLP"] == {
-        "variant": "officieel",
-        "uit_bestandsnaam": {"BRIN": "97XX"},
-    }
+    vlp = layoutvarianten(pad, "grondslag")["VLP"]
+    assert vlp["variant"] == "officieel"
+    assert vlp["uit_bestandsnaam"] == {"BRIN": "97XX"}
 
 
 def test_officiele_vlp_zonder_brin_in_de_bestandsnaam_faalt(tmp_path):
@@ -83,7 +82,7 @@ def test_praktijk_vlp_blijft_werken(tmp_path):
     pad = _grondslag(tmp_path, _VLP_PRAKTIJK)
     vlp = read_grondslag(pad)["VLP"].row(0, named=True)
     assert (vlp["BRIN"], vlp["Studiejaar"]) == ("97XX", "2025")
-    assert layoutvarianten(pad, "grondslag")["VLP"] == {"variant": "praktijk"}
+    assert layoutvarianten(pad, "grondslag")["VLP"]["variant"] == "praktijk"
 
 
 def test_praktijk_vlp_zonder_bekostiging_schuift_niet_naar_officieel(tmp_path):
@@ -104,7 +103,7 @@ def test_officiele_dip_zonder_optionele_staart(tmp_path):
     pad = _ro(tmp_path, "DIP|900000001||R1|25655|20250615|N")
     dip = read_ro(pad)["DIP"].row(0, named=True)
     assert (dip["IndicatieBekostigbaar"], dip["Inschrijvingvolgnummer"]) == ("N", "")
-    assert layoutvarianten(pad, "ro")["DIP"] == {"variant": "officieel"}
+    assert layoutvarianten(pad, "ro")["DIP"]["variant"] == "officieel"
 
 
 def test_praktijk_dip_met_positie_7_blijft_werken(tmp_path):
@@ -112,7 +111,7 @@ def test_praktijk_dip_met_positie_7_blijft_werken(tmp_path):
     dip = read_ro(pad)["DIP"].row(0, named=True)
     assert (dip["_onbekend"], dip["IndicatieBekostigbaar"]) == ("", "J")
     assert dip["Onderwijsaanbieder"] == "101A001"
-    assert layoutvarianten(pad, "ro")["DIP"] == {"variant": "praktijk"}
+    assert layoutvarianten(pad, "ro")["DIP"]["variant"] == "praktijk"
 
 
 def test_dip_die_op_geen_layout_past_faalt(tmp_path):
@@ -120,6 +119,23 @@ def test_dip_die_op_geen_layout_past_faalt(tmp_path):
     officieel een indicatie bekostigbaar. Nooit stil verschuiven."""
     with pytest.raises(ValueError, match=r"regel 4 \(DIP\).*geen enkele layout"):
         read_ro(_ro(tmp_path, "DIP|900000001||R1|25655|20250615|X|J"))
+
+
+def test_dip_met_gevulde_positie_7_legt_de_afgewezen_praktijklayout_vast(tmp_path):
+    """#358: een praktijkregel met ``J`` op positie 7 past alleen nog op de
+    officiële layout en wordt daar gelezen; dat moet in het rapport zichtbaar
+    zijn, anders lijkt het een gewone officiële levering."""
+    pad = _ro(tmp_path, _DIP_OFFICIEEL)
+    dip = layoutvarianten(pad, "ro")["DIP"]
+    assert dip["variant"] == "officieel"
+    assert dip["afgewezen"].keys() == {"praktijk"}
+    assert "_onbekend" in dip["afgewezen"]["praktijk"]
+
+
+def test_afgewezen_noemt_de_andere_kandidaat_ook_bij_de_praktijklayout(tmp_path):
+    dip = layoutvarianten(_ro(tmp_path, _DIP_PRAKTIJK), "ro")["DIP"]
+    assert dip["variant"] == "praktijk"
+    assert dip["afgewezen"].keys() == {"officieel"}
 
 
 def test_gemengde_layouts_in_een_bestand_falen(tmp_path):
@@ -130,8 +146,8 @@ def test_gemengde_layouts_in_een_bestand_falen(tmp_path):
 def test_demo_gebruikt_de_praktijkvarianten():
     ro = next(DEMO.glob("h15/RO_27DV_*.csv"))
     grondslag = next(DEMO.glob("h17/GRONDSLAG_*.csv"))
-    assert layoutvarianten(ro, "ro") == {"DIP": {"variant": "praktijk"}}
-    assert layoutvarianten(grondslag, "grondslag") == {"VLP": {"variant": "praktijk"}}
+    assert layoutvarianten(ro, "ro")["DIP"]["variant"] == "praktijk"
+    assert layoutvarianten(grondslag, "grondslag")["VLP"]["variant"] == "praktijk"
 
 
 def test_quality_json_legt_de_gekozen_variant_vast(tmp_path):
