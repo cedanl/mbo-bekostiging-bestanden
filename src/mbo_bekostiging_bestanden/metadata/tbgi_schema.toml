@@ -6,7 +6,8 @@
 # Teldatum, BekostigingsrelevanteBPV, Diploma en Signaal (één rij per parameter).
 # domeinen: waardedomein per veld uit waardenlijsten.toml (PvE §16.6), zoals bij
 # RO en GRONDSLAG (#205, #323). Velden zonder domein: vrije tekst, datum, getal of
-# een boolean (IndicatieSpecialistendiploma) waarvoor nog geen domein bestaat.
+# of een volgnummer; per veld staat de reden in ``[geen_domein]`` van
+# waardenlijsten.toml (#356).
 
 [Inschrijving]
 fields = [
@@ -38,7 +39,7 @@ fields = [
 date_fields  = ["Teldatum"]
 int_fields   = ["LeeftijdOpEenAugustusStudiejaar", "AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
-domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Leerroutefase = "leerroutefase", IndicatieBekostigbaar = "indicatie_bekostigbaar", InschrijvingVoorCorrectiefactor = "boolean", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Leerroutefase = "leerroutefase", IndicatieBekostigbaar = "indicatie_bekostigbaar", InschrijvingVoorCorrectiefactor = "boolean", Bekostigingsstatus = "boolean_optioneel", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
 # Datum voor de geldigheid van tijdgebonden waarden (#325).
 peildatum = "Teldatum"
 
@@ -71,7 +72,7 @@ fields = [
 date_fields  = ["DatumBehaald"]
 int_fields   = []
 float_fields = ["BijdrageDiplomawaarde"]
-domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", NiveauHoogstBekostigdeDiploma = "niveau", IndicatieSpecialistendiploma = "boolean_optioneel", IndicatieHoogstBekostigdeDiplomaIsSpecialist = "boolean_optioneel", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", NiveauHoogstBekostigdeDiploma = "niveau", IndicatieSpecialistendiploma = "boolean_optioneel", IndicatieHoogstBekostigdeDiplomaIsSpecialist = "boolean_optioneel", Bekostigingsstatus = "boolean", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
 
 [Signaal]
 # Bron = "Inschrijving" of "Diploma".
