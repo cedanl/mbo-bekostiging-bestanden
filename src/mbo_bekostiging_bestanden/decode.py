@@ -86,14 +86,19 @@ def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) 
             continue
         for field in schema[rt].get("date_fields", []):
             if field in df.columns:
-                val = df[field][0]
+                val = (df[field][0] or "").strip()
                 if val:
                     return val
     return ""
 
 
 def _leeg_naar_null(col: pl.Expr) -> pl.Expr:
-    return pl.when(col == "").then(None).otherwise(col)
+    """Trim omringende witruimte (#392) en maak een lege waarde null.
+
+    Hier en niet bij ingest, zodat de ruwe levering getrouw blijft tot decode.
+    """
+    getrimd = col.str.strip_chars()
+    return pl.when(getrimd == "").then(None).otherwise(getrimd)
 
 
 def _to_float_expr(col: pl.Expr) -> pl.Expr:

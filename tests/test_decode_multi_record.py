@@ -62,3 +62,29 @@ def test_decode_frames_unknown_schema_raises():
     frames = read_ro(RO_27DV)
     with pytest.raises(FileNotFoundError):
         decode_frames(frames, "bestaat_niet")
+
+
+# ---------------------------------------------------------------------------
+# Omringende witruimte (#392)
+# ---------------------------------------------------------------------------
+
+
+def test_omringende_witruimte_wordt_getrimd():
+    """Domeincontrole trimt al; opslag moet dat ook doen, anders mislukken
+    group-by en join op ``' 21CY '`` zonder foutmelding."""
+    frames = {"VLP": pl.DataFrame({"BRIN": [" 21CY ", "21CY"], "Naam": ["a ", " b"]})}
+    vlp = decode_frames(frames, "ro")["VLP"]
+    assert vlp["BRIN"].to_list() == ["21CY", "21CY"]
+    assert vlp["Naam"].to_list() == ["a", "b"]
+
+
+def test_alleen_witruimte_wordt_null():
+    frames = {"VLP": pl.DataFrame({"Naam": ["   ", "x"]})}
+    assert decode_frames(frames, "ro")["VLP"]["Naam"].to_list() == [None, "x"]
+
+
+def test_witruimte_rond_getal_en_datum_parseert():
+    frames = {
+        "VLP": pl.DataFrame({"DatumAanmaak": [" 20251119 "]}),
+    }
+    assert decode_frames(frames, "ro")["VLP"]["DatumAanmaak"][0] == date(2025, 11, 19)
