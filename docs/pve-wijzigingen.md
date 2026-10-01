@@ -5,10 +5,17 @@ DUO Programma van Eisen MBO-instelling. De repo bevat daarvan een beknopte
 extractie, `bestandsbeschrijving_beknopt.pdf`. Versie, datum en sha256 staan op
 één plek: `metadata/pve_bron.json`. De schema's herhalen de versie niet.
 
+Het manifest heeft twee hashes: `sha256` dekt de beknopte extractie in de repo
+(`bestandsbeschrijving_beknopt.pdf`, door een test bewaakt) en `sha256_volledig`
+de volledige PDF op duo.nl op het moment van de laatste verwerking. Een
+afwijkende `sha256_volledig` bij gelijke inhoud is alleen een melding in de
+workflow; DUO kan de PDF opnieuw genereren.
+
 ## Een nieuwe versie verwerken
 
 1. De wekelijkse workflow `pve-upstream` (`scripts/controleer_pve_upstream.py`)
-   faalt als duo.nl een andere versie publiceert.
+   faalt als duo.nl een andere versie publiceert, of als de bestandsbeschrijvingen
+   inhoudelijk afwijken van de extractie terwijl de versie gelijk is (#368).
 2. Vergelijk de bestandsbeschrijvingen per pagina en schrijf een nieuwe extractie:
 
     ```bash
@@ -22,7 +29,7 @@ extractie, `bestandsbeschrijving_beknopt.pdf`. Versie, datum en sha256 staan op
     pagina's en is handwerk nodig.
 3. Werk per inhoudelijk verschil het schema of de waardenlijst bij, of leg vast
    waarom er geen gevolg is (hieronder).
-4. Zet `versie` en `sha256` in `pve_bron.json`; de tests in `test_pve_bron.py` en
+4. Zet `versie`, `sha256` en `sha256_volledig` in `pve_bron.json`; de tests in `test_pve_bron.py` en
    `test_pve_versie.py` controleren dat PDF, manifest en schema's kloppen.
 
 ## 4.8.2 → 4.8.3 (12-05-2026)
