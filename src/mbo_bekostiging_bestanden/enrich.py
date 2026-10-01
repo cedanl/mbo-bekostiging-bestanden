@@ -75,7 +75,7 @@ def _laad_crebo() -> pl.DataFrame:
 
 
 @functools.cache
-def _laad_sbb_koppeltabel() -> pl.DataFrame:
+def laad_sbb_koppeltabel() -> pl.DataFrame:
     return pl.read_parquet(_METADATA / "sbb_koppeltabel.parquet").select(
         [
             "opleidingscode",
@@ -177,8 +177,7 @@ def enrich_inschrijvingen(df: pl.DataFrame) -> pl.DataFrame:
     alleen toegevoegd als de bronkolom aanwezig is.
 
     Args:
-        df: Resultaat van ``_bouw_inschrijvingen`` of
-            ``_bouw_tbgi_inschrijvingen`` uit ``transform.py``.
+        df: De centrale inschrijvingstabel (``inschrijvingen.py``).
 
     Returns:
         Verrijkte DataFrame; originele kolommen blijven onaangepast.
@@ -226,7 +225,7 @@ def enrich_inschrijvingen(df: pl.DataFrame) -> pl.DataFrame:
         )
         df = df.join(crebo_lookup, on="Opleidingcode", how="left")
 
-        koppel_lookup = _laad_sbb_koppeltabel().rename(
+        koppel_lookup = laad_sbb_koppeltabel().rename(
             {
                 "opleidingscode": "Opleidingcode_i64",
                 "beroepsnaam": "Opleiding_beroep",

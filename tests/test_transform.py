@@ -1,4 +1,4 @@
-"""Tests voor transform.py (analysetabel-bouwfuncties)."""
+"""Sterbouw: transform.py en de domeinmodules daarachter (#198)."""
 
 from datetime import date
 
@@ -6,36 +6,41 @@ import polars as pl
 import pytest
 
 from mbo_bekostiging_bestanden.contracts import BRON
-from mbo_bekostiging_bestanden.koppelingen import Koppelingen
-from mbo_bekostiging_bestanden.transform import (
-    _add_persoon_id,
-    _bouw_analysetabellen,
+from mbo_bekostiging_bestanden.details import (
     _bouw_detail_bekostiging,
     _bouw_detail_bekostiging_diploma,
-    _leid_studiejaar_af,
     _resolve_inschrijving,
-    _voeg_afgeleide_velden_toe,
+)
+from mbo_bekostiging_bestanden.identiteit import (
+    laad_pseudonimisering_salt,
+    pseudoniem,
+    voeg_persoon_id_toe,
+)
+from mbo_bekostiging_bestanden.inschrijvingen import _voeg_afgeleide_velden_toe
+from mbo_bekostiging_bestanden.koppelingen import Koppelingen
+from mbo_bekostiging_bestanden.opleidingsniveau import vul_niveau_aan
+from mbo_bekostiging_bestanden.perioden import leid_studiejaar_af
+from mbo_bekostiging_bestanden.periodevlaggen import (
     _voeg_bekostigingsvlaggen_toe,
     _voeg_entree_vlaggen_toe,
     _voeg_sr_vlaggen_toe,
     _voeg_telling_en_jr_vlaggen_toe,
-    _vul_niveau_aan,
-    pseudoniem,
 )
+from mbo_bekostiging_bestanden.transform import bouw_analysetabellen
 
 # ---------------------------------------------------------------------------
-# _bouw_analysetabellen – input-validatie
+# bouw_analysetabellen – input-validatie
 # ---------------------------------------------------------------------------
 
 
 def test_bouw_analysetabellen_raises_without_isp_and_inschrijving():
     with pytest.raises(ValueError, match="ISP"):
-        _bouw_analysetabellen({"PER": pl.DataFrame()})
+        bouw_analysetabellen({"PER": pl.DataFrame()})
 
 
 def test_bouw_analysetabellen_raises_with_leeg_isp_en_geen_inschrijving():
     with pytest.raises(ValueError, match="ISP"):
-        _bouw_analysetabellen({"ISP": pl.DataFrame()})
+        bouw_analysetabellen({"ISP": pl.DataFrame()})
 
 
 def test_bouw_analysetabellen_tbgi_fallback_gebruikt_inschrijving_als_grain():
@@ -49,7 +54,7 @@ def test_bouw_analysetabellen_tbgi_fallback_gebruikt_inschrijving_als_grain():
             "Inschrijvingvolgnummer": ["001"],
         }
     )
-    result = _bouw_analysetabellen({"Inschrijving": inschrijving})
+    result = bouw_analysetabellen({"Inschrijving": inschrijving})
     assert result["inschrijvingen"].height == 1
     assert "_persoon_id" in result["inschrijvingen"].columns
     # Ook zonder begindatum een sleutel (#109): de inschrijving is de periode.
@@ -76,14 +81,14 @@ def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():
             "Bekostigingsstatus": ["A"],
         }
     )
-    result = _bouw_analysetabellen({"Inschrijving": inschrijving, "Teldatum": teldatum})
+    result = bouw_analysetabellen({"Inschrijving": inschrijving, "Teldatum": teldatum})
     detail = result["detail_bekostiging"]
     assert detail.height == 1
     assert "TBGI" in detail[BRON].to_list()
 
 
 # ---------------------------------------------------------------------------
-# _bouw_analysetabellen – output-structuur
+# bouw_analysetabellen – output-structuur
 # ---------------------------------------------------------------------------
 
 
@@ -1107,7 +1112,7 @@ def test_vul_niveau_aan_vanuit_crebo():
             "Niveau": [None, "MBO-1"],
         }
     )
-    result = _vul_niveau_aan(df)
+    result = vul_niveau_aan(df)
     assert result["Niveau"][0] == "MBO-4"
     assert result["Niveau"][1] == "MBO-1"
 
@@ -1120,13 +1125,13 @@ def test_vul_niveau_aan_behoudt_bestaand():
             "Niveau": ["MBO-3"],
         }
     )
-    result = _vul_niveau_aan(df)
+    result = vul_niveau_aan(df)
     assert result["Niveau"][0] == "MBO-3"
 
 
 def test_vul_niveau_aan_via_sbb_bij_nieuwe_codering():
     """Nieuwe codering (23xxx) mist niveau in crebo.csv; S-BB kent het (#130)."""
-    result = _vul_niveau_aan(
+    result = vul_niveau_aan(
         pl.DataFrame({"Opleidingcode": ["23023"], "Niveau": [None]})
     )
     assert result["Niveau"][0] == "MBO-4"
@@ -1140,7 +1145,7 @@ def test_vul_niveau_aan_legt_herkomst_vast():
             "Niveau": ["MBO-3", None, None, None, None],
         }
     )
-    result = _vul_niveau_aan(df)
+    result = vul_niveau_aan(df)
     assert result["Niveau"].to_list() == ["MBO-3", "MBO-4", "MBO-4", None, None]
     assert result["_niveau_herkomst"].to_list() == [
         "bron",
@@ -1152,7 +1157,7 @@ def test_vul_niveau_aan_legt_herkomst_vast():
 
 
 def test_vul_niveau_aan_zonder_ontbrekend_niveau_heeft_herkomst_bron():
-    result = _vul_niveau_aan(
+    result = vul_niveau_aan(
         pl.DataFrame({"Opleidingcode": ["25655"], "Niveau": ["MBO-4"]})
     )
     assert result["_niveau_herkomst"].to_list() == ["bron"]
@@ -1161,7 +1166,7 @@ def test_vul_niveau_aan_zonder_ontbrekend_niveau_heeft_herkomst_bron():
 def test_vul_niveau_aan_voegt_alleen_herkomst_toe():
     """Geen interne join-sleutels in de output (#145)."""
     df = pl.DataFrame({"Opleidingcode": ["23023"], "Niveau": [None]})
-    assert set(_vul_niveau_aan(df).columns) - set(df.columns) == {"_niveau_herkomst"}
+    assert set(vul_niveau_aan(df).columns) - set(df.columns) == {"_niveau_herkomst"}
 
 
 def test_vul_niveau_aan_onbekende_code():
@@ -1172,7 +1177,7 @@ def test_vul_niveau_aan_onbekende_code():
             "Niveau": [None],
         }
     )
-    result = _vul_niveau_aan(df)
+    result = vul_niveau_aan(df)
     assert result["Niveau"][0] is None
 
 
@@ -1195,7 +1200,7 @@ def test_studiejaar_afgeleid_uit_datumbegin_augustus():
             "DatumBegin": pl.Series([date(2025, 8, 1)], dtype=pl.Date),
         }
     )
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2025
 
 
@@ -1206,7 +1211,7 @@ def test_studiejaar_afgeleid_uit_datumbegin_januari():
             "DatumBegin": pl.Series([date(2026, 1, 15)], dtype=pl.Date),
         }
     )
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2025
 
 
@@ -1217,7 +1222,7 @@ def test_studiejaar_afgeleid_uit_datumbegin_juli():
             "DatumBegin": pl.Series([date(2026, 7, 31)], dtype=pl.Date),
         }
     )
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2025
 
 
@@ -1229,7 +1234,7 @@ def test_studiejaar_behoudt_bestaande_waarde():
             "Studiejaar": pl.Series([2024], dtype=pl.Int64),
         }
     )
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2024
 
 
@@ -1243,7 +1248,7 @@ def test_studiejaar_vult_null_aan():
             "Studiejaar": pl.Series([None, 2024], dtype=pl.Int64),
         }
     )
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert result["Studiejaar"].to_list() == [2025, 2024]
 
 
@@ -1254,14 +1259,14 @@ def test_studiejaar_uit_datuminschrijving():
             "DatumInschrijving": pl.Series([date(2024, 2, 1)], dtype=pl.Date),
         }
     )
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert result["Studiejaar"][0] == 2023
 
 
 def test_studiejaar_geen_datum_geen_crash():
     """Zonder datumvelden: voegt Studiejaar_*, Studiejaar toe (alle null)."""
     df = pl.DataFrame({"_persoon_id": ["P1"]})
-    result = _leid_studiejaar_af(df)
+    result = leid_studiejaar_af(df)
     assert "Studiejaar_periode" in result.columns
     assert "Studiejaar_levering" in result.columns
     assert "Studiejaar" in result.columns
@@ -1283,29 +1288,25 @@ def test_studiejaar_afgeleid_in_demo(demo_tabellen):
 
 def test_laad_pseudonimisering_salt_from_env(monkeypatch):
     """De env-var gaat vóór ``config.toml``."""
-    from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
-
     monkeypatch.setenv("MBO_PSEUDONIMISERING_SALT", "test-env-salt-12345")
     # De cache zou de net gewijzigde env-var maskeren zonder deze reset.
-    _laad_pseudonimisering_salt.cache_clear()
+    laad_pseudonimisering_salt.cache_clear()
 
-    salt = _laad_pseudonimisering_salt()
+    salt = laad_pseudonimisering_salt()
     assert salt == "test-env-salt-12345"
 
-    _laad_pseudonimisering_salt.cache_clear()
+    laad_pseudonimisering_salt.cache_clear()
 
 
 def test_laad_pseudonimisering_salt_fails_without_env_or_config(monkeypatch, tmp_path):
     """Zonder env-var en zonder ``config.toml``: fail-closed."""
-    from mbo_bekostiging_bestanden.transform import _laad_pseudonimisering_salt
-
     monkeypatch.delenv("MBO_PSEUDONIMISERING_SALT", raising=False)
-    _laad_pseudonimisering_salt.cache_clear()
+    laad_pseudonimisering_salt.cache_clear()
 
     with pytest.raises(ValueError, match="Geen pseudonimisering_salt"):
-        _laad_pseudonimisering_salt()
+        laad_pseudonimisering_salt()
 
-    _laad_pseudonimisering_salt.cache_clear()
+    laad_pseudonimisering_salt.cache_clear()
 
 
 def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
@@ -1335,7 +1336,7 @@ def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
 
 
 # ---------------------------------------------------------------------------
-# _add_persoon_id – identifierdomeinen (#128)
+# voeg_persoon_id_toe – identifierdomeinen (#128)
 # ---------------------------------------------------------------------------
 # GRONDSLAG levert een omgenummerd PGN, RO/TBGI een BSN of ONr (PvE 4.8.2
 # §17.1). Gelijke cijfers uit verschillende domeinen zijn verschillende personen.
@@ -1343,7 +1344,7 @@ def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
 
 def _persoon_ids(**kolommen: list[str | None]) -> list[str | None]:
     df = pl.DataFrame(kolommen, schema=dict.fromkeys(kolommen, pl.Utf8))
-    return _add_persoon_id(df)["_persoon_id"].to_list()
+    return voeg_persoon_id_toe(df)["_persoon_id"].to_list()
 
 
 def test_zelfde_waarde_in_ander_identifierdomein_is_andere_persoon():

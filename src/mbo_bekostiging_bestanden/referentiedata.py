@@ -26,7 +26,7 @@ import polars as pl
 METADATA = Path(__file__).parent / "metadata"
 _MANIFEST = "referentiedata.json"
 TABEL = "meta_referentiedata"
-# Referenties waaruit Opleidingcode → niveau komt (zie transform._vul_niveau_aan).
+# Referenties waaruit Opleidingcode → niveau komt (zie opleidingsniveau.vul_niveau_aan).
 OPLEIDINGSREFERENTIES = ("crebo.csv", "sbb_koppeltabel.parquet")
 _OPLEIDINGSCODE = {"crebo.csv": "code", "sbb_koppeltabel.parquet": "opleidingscode"}
 _SCHEMA = {

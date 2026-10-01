@@ -1,8 +1,11 @@
-"""Afhankelijkheidsrichting in de package (``docs/architectuur.md``).
+"""Afhankelijkheidsrichting en modulegrenzen (``docs/architectuur.md``).
 
 Een kwaliteitscontrole die de code importeert die ze beoordeelt, kan een fout
 in die code niet onafhankelijk signaleren (#365). De scan volgt imports
 transitief: ``quality → schooljaar → transform`` telt ook.
+
+Een module gebruikt van een andere module alleen publieke namen (#198): een
+private naam is geen contract en kan zonder waarschuwing veranderen.
 """
 
 import ast
@@ -14,7 +17,19 @@ PACKAGE = "mbo_bekostiging_bestanden"
 SRC = Path(__file__).parents[1] / "src" / PACKAGE
 
 # De lagen die de ster bouwen; ``quality`` mag daar niet (indirect) van afhangen.
-STERBOUW = {"transform", "star", "schooljaar", "enrich"}
+STERBOUW = {
+    "transform",
+    "identiteit",
+    "perioden",
+    "inschrijvingen",
+    "periodevlaggen",
+    "opleidingsniveau",
+    "details",
+    "star",
+    "schooljaar",
+    "enrich",
+}
+APP = SRC.parents[1] / "app"
 
 
 def _module_bestand(module: str) -> Path | None:
@@ -90,3 +105,31 @@ def test_scan_ziet_een_verboden_import(bron):
 def test_scan_negeert_imports_voor_de_typechecker():
     bron = f"if TYPE_CHECKING:\n    from {PACKAGE}.transform import BRON"
     assert _package_imports(bron) == set()
+
+
+def _private_imports(bron: str) -> list[str]:
+    """``module.naam`` voor elke private naam die ``bron`` uit package of app haalt."""
+    return [
+        f"{knoop.module}.{alias.name}"
+        for knoop in ast.walk(ast.parse(bron))
+        if isinstance(knoop, ast.ImportFrom)
+        and knoop.module
+        and (knoop.module.startswith(PACKAGE) or knoop.module.startswith("_"))
+        for alias in knoop.names
+        if alias.name.startswith("_")
+    ]
+
+
+def test_geen_private_imports_tussen_modules():
+    bestanden = [*SRC.rglob("*.py"), *APP.rglob("*.py")]
+    gevonden = {
+        str(pad.relative_to(SRC.parents[1])): namen
+        for pad in bestanden
+        if (namen := _private_imports(pad.read_text(encoding="utf-8")))
+    }
+    assert gevonden == {}
+
+
+def test_scan_ziet_een_private_import():
+    bron = f"from {PACKAGE}.perioden import _koppel_via, koppel_periode_id"
+    assert _private_imports(bron) == [f"{PACKAGE}.perioden._koppel_via"]

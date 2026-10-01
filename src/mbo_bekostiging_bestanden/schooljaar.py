@@ -9,7 +9,7 @@ Regels:
 
 - Een periode telt in elk schooljaar waarvan zij de peildatum dekt (#193).
   Het einde is ``_periode_einde`` (zie
-  :func:`~mbo_bekostiging_bestanden.transform._voeg_periode_einde_toe`),
+  :func:`~mbo_bekostiging_bestanden.perioden.voeg_periode_einde_toe`),
   begrensd door de peildatum van de levering: een levering zegt niets over
   1-oktobers na haar eigen peildatum. Zonder einde en zonder peildatum telt
   alleen het eerste schooljaar.
@@ -51,12 +51,8 @@ from mbo_bekostiging_bestanden.contracts import (
     TELDATUM_DAG,
     TELDATUM_MAAND,
 )
-from mbo_bekostiging_bestanden.transform import (
-    _PERIODE_EINDE,
-    _niveau_numeriek,
-    _voeg_periode_einde_toe,
-    _vul_niveau_aan,
-)
+from mbo_bekostiging_bestanden.opleidingsniveau import niveau_numeriek, vul_niveau_aan
+from mbo_bekostiging_bestanden.perioden import PERIODE_EINDE, voeg_periode_einde_toe
 
 PEILDATUM = "Peildatum"
 # DR en Entree zoeken de persoon in t+1 over alle instellingen in de dataset (#118).
@@ -173,7 +169,7 @@ def _peilgrens_per_levering(leveringen: pl.DataFrame) -> pl.DataFrame:
 
 def _per_schooljaar(perioden: pl.DataFrame) -> pl.DataFrame:
     """Explodeer elke periode naar de schooljaren waarvan zij de peildatum dekt."""
-    einde = pl.min_horizontal(_PERIODE_EINDE, _PEILGRENS)
+    einde = pl.min_horizontal(PERIODE_EINDE, _PEILGRENS)
     eerste = _eerste_peiljaar(pl.col("DatumBegin"))
     laatste = pl.when(einde.is_null()).then(eerste).otherwise(_laatste_peiljaar(einde))
     return (
@@ -193,7 +189,7 @@ def _voeg_hoofdinschrijving_toe(df: pl.DataFrame) -> pl.DataFrame:
 
     Een inschrijving zonder bekend niveau is nooit hoofdinschrijving (#130).
     """
-    niveau = _niveau_numeriek(pl.col("Niveau"))
+    niveau = niveau_numeriek(pl.col("Niveau"))
     rij = "_rij"
     gekozen = (
         pl.col(rij)
@@ -265,7 +261,7 @@ def _voeg_volgend_jaar_toe(df: pl.DataFrame) -> pl.DataFrame:
         *VOLGEND_JAAR_GROEP, (pl.col(SCHOOLJAAR) - 1).alias(SCHOOLJAAR)
     ).agg(
         pl.lit(True).alias("_actief_volgend_jaar"),
-        _niveau_numeriek(pl.col("Niveau")).max().alias("_niveau_volgend_jaar"),
+        niveau_numeriek(pl.col("Niveau")).max().alias("_niveau_volgend_jaar"),
     )
     laatste_peilgrens = df.group_by("BRIN").agg(
         pl.col(_PEILGRENS).max().alias("_laatste_peilgrens")
@@ -298,16 +294,16 @@ def _diplomas(perioden: pl.DataFrame) -> pl.DataFrame:
         .drop_nulls(_DIPLOMA_DATUM)
         .unique()
     )
-    return _vul_niveau_aan(diplomas).select(
+    return vul_niveau_aan(diplomas).select(
         *DIPLOMA_GROEP,
         _DIPLOMA_DATUM,
-        _niveau_numeriek(pl.col("Niveau")).alias("_diploma_niveau"),
+        niveau_numeriek(pl.col("Niveau")).alias("_diploma_niveau"),
     )
 
 
 def _voeg_dr_toe(df: pl.DataFrame, diplomas: pl.DataFrame) -> pl.DataFrame:
     """DR-noemer en -teller; één uitkomst per rij, ook bij meerdere diploma's."""
-    niveau_ok = (_niveau_numeriek(pl.col("Niveau")) >= _JR_DR_MIN_NIVEAU).fill_null(
+    niveau_ok = (niveau_numeriek(pl.col("Niveau")) >= _JR_DR_MIN_NIVEAU).fill_null(
         False
     )
     sleutel = [*DIPLOMA_GROEP, SCHOOLJAAR]
@@ -343,7 +339,7 @@ def _voeg_dr_toe(df: pl.DataFrame, diplomas: pl.DataFrame) -> pl.DataFrame:
 
 def _voeg_entree_toe(df: pl.DataFrame) -> pl.DataFrame:
     """Entree-populatie en haar uitkomst in ``t+1`` (#306)."""
-    is_entree = (_niveau_numeriek(pl.col("Niveau")) == _ENTREE_NIVEAU).fill_null(False)
+    is_entree = (niveau_numeriek(pl.col("Niveau")) == _ENTREE_NIVEAU).fill_null(False)
     doorstroom = (pl.col("_niveau_volgend_jaar") > _ENTREE_NIVEAU).fill_null(False)
     uitstroom = ~pl.col("_actief_volgend_jaar")
     return df.with_columns(
@@ -370,7 +366,7 @@ def _tbgi_waarnemingen(
     if _TELDATUM not in teldata.columns:
         return inschrijvingen.clear().with_columns(
             pl.lit(None, dtype=pl.Date).alias("DatumBegin"),
-            pl.lit(None, dtype=pl.Date).alias(_PERIODE_EINDE),
+            pl.lit(None, dtype=pl.Date).alias(PERIODE_EINDE),
         )
     sleutel = [c for c in _TBGI_SLEUTEL if c in inschrijvingen.columns]
     attributen = [c for c in _TELDATUM_ATTRIBUTEN if c in teldata.columns]
@@ -386,7 +382,7 @@ def _tbgi_waarnemingen(
     return (
         inschrijvingen.drop(attributen, strict=False)
         .join(peilmomenten, on=sleutel, how="inner")
-        .with_columns(teldatum.alias("DatumBegin"), teldatum.alias(_PERIODE_EINDE))
+        .with_columns(teldatum.alias("DatumBegin"), teldatum.alias(PERIODE_EINDE))
         .drop(_TELDATUM)
     )
 
@@ -420,7 +416,7 @@ def bouw_inschrijving_schooljaar(
     delen = []
     isp = inschrijvingen.filter(~tbgi_rij)
     if "DatumBegin" in isp.columns and not isp.is_empty():
-        delen.append(_voeg_periode_einde_toe(isp))
+        delen.append(voeg_periode_einde_toe(isp))
     tbgi = inschrijvingen.filter(tbgi_rij)
     if not tbgi.is_empty():
         delen.append(
@@ -429,9 +425,9 @@ def bouw_inschrijving_schooljaar(
     if not delen:
         return pl.DataFrame(schema=_KOLOMMEN)
     perioden = pl.concat(delen, how="diagonal_relaxed")
-    if _PERIODE_EINDE not in perioden.columns:
+    if PERIODE_EINDE not in perioden.columns:
         perioden = perioden.with_columns(
-            pl.lit(None, dtype=pl.Date).alias(_PERIODE_EINDE)
+            pl.lit(None, dtype=pl.Date).alias(PERIODE_EINDE)
         )
     perioden = perioden.join(
         _peilgrens_per_levering(leveringen), on="levering", how="left"

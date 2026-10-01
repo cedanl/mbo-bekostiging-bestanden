@@ -186,7 +186,7 @@ leveringen, dan telt alleen de **meest recente levering**:
 
 Alle rijen van die inschrijving uit oudere leveringen vallen weg — in ISP (dus vóór alle indicatoren) én in de
 detailfeiten (`fact_bpv`, `fact_kzd`, `fact_amo`, `fact_geo`, bekostiging), zodat detailrijen altijd bij de gekozen
-levering horen. Dit gebeurt in `_bouw_analysetabellen()` via `canonicalisatie.py`.
+levering horen. Dit gebeurt in `transform.bouw_analysetabellen()` via `canonicalisatie.py`.
 
 - **Per inschrijving, niet per levering:** een inschrijving die alleen in de oudere levering staat, blijft staan.
 - **BRIN hoort bij de sleutel:** een inschrijvingvolgnummer is niet instellingsoverstijgend uniek.
@@ -241,7 +241,7 @@ Invariant (getest op de star-output en bewaakt in `quality.json`): precies één
     **Besluit (#201):** `fact_inschrijving_schooljaar` is de enige bron voor jaargebonden vlaggen en indicatoren;
     `fact_inschrijving` blijft periode-grain. Migratiepad: de eerstvolgende release markeert de kolommen
     (`contracts.VEROUDERDE_KOLOMMEN`, in `quality.json` → `star.verouderde_kolommen` en als info-melding) en de app
-    leest ze niet meer; v4.0.0 verwijdert ze, samen met hun berekening in `transform.py`. Dat geldt ook voor de
+    leest ze niet meer; v4.0.0 verwijdert ze, samen met hun berekening in `periodevlaggen.py`. Dat geldt ook voor de
     run-afhankelijke opbrengstjaar-kolommen (`Opbrengstjaar_*`, `_driejaars_teljaar`, `_num_opbrengstjaar_3jr`).
 
 | Vlag | Definitie |

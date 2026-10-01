@@ -21,7 +21,7 @@ from mbo_bekostiging_bestanden.contracts import (
 
 _SCHOOLJAAR = "Schooljaar"
 _TELDATUM = "Teldatum"
-# Schooljaar waarin een ISP-periode begint (transform._leid_studiejaar_af).
+# Schooljaar waarin een ISP-periode begint (perioden.leid_studiejaar_af).
 _PERIODE_JAAR = "Studiejaar_periode"
 # Koppelsleutels van detail-feiten naar fact_inschrijving, in voorkeursvolgorde:
 # de periodesleutel wijst één ISP-periode aan; de inschrijvingssleutel is de

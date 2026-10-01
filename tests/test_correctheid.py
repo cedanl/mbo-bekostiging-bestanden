@@ -30,8 +30,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from mbo_bekostiging_bestanden.identiteit import pseudoniem
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
-from mbo_bekostiging_bestanden.transform import pseudoniem
 
 FIXTURES = Path(__file__).parent / "fixtures" / "correctheid"
 NIEUW = "RO_99XX_20230801_20260324"

@@ -1,8 +1,8 @@
 """Ernst-niveaus voor kwaliteitsmeldingen (#238).
 
-Leaf-module zonder afhankelijkheden: zowel ``waardenlijsten.py`` (dat via
-``transform.py`` ván ``quality.py`` afhangt) als ``quality.py`` gebruiken
-dezelfde vocabulaire, zonder een cyclische import.
+Leaf-module zonder afhankelijkheden: zowel ``waardenlijsten.py`` (dat ook de
+sterbouw gebruikt) als ``quality.py`` gebruiken dezelfde vocabulaire, zonder
+een cyclische import.
 """
 
 ERROR = "error"

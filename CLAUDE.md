@@ -45,7 +45,9 @@ mbo-bekostiging-bestanden/
 │   ├── export.py                  # Schone data wegschrijven
 │   ├── pipeline.py                # Orkestratie van de fasen
 │   ├── stack.py                   # Leveringen stapelen
-│   ├── transform.py               # Domein-transformaties (intern, niet publiek)
+│   ├── transform.py               # Orkestratie van de analysetabellen
+│   ├── identiteit.py / perioden.py / inschrijvingen.py / details.py
+│   │                              # Sterbouw per domein (zie docs/architectuur.md)
 │   ├── enrich.py                  # Decodeertabellen joinen
 │   ├── star.py                    # Dimensionaal model (star schema)
 │   ├── cli.py                     # CLI entry point
