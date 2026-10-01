@@ -73,7 +73,7 @@ def test_pipeline_leest_officiele_dip_zonder_meldingen(tmp_path):
     run_auto_pipeline(bron, doel)
     rapport = json.loads((doel / "quality.json").read_text(encoding="utf-8"))
     assert rapport["domeinafwijkingen"] == {}
-    assert rapport["layoutvarianten"] == {"DIP": {"variant": "officieel"}}
+    assert rapport["layoutvarianten"]["DIP"]["variant"] == "officieel"
 
 
 @pytest.mark.parametrize(

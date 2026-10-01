@@ -128,6 +128,13 @@
                 "variant": {
                   "type": "string"
                 },
+                "afgewezen": {
+                  "type": "object",
+                  "description": "De niet gekozen layouts met de reden waarom ze niet passen (#358); een regel die toevallig alleen op een andere layout past, blijft zo zichtbaar",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
                 "uit_bestandsnaam": {
                   "type": "object",
                   "additionalProperties": {
