@@ -39,6 +39,28 @@ def test_bol_dt_is_geldig_tot_en_met_31_juli_2023(datum, buiten):
         assert afwijking["Leertraject"]["buiten_geldigheid"] == 1
 
 
+def test_alleen_buiten_geldigheid_is_geen_domeinschending():
+    """#360: de waarde zit in het domein; alleen het venster klopt niet. Dat is
+    ook bij een error-domein hooguit een warning (historisch geldige waarde)."""
+    afwijking = _toets("Leertraject", ["BOL_DT"], [date(2024, 8, 1)])
+    assert afwijking["Leertraject"] == {
+        "aantal": 0,
+        "ernst": "warning",
+        "buiten_geldigheid": 1,
+    }
+
+
+def test_echte_schending_naast_buiten_geldigheid_houdt_de_domeinernst():
+    afwijking = _toets(
+        "Leertraject", ["BOL_DT", "ONBEKEND"], [date(2024, 8, 1), date(2024, 8, 1)]
+    )
+    assert afwijking["Leertraject"] == {
+        "aantal": 1,
+        "ernst": "error",
+        "buiten_geldigheid": 1,
+    }
+
+
 def test_leerroutefase_is_pas_geldig_vanaf_1_augustus_2020():
     afwijking = _toets(
         "Leerroutefase", ["VO", "MBO"], [date(2020, 7, 31), date(2020, 8, 1)]
@@ -77,8 +99,12 @@ def test_audit_bewijs_via_de_pipeline(tmp_path):
     run_auto_pipeline(bron, tmp_path / "uit", fail_on_errors=False)
     rapport = json.loads((tmp_path / "uit" / "quality.json").read_text("utf-8"))
     assert rapport["domeinafwijkingen"]["ISP"]["Leertraject"]["buiten_geldigheid"] == 1
-    # Leertraject is verplicht en buiten geldigheid geeft error (#354)
-    assert any("buiten hun domein" in e for e in rapport["errors"])
+    # Geldigheid is geen domeinschending (#360): warning, geen error, en de
+    # melding noemt geen "0 (...)".
+    assert not any("buiten hun domein" in e for e in rapport["errors"])
+    melding = next(w for w in rapport["warnings"] if "buiten hun domein" in w)
+    assert "buiten hun geldigheid: 1" in melding
+    assert "waarvan buiten" not in melding
 
 
 @pytest.mark.parametrize("schema", ["ro", "grondslag", "tbgi"])
