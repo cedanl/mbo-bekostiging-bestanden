@@ -121,3 +121,19 @@ def test_cli_verwerk_dengan_allow_quality_errors_exit_nul(tmp_path, monkeypatch)
         "sys.argv", ["mbo", "verwerk", str(bron), str(doel), "--allow-quality-errors"]
     )
     main()  # Should not raise SystemExit
+
+
+def test_leveringsrapport_legt_de_override_vast(tmp_path):
+    """#394: een prepared-map met errors laat zien of ze bewust zijn toegestaan."""
+    demo = DEMO_RO
+    standaard = tmp_path / "standaard"
+    toegestaan = tmp_path / "toegestaan"
+    run_auto_pipeline(demo, standaard)
+    run_auto_pipeline(demo, toegestaan, fail_on_errors=False)
+
+    def vlag(map_: Path) -> bool:
+        rapport = json.loads((map_ / "quality.json").read_text(encoding="utf-8"))
+        return rapport["kwaliteitsfouten_toegestaan"]
+
+    assert vlag(standaard) is False
+    assert vlag(toegestaan) is True

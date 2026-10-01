@@ -210,6 +210,10 @@
               "type": "string"
             }
           },
+          "kwaliteitsfouten_toegestaan": {
+            "type": "boolean",
+            "description": "De verwerking mocht doorgaan bij quality-errors (mbo verwerk --allow-quality-errors); errors in dit rapport zijn dan bewust genegeerd (#394). Ontbreekt in prepared-rapporten van vóór #394, te lezen als false"
+          },
           "privacyprofiel": {
             "enum": ["brondata", "gepseudonimiseerd"],
             "description": "Brondata bevat persoons-identifiers (BSN/ONR/PGN); het analysemodel niet (#331)"

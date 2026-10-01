@@ -193,6 +193,9 @@ class QualityReport:
     # Naam, sha256 en PvE-versie van het ruwe bestand (#300); None in rapporten
     # van vóór #300.
     bronbestand: dict[str, str] | None = None
+    # De run mocht doorgaan bij errors (``--allow-quality-errors``, #394): zo is
+    # een prepared-map met errors later te herkennen als bewust toegestaan.
+    kwaliteitsfouten_toegestaan: bool = False
 
     def meld_parseverlies(self, verlies: dict[str, dict[str, int]]) -> None:
         """Neem parseverlies (zie :func:`tel_parseverlies`) op, met waarschuwing."""
@@ -254,6 +257,7 @@ class QualityReport:
             "warnings": self.warnings,
             "errors": self.errors,
             "bronbestand": self.bronbestand,
+            "kwaliteitsfouten_toegestaan": self.kwaliteitsfouten_toegestaan,
             "privacyprofiel": PROFIEL_BRONDATA,
         }
 
@@ -314,6 +318,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         warnings=data.get("warnings", []),
         errors=data.get("errors", []),
         bronbestand=data.get("bronbestand"),
+        kwaliteitsfouten_toegestaan=data.get("kwaliteitsfouten_toegestaan", False),
     )
 
 
