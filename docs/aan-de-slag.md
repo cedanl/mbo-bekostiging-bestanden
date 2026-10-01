@@ -120,7 +120,7 @@ uv run mbo stapel \
     --relative-to data/02-prepared/demo
 ```
 
-`mbo star` eindigt met exitcode 3 als `quality.json` de status `fail` heeft (#289). De ster en het rapport zijn dan wel geschreven, als diagnose. Met `--allow-quality-errors` bouwt de run door voor exploratief werk; dat staat in `provenance.kwaliteitsfouten_toegestaan` (ster) en in `kwaliteitsfouten_toegestaan` van het leveringsrapport (prepared, #394). Een kapot bronbestand geeft exitcode 1 met een korte melding (#291). De app blijft bouwen en toont de fout op Home (#290).
+`mbo star` eindigt met exitcode 3 als `quality.json` de status `fail` heeft (#289). De ster wordt dan niet gepubliceerd: ster en rapport staan als diagnose in `<output>/diagnose/`, en een eerdere publicatie in `<output>/datamodel/` blijft ongewijzigd (#363). Met `--allow-quality-errors` bouwt de run door voor exploratief werk; dat staat in `provenance.kwaliteitsfouten_toegestaan` (ster) en in `kwaliteitsfouten_toegestaan` van het leveringsrapport (prepared, #394). Een kapot bronbestand geeft exitcode 1 met een korte melding (#291). De app blijft bouwen en toont de fout op Home (#290).
 
 ---
 
@@ -200,8 +200,10 @@ star["dim_instelling"]           # instellingsnamen
 
 ```python
 import polars as pl
+from mbo_bekostiging_bestanden.publicatie import lees_ster
 
-fact = pl.read_parquet("data/03-output/demo/star/datamodel/fact_inschrijving.parquet")
+star = lees_ster("data/03-output/demo/star")  # weigert een ster met status fail
+fact = star["fact_inschrijving"]
 
 # Hoeveel bekostigde inschrijvingen per levering?
 fact.filter(pl.col("IndicatieBekostigbaar") == "J") \
@@ -266,6 +268,8 @@ data/
 │   └── h17/GRONDSLAG_IP_MBO_27DV_20251119_2025/
 └── 03-output/demo/
     └── star/
+        ├── quality.json   ← rapport bij de gepubliceerde ster
+        ├── diagnose/      ← alleen na een run met status fail: datamodel/ + quality.json, niet gepubliceerd
         └── datamodel/
             ├── dim_deelnemer.parquet
             ├── dim_opleiding.parquet

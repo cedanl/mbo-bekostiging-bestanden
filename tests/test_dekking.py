@@ -223,7 +223,7 @@ def test_bid_zonder_doorvertaling_faalt_de_run(
     with pytest.raises(KwaliteitsFout):
         run_star([grondslag_prepared], tmp_path)
 
-    assert _quality(tmp_path)["summary"]["status"] == "fail"
+    assert _quality(tmp_path / "diagnose")["summary"]["status"] == "fail"
 
 
 def test_demo_heeft_geen_dekkingsgaten(demo_prepared, tmp_path):

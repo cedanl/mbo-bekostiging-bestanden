@@ -1,9 +1,10 @@
 """Een quality-``fail`` is een publicatiepoort, geen losse mededeling (#289).
 
 Voorheen schreef ``run_star`` ook bij errors een ster en eindigde ``mbo star``
-met exitcode 0. De fout wordt nu na het schrijven van ``quality.json`` geworpen
-(het rapport blijft leesbaar); ``fail_on_errors=False`` is de expliciete override
-voor exploratief werk en staat in de provenance.
+met exitcode 0. De fout wordt nu na het schrijven van ``quality.json`` geworpen;
+het rapport blijft leesbaar in ``diagnose/`` (#363, zie ``test_publicatie.py``).
+``fail_on_errors=False`` is de expliciete override voor exploratief werk en
+staat in de provenance.
 """
 
 import json
@@ -36,7 +37,7 @@ def test_run_star_faalt_bij_quality_errors_maar_laat_het_rapport_staan(
     doel = tmp_path / "star"
     with pytest.raises(KwaliteitsFout, match="quality.json"):
         run_star(prepared_met_fout[1], doel)
-    assert _status(doel) == "fail"
+    assert _status(doel / "diagnose") == "fail"
 
 
 def test_override_bouwt_de_ster_en_legt_dat_vast_in_de_provenance(
@@ -69,7 +70,7 @@ def test_cli_star_eindigt_niet_nul_bij_quality_errors(
         main()
     assert uit.value.code == 3
     assert "quality.json" in capsys.readouterr().err
-    assert _status(doel) == "fail"
+    assert _status(doel / "diagnose") == "fail"
 
 
 def test_cli_override_geeft_exitcode_nul_en_meldt_de_status(

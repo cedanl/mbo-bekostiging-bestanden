@@ -17,6 +17,13 @@ from mbo_bekostiging_bestanden.ingest import (
     read_tbgi,
 )
 from mbo_bekostiging_bestanden.provenance import bronbestand, met_bronbestanden
+from mbo_bekostiging_bestanden.publicatie import (
+    DATAMODEL,
+    KWALITEITSRAPPORT,
+    bewaar_diagnose,
+    publiceer,
+    staging,
+)
 from mbo_bekostiging_bestanden.quality import (
     SCENARIO_ONBEKEND,
     KwaliteitsFout,
@@ -253,12 +260,13 @@ def run_star(
                      provenance van ``quality.json``.
 
     Returns:
-        Dict met de star-schema-tabellen; tevens geschreven naar
-        ``<target>/datamodel/``.
+        Dict met de star-schema-tabellen; tevens atomair gepubliceerd naar
+        ``<target>/datamodel/`` met ``<target>/quality.json`` (``publicatie.py``).
 
     Raises:
-        KwaliteitsFout: Bij status ``fail`` en ``fail_on_errors``; de ster en
-            ``quality.json`` zijn dan wel al geschreven, als diagnose.
+        KwaliteitsFout: Bij status ``fail`` en ``fail_on_errors``. De ster en
+            ``quality.json`` staan dan in ``<target>/diagnose/``; een eerdere
+            publicatie blijft ongewijzigd (#363).
     """
     target = Path(target)
     labels = leveringslabels(sources, relative_to)
@@ -273,7 +281,6 @@ def run_star(
     star_tables["meta_leveringen"] = met_bronbestanden(
         star_tables["meta_leveringen"], deliveries
     )
-    export_frames(star_tables, target / "datamodel")
     quality_report = compile_quality_report(
         star_tables,
         deliveries=deliveries,
@@ -281,13 +288,18 @@ def run_star(
         invoer=invoer,
         fouten_toegestaan=not fail_on_errors,
     )
-    rapport_pad = write_quality_json(quality_report, target / "quality.json")
-    samenvatting = quality_report["summary"]
-    if fail_on_errors and samenvatting["status"] == "fail":
-        raise KwaliteitsFout(
-            f"Kwaliteitsstatus fail ({samenvatting['total_errors']} error(s)); "
-            f"zie {rapport_pad}"
-        )
+    gepubliceerd = quality_report["provenance"]["gepubliceerd"]
+    with staging(target) as map_:
+        export_frames(star_tables, map_ / DATAMODEL)
+        write_quality_json(quality_report, map_ / KWALITEITSRAPPORT)
+        if not gepubliceerd:
+            rapport_pad = bewaar_diagnose(map_, target)
+            raise KwaliteitsFout(
+                "Kwaliteitsstatus fail "
+                f"({quality_report['summary']['total_errors']} error(s)); niet "
+                f"gepubliceerd, zie {rapport_pad}"
+            )
+        publiceer(map_, target)
 
     return star_tables
 

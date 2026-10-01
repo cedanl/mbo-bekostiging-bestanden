@@ -355,13 +355,18 @@
         "kwaliteitsfouten_toegestaan": {
           "type": "boolean",
           "description": "De run mocht doorgaan bij quality-errors (mbo star --allow-quality-errors, of de app); een status fail is dan bewust genegeerd (#289)"
+        },
+        "gepubliceerd": {
+          "type": "boolean",
+          "description": "De ster staat in datamodel/ (status pass/warn, of fail met kwaliteitsfouten_toegestaan); false: alleen als diagnose in diagnose/ (#363)"
         }
       },
       "required": [
         "pakketversie",
         "git_commit",
         "referentiemanifest_sha256",
-        "kwaliteitsfouten_toegestaan"
+        "kwaliteitsfouten_toegestaan",
+        "gepubliceerd"
       ],
       "additionalProperties": false
     },
