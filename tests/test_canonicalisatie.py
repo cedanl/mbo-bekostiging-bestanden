@@ -21,6 +21,7 @@ from mbo_bekostiging_bestanden.canonicalisatie import (
     vervangen_inschrijvingen,
     verwijder_vervangen,
 )
+from mbo_bekostiging_bestanden.contracts import SCHOOLJAAR_FEIT
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
 
 RO_27DV = Path("data/01-raw/demo/h15/RO_27DV_20240731_20260324.csv")
@@ -258,10 +259,10 @@ def test_dubbele_levering_telt_eenmaal(ro_27dv, tmp_path):
 
 def test_dubbele_levering_indicatoren_gelijk_aan_enkele(ro_27dv, tmp_path):
     kopie = _kopieer_levering(ro_27dv, tmp_path / "h15" / "RO_27DV_kopie")
-    vlaggen = ["_actief_1_oktober", "_hoofdinschrijving", "_telling", "_jr_noemer"]
+    vlaggen = ["_hoofdinschrijving", "_telling", "_jr_noemer", "_dr_noemer"]
 
-    enkel = run_star([ro_27dv], tmp_path / "enkel")["fact_inschrijving"]
-    dubbel = run_star([ro_27dv, kopie], tmp_path / "dubbel")["fact_inschrijving"]
+    enkel = run_star([ro_27dv], tmp_path / "enkel")[SCHOOLJAAR_FEIT]
+    dubbel = run_star([ro_27dv, kopie], tmp_path / "dubbel")[SCHOOLJAAR_FEIT]
 
     assert dubbel.select(pl.col(vlaggen).sum()).equals(
         enkel.select(pl.col(vlaggen).sum())

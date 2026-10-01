@@ -3,41 +3,7 @@
     "description": "Demo star schema indicator snapshot - after DatumUitschrijvingWerkelijk hard bound fix (#163)",
     "commit": "main + #163",
     "date": "2026-09-25",
-    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts. meta_leveringen 4 -> 5: TBGI-levering (zonder VLP/SLR) staat er nu ook in (#188). fact_inschrijving_schooljaar (#164): jaren uit het periodebereik (#193), JR-venster = schooljaar zelf (#194), DR alleen als t+1 waarneembaar is. #196: de TBGI-inschrijving 25LX/002 (niet in RO_25LX) is centrale rij (Bron=TBGI): fact_inschrijving 46 -> 47, dim_deelnemer 26 -> 27, schooljaar 2025 +1 rij (telling, bekostigd, jr_noemer); legacy-vlaggen van die rij staan uit (#201)."
-  },
-  "indicators": {
-    "_actief_1_oktober": {
-      "true": 22,
-      "total": 47
-    },
-    "_hoofdinschrijving": {
-      "true": 22,
-      "total": 47
-    },
-    "_telling": {
-      "true": 22,
-      "total": 47
-    },
-    "_jr_noemer": {
-      "true": 22,
-      "total": 47
-    },
-    "_jr_teller": {
-      "true": 0,
-      "total": 47
-    },
-    "_dr_noemer": {
-      "true": 19,
-      "total": 47
-    },
-    "_dr_teller": {
-      "true": 5,
-      "total": 47
-    },
-    "_bekostigd_eerste_1okt": {
-      "true": 20,
-      "total": 47
-    }
+    "notes": "DatumUitschrijvingWerkelijk is now hard bound for period end. Periodes ending before 1-okt are correctly excluded from active counts. meta_leveringen 4 -> 5: TBGI-levering (zonder VLP/SLR) staat er nu ook in (#188). fact_inschrijving_schooljaar (#164): jaren uit het periodebereik (#193), JR-venster = schooljaar zelf (#194), DR alleen als t+1 waarneembaar is. #196: de TBGI-inschrijving 25LX/002 (niet in RO_25LX) is centrale rij (Bron=TBGI): fact_inschrijving 46 -> 47, dim_deelnemer 26 -> 27, schooljaar 2025 +1 rij (telling, bekostigd, jr_noemer); legacy-vlaggen van die rij staan uit (#201). #201: de legacy-indicatoren op periode-grain zijn uit fact_inschrijving verwijderd; de indicatoren staan alleen nog in per_schooljaar."
   },
   "tables": {
     "dim_deelnemer": 27,
@@ -56,59 +22,19 @@
   },
   "per_levering": {
     "h15/RO_21CY_20250730_20250731": {
-      "rows": 5,
-      "_actief_1_oktober": 4,
-      "_hoofdinschrijving": 4,
-      "_telling": 4,
-      "_jr_noemer": 4,
-      "_jr_teller": 0,
-      "_dr_noemer": 4,
-      "_dr_teller": 0,
-      "_bekostigd_eerste_1okt": 4
+      "rows": 5
     },
     "h15/RO_25LX_20250101_20251231": {
-      "rows": 3,
-      "_actief_1_oktober": 2,
-      "_hoofdinschrijving": 2,
-      "_telling": 2,
-      "_jr_noemer": 2,
-      "_jr_teller": 0,
-      "_dr_noemer": 2,
-      "_dr_teller": 1,
-      "_bekostigd_eerste_1okt": 1
+      "rows": 3
     },
     "h15/RO_27DV_20240731_20260324": {
-      "rows": 19,
-      "_actief_1_oktober": 6,
-      "_hoofdinschrijving": 6,
-      "_telling": 6,
-      "_jr_noemer": 6,
-      "_jr_teller": 0,
-      "_dr_noemer": 4,
-      "_dr_teller": 4,
-      "_bekostigd_eerste_1okt": 5
+      "rows": 19
     },
     "h17/GRONDSLAG_IP_MBO_27DV_20251119_2025": {
-      "rows": 19,
-      "_actief_1_oktober": 10,
-      "_hoofdinschrijving": 10,
-      "_telling": 10,
-      "_jr_noemer": 10,
-      "_jr_teller": 0,
-      "_dr_noemer": 9,
-      "_dr_teller": 0,
-      "_bekostigd_eerste_1okt": 10
+      "rows": 19
     },
     "h16/TBGI_25LX_2027_20251124": {
-      "rows": 1,
-      "_actief_1_oktober": 0,
-      "_hoofdinschrijving": 0,
-      "_telling": 0,
-      "_jr_noemer": 0,
-      "_jr_teller": 0,
-      "_dr_noemer": 0,
-      "_dr_teller": 0,
-      "_bekostigd_eerste_1okt": 0
+      "rows": 1
     }
   },
   "per_schooljaar": {

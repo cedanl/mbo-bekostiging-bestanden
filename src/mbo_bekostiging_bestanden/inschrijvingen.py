@@ -26,7 +26,6 @@ from mbo_bekostiging_bestanden.koppelingen import Koppelingen
 from mbo_bekostiging_bestanden.metadata import alle_extra_kolommen
 from mbo_bekostiging_bestanden.opleidingsniveau import vul_niveau_aan
 from mbo_bekostiging_bestanden.perioden import leid_studiejaar_af, voeg_periode_id_toe
-from mbo_bekostiging_bestanden.periodevlaggen import voeg_periodevlaggen_toe
 from mbo_bekostiging_bestanden.stack import heeft_records
 
 _ISG_KOLOMMEN = (
@@ -145,10 +144,13 @@ def _voeg_afgeleide_velden_toe(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _verrijk(df: pl.DataFrame) -> pl.DataFrame:
-    """Studiejaar, niveau, periodevlaggen en afgeleide velden; ISP en TBGI gelijk."""
+    """Studiejaar, niveau en afgeleide velden; ISP en TBGI gelijk.
+
+    Jaargebonden vlaggen horen hier niet: die staan alleen op de schooljaar-grain
+    (``schooljaar.py``, #201).
+    """
     df = leid_studiejaar_af(df)
     df = vul_niveau_aan(df)
-    df = voeg_periodevlaggen_toe(df)
     return _voeg_afgeleide_velden_toe(df)
 
 

@@ -34,8 +34,6 @@ from mbo_bekostiging_bestanden.contracts import (
     PRECISIE_SUFFIX,
     SCHOOLJAAR_FEIT,
     SCHOOLJAAR_GRAIN,
-    VEROUDERD_TOT,
-    VEROUDERDE_KOLOMMEN,
 )
 from mbo_bekostiging_bestanden.filters import detail_zonder_inschrijving
 from mbo_bekostiging_bestanden.koppelingen import UNIEK
@@ -1062,13 +1060,6 @@ def _referentiedata(star: dict[str, pl.DataFrame]) -> dict[str, Any]:
     }
 
 
-def _verouderde_kolommen(star: dict[str, pl.DataFrame]) -> dict[str, list[str]]:
-    """Legacy jaarkolommen die de ster nog heeft; ze verdwijnen in v4.0.0 (#201)."""
-    inschrijvingen = star.get(_CENTRAAL_FEIT, pl.DataFrame())
-    aanwezig = [k for k in VEROUDERDE_KOLOMMEN if k in inschrijvingen.columns]
-    return {_CENTRAAL_FEIT: aanwezig} if aanwezig else {}
-
-
 def _ster(ernst_: str, tekst: str) -> Melding:
     return Melding(ernst_, _BRON_STER, tekst)
 
@@ -1154,15 +1145,6 @@ def _meldingen_zonder_schooljaar(leveringen: list[dict[str, Any]]) -> Iterator[M
             ERNST_WARNING,
             "leveringen zonder waarneembare peildatum: "
             + ", ".join(r["levering"] for r in leveringen),
-        )
-
-
-def _meldingen_verouderd(per_tabel: dict[str, list[str]]) -> Iterator[Melding]:
-    for tabel, kolommen in per_tabel.items():
-        yield _ster(
-            ERNST_INFO,
-            f"{tabel}: {len(kolommen)} verouderde jaargebonden kolommen verdwijnen "
-            f"in {VEROUDERD_TOT}; gebruik {SCHOOLJAAR_FEIT} (#201)",
         )
 
 
@@ -1328,11 +1310,6 @@ _STER_CHECKS: tuple[_SterCheck, ...] = (
         "leveringen_zonder_schooljaar",
         _alleen_ster(_leveringen_zonder_schooljaar),
         _meldingen_zonder_schooljaar,
-    ),
-    _SterCheck(
-        "verouderde_kolommen",
-        _alleen_ster(_verouderde_kolommen),
-        _meldingen_verouderd,
     ),
     _SterCheck("dr_scope", _alleen_ster(_dr_scope), _meldingen_dr_scope),
     _SterCheck(

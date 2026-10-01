@@ -92,35 +92,22 @@ DUO werkt met drie jaarbegrippen die in de data voorkomen:
 
 "Boekjaar" (fiscaal jaar) is geen DUO-concept en wordt niet gebruikt.
 
-#### Berekende vlaggen in fact_inschrijving
+#### Afgeleide kolommen in fact_inschrijving
 
-!!! warning "Tel niet op deze vlaggen — gebruik `fact_inschrijving_schooljaar`"
-    Deze vlaggen staan op **periode-grain** en zijn verouderd (#201). Een periode die meerdere 1-oktobers dekt,
-    telt hier één keer; in de demo telt `_telling` daardoor tot drie rijen per persoon per levering. Voor tellingen
-    en rendementen per schooljaar is `fact_inschrijving_schooljaar` de bron (zie [Datamodel](datamodel.md)).
+`fact_inschrijving` staat op **periode-grain** en draagt geen jaargebonden vlaggen: tellingen op 1 oktober,
+hoofdinschrijving en rendementen (JR/DR/Entree) staan per schooljaar in `fact_inschrijving_schooljaar` (zie
+[Datamodel](datamodel.md)). Tot en met v3.4.0 stonden er ook periode-varianten van die vlaggen; v4.0.0 heeft ze
+verwijderd (#201).
 
-fact_inschrijving voegt per inschrijvingsperiode een reeks berekende vlaggen toe:
-
-| Groep | Kolom | Type | Betekenis |
-|---|---|---|---|
-| Bekostiging | `_actief_1_oktober` | `Boolean` | ISP omvat 1 oktober van het studiejaar |
-| | `_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 oktober EN bekostigbaar (IndicatieBekostigbaar = 'J') |
-| | `_gediplomeerd_in_jaar` | `Boolean` | DIP-record aanwezig in het studiejaar |
-| | `_ingeschreven_jaar_later` | `Boolean` | Nog ingeschreven in het volgende studiejaar |
-| | `_deelnemer_niet_bekostigd_eerste_1okt` | `Boolean` | Actief op 1 okt maar niet bekostigd |
-| Selectie | `_hoogste_niveau` | `Boolean` | Hoogste numeriek niveau per persoon × instelling × levering, over de hele historiek (niet per studiejaar) |
-| | `_laagste_CREBO` | `Boolean` | Laagste CREBO-code bij gelijk niveau |
-| | `_hoofdinschrijving` | `Boolean` | Precies één rij per persoon × studiejaar × instelling × levering: hoogste niveau, dan laagste CREBO, dan meest recente periode |
-| Tellingen | `_telling` | `Boolean` | `_actief_1_oktober AND _hoofdinschrijving` — telt de deelnemer mee voor bekostiging |
-| Rendement | `_jr_noemer` | `Boolean` | = `_telling`; noemer van het Jaarresultaat |
-| | `_jr_teller` | `Boolean` | Noemer AND gediplomeerd_in_jaar (teller van het Jaarresultaat) |
-| Entree | `_entree_uitstroom` | `Boolean` | MBO-1 + uitgeschreven (geen actieve ISP meer). Verouderd: gebruik `_entree_*` in `fact_inschrijving_schooljaar` (#306) |
-| | `_entree_doorstroom` | `Boolean` | MBO-1 + een hogere inschrijving bij dezelfde instelling. Verouderd, zie hierboven |
-| Afgeleid | `Niveau_gecombineerd` | `Utf8` | Niveau + spatie + Leertraject (bijv. `MBO-4 BOL`) |
+| Kolom | Type | Betekenis |
+|---|---|---|
+| `Studiejaar_periode` | `Int64` | Studiejaar waarin de periode begint |
+| `_niveau_herkomst` | `Utf8` | Herkomst van `Niveau`: bron, CREBO, S-BB of onbekend |
+| `Niveau_gecombineerd` | `Utf8` | Niveau + spatie + Leertraject (bijv. `MBO-4 BOL`) |
 
 #### Verrijking via decodeertabellen
 
-Na het berekenen van de vlaggen worden leesbare labels toegevoegd via LEFT JOINs op de
+Daarna worden leesbare labels toegevoegd via LEFT JOINs op de
 decodeertabellen in `metadata/`:
 
 | Bronkolom | Toegevoegde kolommen | Decodeertabel |

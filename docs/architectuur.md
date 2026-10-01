@@ -60,7 +60,6 @@ gebouwd (#198):
 | `inschrijvingen.py` | de centrale inschrijvingstabel: ISP-perioden met PER/ISG/VLP/ISE/DIP/GEO, aangevuld met TBGI |
 | `details.py` | detailtabellen (BPV, KZD/AMO, GEO, bekostiging) en hun aggregaten per periode |
 | `opleidingsniveau.py` | niveau-aanvulling bron → CREBO → S-BB |
-| `periodevlaggen.py` | jaargebonden vlaggen op periode-grain (legacy, verdwijnt in v4.0.0, #201) |
 | `schooljaar.py` | de schooljaar-grain: peildatum, hoofdinschrijving, JR/DR/Entree |
 
 Een module gebruikt van een andere module alleen publieke namen; een private

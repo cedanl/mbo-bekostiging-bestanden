@@ -99,11 +99,6 @@ _PERSON_IDENTIFIER_COLS = set(PERSOON_COLS)
 _PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
 
 
-# Interne tussenstap-kolommen, niet bedoeld voor het exporteerbare star schema.
-# List aggregaat uit _bepaal_actief_per_schooljaar (periodevlaggen.py).
-_INTERNAL_COLS = {"_schooljaren_actief"}
-
-
 # ---------------------------------------------------------------------------
 # Publieke API
 # ---------------------------------------------------------------------------
@@ -167,14 +162,7 @@ def build_star(
     ]
     fact_inschrijving = inschrijvingen.select(fact_cols)
 
-    to_drop = []
-    pii_to_drop = [c for c in _PII_DROP if c in fact_inschrijving.columns]
-    internal_to_drop = [c for c in _INTERNAL_COLS if c in fact_inschrijving.columns]
-    to_drop.extend(pii_to_drop)
-    to_drop.extend(internal_to_drop)
-
-    if to_drop:
-        fact_inschrijving = fact_inschrijving.drop(to_drop)
+    fact_inschrijving = fact_inschrijving.drop(_PII_DROP, strict=False)
 
     return {
         "dim_deelnemer": dim_deelnemer,
