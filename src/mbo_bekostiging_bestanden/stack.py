@@ -20,6 +20,28 @@ def leveringslabels(
     return [p.relative_to(relative_to).as_posix() for p in paths]
 
 
+def _controleer_bronnen(paths: list[Path], labels: list[str] | None) -> None:
+    if labels is not None and len(labels) != len(paths):
+        raise ValueError(
+            f"labels heeft {len(labels)} elementen, sources heeft {len(paths)}"
+        )
+    for p in paths:
+        if not p.exists():
+            raise FileNotFoundError(f"Bronmap niet gevonden: {p}")
+
+
+def _lees_levering(
+    path: Path, label: str, label_col: str
+) -> list[tuple[str, pl.DataFrame]]:
+    """Tabellen van één levering, met de leveringskolom als eerste kolom."""
+    uit = []
+    for parquet in sorted(path.glob("*.parquet")):
+        df = pl.read_parquet(parquet).with_columns(pl.lit(label).alias(label_col))
+        df = df.select([label_col, *[c for c in df.columns if c != label_col]])
+        uit.append((parquet.stem, df))
+    return uit
+
+
 def stack_prepared(
     sources: Sequence[Path | str],
     label_col: str = "levering",
@@ -55,25 +77,14 @@ def stack_prepared(
     paths = [Path(s) for s in sources]
     if not paths:
         return {}
-
-    if labels is not None and len(labels) != len(paths):
-        raise ValueError(
-            f"labels heeft {len(labels)} elementen, sources heeft {len(paths)}"
-        )
-
-    for p in paths:
-        if not p.exists():
-            raise FileNotFoundError(f"Bronmap niet gevonden: {p}")
-
+    _controleer_bronnen(paths, labels)
     if labels is None:
         labels = leveringslabels(paths, relative_to)
 
     tables: dict[str, list[pl.DataFrame]] = {}
     for path, label in zip(paths, labels, strict=True):
-        for parquet in sorted(path.glob("*.parquet")):
-            df = pl.read_parquet(parquet).with_columns(pl.lit(label).alias(label_col))
-            df = df.select([label_col, *[c for c in df.columns if c != label_col]])
-            tables.setdefault(parquet.stem, []).append(df)
+        for tabel, df in _lees_levering(path, label, label_col):
+            tables.setdefault(tabel, []).append(df)
 
     return {
         tabel: pl.concat(frames, how="diagonal_relaxed")
