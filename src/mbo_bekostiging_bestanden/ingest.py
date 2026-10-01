@@ -460,13 +460,22 @@ def _tel_onbekende_elementen(
     structuur: dict[str, dict[str, str | None]],
     gevonden: dict[str, dict[str, int]],
 ) -> None:
+    def tel(in_groep: str, tag: str) -> None:
+        per_tag = gevonden.setdefault(in_groep, {})
+        per_tag[tag] = per_tag.get(tag, 0) + 1
+
     for kind in elem:
         kindgroep = structuur[groep].get(kind.tag, False)
         if kindgroep is False:
-            per_tag = gevonden.setdefault(groep, {})
-            per_tag[kind.tag] = per_tag.get(kind.tag, 0) + 1
+            tel(groep, kind.tag)
         elif kindgroep:
             _tel_onbekende_elementen(kind, kindgroep, structuur, gevonden)
+        else:
+            # Een blad heeft geen kinderen; wat erin staat is een uitbreiding
+            # van DUO onder dat blad (#359). De tekstwaarde van het blad zelf
+            # wordt wel gelezen.
+            for afstammeling in list(kind.iter())[1:]:
+                tel(kind.tag, afstammeling.tag)
 
 
 def inventariseer_xml_elementen(path: str | Path, schema_name: str = "tbgi") -> dict:
