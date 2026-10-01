@@ -168,3 +168,40 @@ def test_resultaten_filtert_detailfeit_op_koppelstatus(demo_star_dir):
     assert not app.exception
     [tabel] = [t for t in app.dataframe if "_periode_koppel_status" in t.value.columns]
     assert set(tabel.value["_periode_koppel_status"]) == {"binnen_periode"}
+
+
+def test_onbekende_xml_elementen_worden_per_levering_gemeld(tmp_path):
+    """#367: een nieuw DUO-element mag niet alleen in een detail-expander staan."""
+    from mbo_bekostiging_bestanden.quality import lees_onbekende_xml_elementen
+
+    pad = tmp_path / "quality.json"
+    pad.write_text(
+        json.dumps(
+            {
+                "deliveries": [
+                    {
+                        "levering": "TBGI_1",
+                        "regelinventaris": {
+                            "onbekende_xml_elementen": {
+                                "Inschrijving": {"NieuwVeld": 2, "Ander": 1}
+                            }
+                        },
+                    },
+                    {"levering": "RO_1", "regelinventaris": {}},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert lees_onbekende_xml_elementen(pad) == [
+        "TBGI_1: Inschrijving.Ander (1x)",
+        "TBGI_1: Inschrijving.NieuwVeld (2x)",
+    ]
+
+
+def test_zonder_onbekende_xml_elementen_geen_meldingen(tmp_path):
+    from mbo_bekostiging_bestanden.quality import lees_onbekende_xml_elementen
+
+    pad = tmp_path / "quality.json"
+    pad.write_text(json.dumps({"deliveries": [{"levering": "L"}]}), encoding="utf-8")
+    assert lees_onbekende_xml_elementen(pad) == []

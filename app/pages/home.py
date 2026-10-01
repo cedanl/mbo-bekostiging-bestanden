@@ -25,6 +25,7 @@ from mbo_bekostiging_bestanden.quality import (
     controleer_koppelingen,
     controleer_niveau,
     controleer_sleuteluniciteit,
+    lees_onbekende_xml_elementen,
     lees_status,
     slr_status_icoon,
 )
@@ -44,6 +45,11 @@ _KWALITEITSMELDINGEN = {
     "niveau_onbekend": (
         "**Niveau onbekend** — voor deze opleidingscodes kent geen bron of "
         "referentietabel een niveau; ze tellen niet mee in JR/DR (niveau ≥ 2):"
+    ),
+    "onbekende_xml_elementen": (
+        "**Onbekende XML-elementen** — DUO levert elementen die het schema niet "
+        "kent. Ze zijn doorgelaten maar zitten niet in de analyse; controleer of "
+        "er een nieuw veld bij is gekomen:"
     ),
 }
 
@@ -151,6 +157,9 @@ def _bouw_analysemodel(prep_dirs: list[Path], prepared: Path) -> tuple[dict, lis
         "wees_feiten": controleer_koppelingen(star),
         "dubbele_sleutels": controleer_sleuteluniciteit(star),
         "niveau_onbekend": controleer_niveau(star),
+        "onbekende_xml_elementen": lees_onbekende_xml_elementen(
+            star_output / "quality.json"
+        ),
     }, []
 
 

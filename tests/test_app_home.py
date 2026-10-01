@@ -123,3 +123,48 @@ def test_home_toont_succes_bij_schone_run(demo_prepared, paden, monkeypatch):
 
     assert any("analysemodel klaar" in s.value.lower() for s in app.success)
     assert not any("kwaliteitsfout" in e.value for e in app.error)
+
+
+def _prepared_met_onbekend_xml_element(tmp_path):
+    """Demo-RO plus een TBG-i-kopie met een extra element; de demo blijft heel."""
+    from conftest import RAW
+
+    basis = tmp_path / "prepared_xml"
+    ro = RAW / "h15" / "RO_21CY_20250730_20250731.csv"
+    pipeline.run_auto_pipeline(ro, basis / "h15" / ro.stem)
+    tbgi = next((RAW / "h16").glob("TBGI_*.XML"))
+    kopie = tmp_path / tbgi.name
+    kopie.write_text(
+        tbgi.read_text(encoding="utf-8").replace(
+            "<BRIN>", "<NieuwDuoElement>x</NieuwDuoElement><BRIN>", 1
+        ),
+        encoding="utf-8",
+    )
+    pipeline.run_auto_pipeline(kopie, basis / "h16" / kopie.stem)
+    return basis
+
+
+def test_home_toont_onbekend_xml_element_bij_de_status(paden, monkeypatch, tmp_path):
+    """#367: de tagnaam staat in het statusblok, naast de quality-status."""
+    import _utils
+
+    monkeypatch.setattr(
+        _utils, "prepared_dir", lambda: _prepared_met_onbekend_xml_element(tmp_path)
+    )
+    app = _home()
+    _knop(app, "Bouw analysemodel").click().run()
+
+    assert not app.exception
+    assert any("NieuwDuoElement" in w.value for w in app.warning)
+
+
+def test_home_zonder_onbekend_xml_element_geen_extra_melding(
+    demo_prepared, paden, monkeypatch
+):
+    import _utils
+
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: demo_prepared[0])
+    app = _home()
+    _knop(app, "Bouw analysemodel").click().run()
+
+    assert not any("onbekende xml" in w.value.lower() for w in app.warning)

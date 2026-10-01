@@ -579,6 +579,23 @@ def _niveau_issues(star: dict[str, pl.DataFrame]) -> dict[str, int]:
     }
 
 
+def lees_onbekende_xml_elementen(quality_json: Path | str) -> list[str]:
+    """Meldingen over XML-elementen die het schema niet kent, voor de app (#367).
+
+    Een nieuw inhoudelijk DUO-element wordt bewust doorgelaten (#324) en komt
+    niet in de analyse; zonder deze melding ziet niemand dat het ontbreekt.
+    """
+    rapport = json.loads(Path(quality_json).read_text(encoding="utf-8"))
+    return [
+        f"{levering['levering']}: {groep}.{tag} ({aantal}x)"
+        for levering in rapport["deliveries"]
+        for groep, tags in levering.get("regelinventaris", {})
+        .get("onbekende_xml_elementen", {})
+        .items()
+        for tag, aantal in sorted(tags.items())
+    ]
+
+
 def controleer_niveau(star: dict[str, pl.DataFrame]) -> list[str]:
     """Melding over inschrijvingen zonder bekend niveau, voor de app."""
     niveau_issues = _niveau_issues(star)
