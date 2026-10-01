@@ -120,6 +120,7 @@ def _run(
     )
     quality_report.domeindekking = dekkingsoverzicht(schema_naam)
     quality_report.bronbestand = bronbestand(source_path)
+    quality_report.kwaliteitsfouten_toegestaan = not fail_on_errors
     quality_report.meld_regelinventaris(inventaris(source_path, schema_naam))
     if layouts is not None:
         quality_report.layoutvarianten = layouts(source_path, schema_naam)
