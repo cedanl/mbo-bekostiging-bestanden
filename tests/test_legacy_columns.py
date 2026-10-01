@@ -1,84 +1,51 @@
-"""Guard: de app gebruikt geen verouderde jaarvlaggen uit fact_inschrijving (#370).
+"""``fact_inschrijving`` heeft geen jaargebonden vlaggen meer (#201).
 
-De kolommen in ``contracts.VEROUDERDE_KOLOMMEN`` verdwijnen in
-``VEROUDERD_TOT`` (#201). Een deel (``_telling``, ``_jr_*``, ``_dr_*``, …)
-bestaat onder dezelfde naam in ``fact_inschrijving_schooljaar``, waar de app
-ze terecht leest; een naamscan kan die niet onderscheiden. Voor die namen
-bewijst ``test_dashboard_jaren.test_dashboard_leest_geen_verouderde_kolommen``
-het gedrag op een ster zonder legacy-kolommen. Deze scan dekt de rest: namen
-die alleen in de periode-fact bestaan, dus elk gebruik is legacy.
+Ze stonden er sinds #164 dubbel naast ``fact_inschrijving_schooljaar``, met
+dezelfde namen maar andere getallen (demo: ``_dr_noemer`` 19 tegenover 6).
+Na markering in v3.2.0–v3.4.0 zijn ze in v4.0.0 verwijderd; de schooljaar-fact
+is de enige bron.
 """
-
-import ast
-from pathlib import Path
 
 import pytest
 
-from mbo_bekostiging_bestanden.contracts import SCHOOLJAAR_FEIT, VEROUDERDE_KOLOMMEN
+from mbo_bekostiging_bestanden.contracts import SCHOOLJAAR_FEIT
 
-APP = Path(__file__).parents[1] / "app"
-
-# Bestand → verouderde kolom → reden. Leeg houden; een nieuwe uitzondering
-# verwijst naar #201.
-UITZONDERINGEN: dict[str, dict[str, str]] = {}
-
-
-@pytest.fixture(scope="module")
-def alleen_legacy(demo_star) -> set[str]:
-    return set(VEROUDERDE_KOLOMMEN) - set(demo_star[SCHOOLJAAR_FEIT].columns)
-
-
-def _gebruikte_strings(bron: str) -> set[str]:
-    """String-constanten in code; docstrings en comments tellen niet."""
-    boom = ast.parse(bron)
-    docstrings = {
-        id(knoop.body[0].value)
-        for knoop in ast.walk(boom)
-        if isinstance(
-            knoop, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
-        )
-        and knoop.body
-        and isinstance(knoop.body[0], ast.Expr)
-        and isinstance(knoop.body[0].value, ast.Constant)
-    }
-    return {
-        knoop.value
-        for knoop in ast.walk(boom)
-        if isinstance(knoop, ast.Constant)
-        and isinstance(knoop.value, str)
-        and id(knoop) not in docstrings
-    }
+# De kolommen zoals ze tot en met v3.4.0 in fact_inschrijving stonden.
+VERWIJDERD = (
+    "_actief_1_oktober",
+    "_bekostigd_eerste_1okt",
+    "_gediplomeerd_in_jaar",
+    "_ingeschreven_jaar_later",
+    "_deelnemer_niet_bekostigd_eerste_1okt",
+    "_hoogste_niveau",
+    "_laagste_CREBO",
+    "_hoofdinschrijving",
+    "_telling",
+    "_jr_noemer",
+    "_jr_teller",
+    "_dr_noemer",
+    "_dr_teller",
+    "_entree_uitstroom",
+    "_entree_doorstroom",
+    "Opbrengstjaar_uitsplitsing",
+    "_driejaars_teljaar",
+    "Opbrengstjaar_3jaars_voortschrijdend",
+    "_num_opbrengstjaar_3jr",
+    "_schooljaren_actief",
+)
 
 
-def test_er_zijn_kolommen_die_alleen_legacy_zijn(alleen_legacy):
-    """Zonder deze namen zou de scan hieronder niets bewaken."""
-    assert alleen_legacy
+@pytest.mark.parametrize("bron", ["demo_star", "demo_tabellen"])
+def test_periode_grain_heeft_geen_jaarvlaggen(bron, request):
+    tabellen = request.getfixturevalue(bron)
+    tabel = "fact_inschrijving" if bron == "demo_star" else "inschrijvingen"
+    assert set(VERWIJDERD) & set(tabellen[tabel].columns) == set()
 
 
-def test_app_gebruikt_geen_verouderde_kolommen(alleen_legacy):
-    overtredingen = {
-        str(bestand.relative_to(APP.parent)): sorted(gevonden)
-        for bestand in sorted(APP.rglob("*.py"))
-        if (
-            gevonden := (
-                _gebruikte_strings(bestand.read_text(encoding="utf-8")) & alleen_legacy
-            )
-            - set(UITZONDERINGEN.get(str(bestand.relative_to(APP.parent)), {}))
-        )
-    }
-    assert overtredingen == {}, (
-        "Gebruik fact_inschrijving_schooljaar; deze kolommen verdwijnen in v4.0.0 "
-        f"(#201): {overtredingen}"
+def test_schooljaar_fact_draagt_de_indicatoren(demo_star):
+    """De gedeelde namen blijven bestaan, op de schooljaar-grain."""
+    kolommen = set(demo_star[SCHOOLJAAR_FEIT].columns)
+    assert {"_telling", "_jr_noemer", "_jr_teller", "_dr_noemer", "_dr_teller"} <= (
+        kolommen
     )
-
-
-def test_scan_ziet_een_expres_toegevoegd_gebruik(alleen_legacy):
-    kolom = sorted(alleen_legacy)[0]
-    bron = f'df.filter(pl.col("{kolom}"))\n'
-    assert kolom in _gebruikte_strings(bron)
-
-
-def test_scan_negeert_docstrings(alleen_legacy):
-    kolom = sorted(alleen_legacy)[0]
-    bron = f'"""{kolom}"""\n\n\nclass C:\n    """{kolom}"""\n'
-    assert _gebruikte_strings(bron) == set()
+    assert {"_hoofdinschrijving", "_entree_uitstroom"} <= kolommen

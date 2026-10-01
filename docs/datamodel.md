@@ -52,7 +52,7 @@ geschreven.
 | `dim_deelnemer` | Persoon | `_persoon_id` | Persoonskenmerken (geslacht, geboorteland, gemeente …). `Geboortedatum_precisie` (`dag`/`maand`/`jaar`) geeft aan of dag of maand onbekend was (`00` in de bron); de datum is dan de 1e van de maand/het jaar. Bij jaar `0000` is de datum null en de precisie `onbekend` |
 | `dim_opleiding` | Opleiding | `Opleidingcode` | CREBO-attributen incl. S-BB koppeltabel |
 | `dim_instelling` | Instelling | `BRIN` | Naam en vestigingsplaats van elke BRIN in de feiten (ook als die alleen in de bekostiging voorkomt) |
-| `fact_inschrijving` | ISP-inschrijvingsperiode, of TBGI-inschrijving zonder ISP | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. `Bron` = `ISP` (RO/GRONDSLAG-periode) of `TBGI` (inschrijving die alleen in TBG-i staat, #196). De jaargebonden vlaggen hierin zijn verouderd: gebruik `fact_inschrijving_schooljaar` |
+| `fact_inschrijving` | ISP-inschrijvingsperiode, of TBGI-inschrijving zonder ISP | `_inschrijving_periode_id` | Centrale feittabel op periode-grain (bronreconstructie); bevat periode-attributen en aggregaten. `Bron` = `ISP` (RO/GRONDSLAG-periode) of `TBGI` (inschrijving die alleen in TBG-i staat, #196). Geen jaargebonden vlaggen: die staan in `fact_inschrijving_schooljaar` (#201) |
 | `fact_inschrijving_schooljaar` | Persoon × instelling × inschrijving × schooljaar | `BRIN` + `_persoon_id` + `Inschrijvingvolgnummer` + `Schooljaar` | Eén rij per schooljaar waarin een inschrijving op de peildatum (1 oktober) actief is, met hoofdinschrijving, telling, bekostigd, JR, DR en Entree. FK `_inschrijving_periode_id` wijst de periode aan die de peildatum dekt |
 | `fact_bpv` | BPV-overeenkomst | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Volgnummer` | Alle BPV-periodes per inschrijving |
 | `fact_kzd` | Keuzedeel-resultaat | `levering` + `_persoon_id` + `Inschrijvingvolgnummer` + `Resultaatvolgnummer` | KZD-resultaten per inschrijving; `Behaald` (bool) is exact bepaald uit de waardenlijst (`Behaald`/`Niet behaald`), null bij een onbekende waarde |
@@ -169,7 +169,7 @@ peildatum. De ster ontdubbelt dat niet stil; de geschonden contracten maken het 
 
 **Interne kolommen.** Kolommen die met `_` beginnen zijn afgeleid door de pipeline (vlaggen, sleutels, herkomst),
 geen DUO-velden. `_persoon_id` en `_inschrijving_periode_id` zijn sleutels; `_niveau_herkomst` en `Bron` leggen de
-herkomst vast. Hulpkolommen die alleen tijdens de bouw bestaan (`_schooljaren_actief`, `_bron`, `_rij`) en de
+herkomst vast. Hulpkolommen die alleen tijdens de bouw bestaan (`_bron`, `_rij`) en de
 persoons-identifiers (BSN, onderwijsnummer, PGN) komen niet in de ster.
 
 **Tellingseenheid (grain).** Elke feitstabel hoort uniek te zijn per zijn eigen grain-kolommen (zie tabel "Grain" hierboven).
@@ -233,28 +233,18 @@ waarvan een ISP-periode de peildatum dekt. Deze tabel is de bron voor tellingen,
 
 Invariant (getest op de star-output en bewaakt in `quality.json`): precies één `_hoofdinschrijving` per `BRIN × _persoon_id × Schooljaar`.
 
-### Indicatoren in fact_inschrijving (verouderd)
+### Geen jaarvlaggen in fact_inschrijving
 
-!!! warning "Verouderd — verdwijnt in v4.0.0"
-    Deze vlaggen staan op periode-grain: één Boolean voor een periode die meerdere schooljaren kan dekken. Ze missen
-    tussenliggende schooljaren (#193) en gebruiken een verschoven diplomavenster (#194). Gebruik
-    `fact_inschrijving_schooljaar`.
+**Besluit (#201):** `fact_inschrijving_schooljaar` is de enige bron voor jaargebonden vlaggen en indicatoren;
+`fact_inschrijving` is periode-grain zonder jaarvlaggen. Tot en met v3.4.0 stonden er negentien periode-varianten
+(`_actief_1_oktober`, `_hoofdinschrijving`, `_telling`, `_jr_*`, `_dr_*`, `_entree_*`, de opbrengstjaar-kolommen
+e.a.) met dezelfde namen maar andere getallen: één Boolean voor een periode die meerdere schooljaren kan dekken.
+Ze waren in v3.2.0–v3.4.0 als verouderd gemarkeerd en zijn in v4.0.0 verwijderd. Wie ze las, gebruikt de
+gelijknamige kolommen in `fact_inschrijving_schooljaar` (zie hierboven) en koppelt via `_persoon_id`, `BRIN` en
+`Inschrijvingvolgnummer`.
 
-    **Besluit (#201):** `fact_inschrijving_schooljaar` is de enige bron voor jaargebonden vlaggen en indicatoren;
-    `fact_inschrijving` blijft periode-grain. Migratiepad: de eerstvolgende release markeert de kolommen
-    (`contracts.VEROUDERDE_KOLOMMEN`, in `quality.json` → `star.verouderde_kolommen` en als info-melding) en de app
-    leest ze niet meer; v4.0.0 verwijdert ze, samen met hun berekening in `periodevlaggen.py`. Dat geldt ook voor de
-    run-afhankelijke opbrengstjaar-kolommen (`Opbrengstjaar_*`, `_driejaars_teljaar`, `_num_opbrengstjaar_3jr`).
-
-| Vlag | Definitie |
+| Kolom | Definitie |
 |---|---|
-| `_actief_1_oktober` | De **ISP-periode** dekt 1 oktober van het studiejaar: `DatumBegin ≤ 1-10 ≤ _periode_einde`, met `_periode_einde` = vroegste van volgende `DatumBegin` − 1, `DatumEind` en `DatumUitschrijvingWerkelijk` (#163) |
-| `_hoofdinschrijving` | Eén inschrijving per deelnemer × studiejaar bij deze instelling: hoogste niveau, dan laagste CREBO, dan meest recente periode |
-| `_gediplomeerd_in_jaar` | Diploma behaald in het studiejaar |
-| `_jr_noemer` / `_jr_teller` | Populatie en teller voor Jaarresultaat (JR) |
-| `_dr_noemer` / `_dr_teller` | Populatie en teller voor Diplomaresultaat (DR) |
-| `_entree_doorstroom` / `_entree_uitstroom` | Niveau-1 doorstroom- en uitstroomcategorieën op periode-grain (een student met meerdere perioden telt meermaals); in `fact_inschrijving_schooljaar` staan `_entree_noemer`/`_entree_doorstroom`/`_entree_uitstroom` op schooljaar-grain (#306) |
-| `_hoogste_niveau` / `_laagste_CREBO` | Hoogste niveau (en daarbinnen laagste CREBO) per levering × BRIN × persoon **over de hele historiek**, niet per schooljaar |
 | `_niveau_herkomst` | Waar `Niveau` vandaan komt: `bron`, `crebo` (`crebo.csv`), `sbb` (S-BB-koppeltabel), `sbb_nvt` (S-BB kent de code zonder niveau) of `onbekend`. Rijen zonder niveau vallen buiten JR/DR; Home meldt ze (`quality.controleer_niveau`). |
 
 ### Relatie met QlikView-referentiemodel

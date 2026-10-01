@@ -1,8 +1,8 @@
 """Interne analysetabellen vanuit gestapelde genormaliseerde records.
 
 Alleen orkestratie; de logica staat per domein in ``identiteit``,
-``perioden``, ``inschrijvingen``, ``periodevlaggen``, ``opleidingsniveau`` en
-``details``. Output (nul informatieverlies):
+``perioden``, ``inschrijvingen``, ``opleidingsniveau`` en ``details``. Output
+(nul informatieverlies):
 
   inschrijvingen      ISP-grain, alles flat + dynamische GEO-pivot +
                       BPV/KZD/AMO geaggregeerd per ISP-periode

@@ -52,35 +52,9 @@ KOPPELSTATUSSEN = (
     KOPPELSTATUS_GEEN_INSCHRIJVING,
 )
 
-# Jaargebonden vlaggen op periode-grain: verouderd sinds fact_inschrijving_schooljaar
-# (#164). Migratiepad (#201): een release markeert ze, de major daarna verwijdert ze.
-VEROUDERD_TOT = "v4.0.0"
-VEROUDERDE_KOLOMMEN = (
-    "_actief_1_oktober",
-    "_bekostigd_eerste_1okt",
-    "_gediplomeerd_in_jaar",
-    "_ingeschreven_jaar_later",
-    "_deelnemer_niet_bekostigd_eerste_1okt",
-    "_hoogste_niveau",
-    "_laagste_CREBO",
-    "_hoofdinschrijving",
-    "_telling",
-    "_jr_noemer",
-    "_jr_teller",
-    "_dr_noemer",
-    "_dr_teller",
-    "_entree_uitstroom",
-    "_entree_doorstroom",
-    "Opbrengstjaar_uitsplitsing",
-    "_driejaars_teljaar",
-    "Opbrengstjaar_3jaars_voortschrijdend",
-    "_num_opbrengstjaar_3jr",
-)
-
 # Bron-BRIN van een detailrij die afwijkt van haar parent-inschrijving (#357);
 # de parent wint in ``BRIN``, de bronwaarde blijft zichtbaar.
 BRIN_BRON = "_brin_bron"
-
 # Business key per detailfeit (#327, tabel in docs/datamodel.md).
 _INSCHRIJVING = tuple(JOIN_INSCHRIJVING)
 DETAIL_GRAIN: dict[str, tuple[str, ...]] = {

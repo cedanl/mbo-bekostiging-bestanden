@@ -133,7 +133,9 @@ def test_fact_bevat_fks_en_measures():
     assert "_persoon_id" in fact.columns
     assert "Opleidingcode" in fact.columns
     assert "BRIN" in fact.columns
-    assert "_telling" in fact.columns
+    assert "Studiejaar" in fact.columns
+    # Jaarvlaggen staan alleen op de schooljaar-fact (#201).
+    assert "_telling" not in fact.columns
     assert "Instelling_naam" not in fact.columns
     assert "Opleiding_naam" not in fact.columns
     assert "Geslacht" not in fact.columns

@@ -22,7 +22,6 @@ STERBOUW = {
     "identiteit",
     "perioden",
     "inschrijvingen",
-    "periodevlaggen",
     "opleidingsniveau",
     "details",
     "star",

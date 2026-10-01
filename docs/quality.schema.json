@@ -644,16 +644,6 @@
           ],
           "additionalProperties": false
         },
-        "verouderde_kolommen": {
-          "type": "object",
-          "description": "Per tabel de jaargebonden kolommen die verouderd zijn en in v4.0.0 verdwijnen; gebruik fact_inschrijving_schooljaar (#201)",
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
         "periode_koppelstatus": {
           "type": "object",
           "description": "Per detail-feit het aantal rijen per _periode_koppel_status (#121): binnen_periode (referentiedatum valt in de periode), datum_leeg / voor_eerste_periode / geen_datumkolom (teruggevallen op de eerste periode van de inschrijving), geen_inschrijving (lege sleutel)",
@@ -811,7 +801,6 @@
         "canonicalisatie",
         "join_keuzes",
         "leveringen_zonder_schooljaar",
-        "verouderde_kolommen",
         "periode_koppelstatus",
         "dr_scope",
         "referentiedata",

@@ -1,10 +1,8 @@
-"""Snapshot test voor demo-star indicatoruitkomsten (#147).
+"""Snapshot van de demo-ster: rijen per tabel en indicatoren per schooljaar (#147).
 
-Deze test vastlegt de verwachte aantallen per indicator en per star-tabel
-op de demo-data. Dit is een CONTRACT: elke wijziging aan indicator-logica
-moet bewust en gedomineerd zijn, niet ongemerkt door een test die 'about equal' checkt.
-
-De baseline is main e022f05 (voor PR #150 herontwerp).
+Een contract: elke wijziging in de indicatorlogica of de rijtellingen moet een
+bewuste aanpassing van de fixture zijn, niet een test die "ongeveer gelijk"
+accepteert. De indicatoren staan sinds #201 alleen op de schooljaar-grain.
 """
 
 import json
@@ -15,16 +13,6 @@ import pytest
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "demo_snapshot_main_baseline.json"
 
-INDICATOR_COLS = [
-    "_actief_1_oktober",
-    "_hoofdinschrijving",
-    "_telling",
-    "_jr_noemer",
-    "_jr_teller",
-    "_dr_noemer",
-    "_dr_teller",
-    "_bekostigd_eerste_1okt",
-]
 
 TABLE_NAMES = [
     "dim_deelnemer",
@@ -60,27 +48,6 @@ def demo_star_snapshot(demo_star):
     return demo_star, expected
 
 
-def test_indicator_totals_match_snapshot(demo_star_snapshot):
-    """Totaal aantallen per indicator moeten exact overeenkomen met fixture."""
-    star, expected = demo_star_snapshot
-    fact = star["fact_inschrijving"]
-
-    for col in INDICATOR_COLS:
-        if col not in fact.columns:
-            pytest.skip(f"Kolom {col} niet in fact_inschrijving")
-        actual_true = fact.filter(pl.col(col)).height
-        actual_total = fact.height
-        exp_true = expected["indicators"][col]["true"]
-        exp_total = expected["indicators"][col]["total"]
-
-        assert actual_total == exp_total, (
-            f"{col}: totaal {actual_total} != {exp_total} (fixture)"
-        )
-        assert actual_true == exp_true, (
-            f"{col}: true {actual_true} != {exp_true} (fixture)"
-        )
-
-
 def test_table_row_counts_match_snapshot(demo_star_snapshot):
     """Rijaantallen per star-tabel moeten exact overeenkomen."""
     star, expected = demo_star_snapshot
@@ -93,8 +60,12 @@ def test_table_row_counts_match_snapshot(demo_star_snapshot):
         assert actual == exp, f"{table_name}: {actual} rijen != {exp} (fixture)"
 
 
-def test_per_levering_indicators_match_snapshot(demo_star_snapshot):
-    """Indicatoraantallen per levering moeten exact overeenkomen."""
+def test_per_levering_rijen_match_snapshot(demo_star_snapshot):
+    """Rijen per levering in fact_inschrijving moeten exact overeenkomen.
+
+    De indicatoren staan sinds #201 alleen op de schooljaar-grain (zie
+    :func:`test_schooljaar_indicatoren_match_snapshot`).
+    """
     star, expected = demo_star_snapshot
     fact = star["fact_inschrijving"]
 
@@ -110,15 +81,6 @@ def test_per_levering_indicators_match_snapshot(demo_star_snapshot):
             f"{lev_name}: {lev_fact.height} rijen != {lev_expected['rows']} (fixture)"
         )
 
-        for col in INDICATOR_COLS:
-            if col not in lev_fact.columns:
-                continue
-            actual_true = lev_fact.filter(pl.col(col)).height
-            exp_true = lev_expected[col]
-            assert actual_true == exp_true, (
-                f"{lev_name}.{col}: true {actual_true} != {exp_true} (fixture)"
-            )
-
 
 def test_snapshot_has_all_required_keys():
     """Valideer dat de fixture alle verwachte keys bevat."""
@@ -126,14 +88,9 @@ def test_snapshot_has_all_required_keys():
         data = json.load(f)
 
     assert "metadata" in data
-    assert "indicators" in data
     assert "tables" in data
     assert "per_levering" in data
-
-    for col in INDICATOR_COLS:
-        assert col in data["indicators"], f"Ontbrekende indicator in fixture: {col}"
-        assert "true" in data["indicators"][col]
-        assert "total" in data["indicators"][col]
+    assert "per_schooljaar" in data
 
     for table in TABLE_NAMES:
         assert table in data["tables"], f"Ontbrekende tabel in fixture: {table}"

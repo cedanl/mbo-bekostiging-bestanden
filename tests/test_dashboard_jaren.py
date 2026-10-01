@@ -53,27 +53,19 @@ def test_tbgi_only_metrics_zijn_niet_nul(dashboard):
     assert _metric(dashboard, "Actief op 1-oktober") > 0
 
 
-# Alleen in fact_inschrijving (periode-grain) en verouderd (#201). Namen die ook
-# in fact_inschrijving_schooljaar bestaan (_telling, _jr_*, …) staan in
-# contracts.VEROUDERDE_KOLOMMEN; hier gaat het erom dat het dashboard ze uit de
-# periode-fact niet nodig heeft.
+# Sinds #201 heeft fact_inschrijving geen jaargebonden vlaggen meer; het
+# dashboard rekent alles op fact_inschrijving_schooljaar.
 @pytest.fixture(scope="module")
-def star_zonder_legacy(demo_prepared, tmp_path_factory) -> Path:
-    import polars as pl
-
-    from mbo_bekostiging_bestanden.contracts import VEROUDERDE_KOLOMMEN
-
+def demo_star_dir(demo_prepared, tmp_path_factory) -> Path:
     prepared, dirs = demo_prepared
-    doel = tmp_path_factory.mktemp("star_zonder_legacy")
+    doel = tmp_path_factory.mktemp("demo_star")
     run_star(dirs, doel, relative_to=prepared)
-    pad = doel / "datamodel" / "fact_inschrijving.parquet"
-    pl.read_parquet(pad).drop(VEROUDERDE_KOLOMMEN, strict=False).write_parquet(pad)
     return doel
 
 
-def test_dashboard_leest_geen_verouderde_kolommen(star_zonder_legacy):
+def test_dashboard_werkt_zonder_jaarvlaggen_op_periode_grain(demo_star_dir):
     app = AppTest.from_file(_DASHBOARD, default_timeout=120)
-    app.session_state["resultaten_dir"] = star_zonder_legacy
+    app.session_state["resultaten_dir"] = demo_star_dir
     app.run()
     assert not app.exception
     meldingen = [i.value for i in app.info]
