@@ -18,6 +18,7 @@ import polars as pl
 from mbo_bekostiging_bestanden import ernst
 from mbo_bekostiging_bestanden.canonicalisatie import INSCHRIJVING, REGEL
 from mbo_bekostiging_bestanden.contracts import (
+    BRIN_BRON,
     BRON,
     BRON_BID,
     BRON_BII,
@@ -1257,23 +1258,28 @@ class _SterCheck:
     meldingen: Callable[[Any], Iterable[Melding]]
 
 
-def _brin_conflict(
-    star: dict[str, pl.DataFrame], invoer: dict[str, pl.DataFrame]
-) -> dict[str, int]:
-    """BRIN in brondata die afwijkt van de parent-inschrijving (#357)."""
-    return {feit: 0 for feit in DETAIL_GRAIN}
+def _brin_conflict(star: dict[str, pl.DataFrame]) -> dict[str, int]:
+    """Per detailfeit de rijen waarvan de bron-BRIN afwijkt van de parent (#357).
+
+    De ster bewaart die bronwaarde in ``_brin_bron``; ``BRIN`` is die van de
+    parent-inschrijving.
+    """
+    return {
+        feit: int(df[BRIN_BRON].is_not_null().sum())
+        if BRIN_BRON in (df := star.get(feit, pl.DataFrame())).columns
+        else 0
+        for feit in DETAIL_GRAIN
+    }
 
 
-def _meldingen_brin_conflict(
-    conflicts: dict[str, int],
-) -> Iterable[Melding]:
-    for feit in DETAIL_GRAIN:
-        count = conflicts.get(feit, 0)
-        if count > 0:
-            yield Melding(
-                ernst.WARNING,
-                _BRON_STER,
-                f"{count} {feit} rijen met BRIN-conflict met parent",
+def _meldingen_brin_conflict(conflicten: dict[str, int]) -> Iterator[Melding]:
+    for feit, aantal in conflicten.items():
+        if aantal:
+            yield _ster(
+                ERNST_WARNING,
+                f"{feit}: {aantal} rij(en) met een bron-BRIN die afwijkt van de "
+                f"parent-inschrijving; BRIN volgt de parent, de bronwaarde staat "
+                f"in {BRIN_BRON} (#357)",
             )
 
 
@@ -1293,7 +1299,7 @@ _STER_CHECKS: tuple[_SterCheck, ...] = (
         _alleen_ster(_sleuteldubbelingen),
         _meldingen_sleuteldubbelingen,
     ),
-    _SterCheck("brin_conflict", _brin_conflict, _meldingen_brin_conflict),
+    _SterCheck("brin_conflict", _alleen_ster(_brin_conflict), _meldingen_brin_conflict),
     _SterCheck("niveau_issues", _alleen_ster(_niveau_issues), _meldingen_niveau),
     _SterCheck(
         "overlapping_deliveries",

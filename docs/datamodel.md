@@ -103,7 +103,9 @@ test houdt deze tabel en de code gelijk, en `quality.json` → `star.key_duplica
 detailfeit de uniciteit (een dubbele sleutel is een error, #328). Elk detailfeit heeft een
 `BRIN`-kolom, afgeleid van de parent-inschrijving via `_inschrijving_periode_id`; alleen een rij
 zonder parent houdt de BRIN uit haar eigen bron. Zo hangt het schema niet af van de bronmix
-(RO-BPV heeft zelf geen BRIN, GRONDSLAG-BPV wel). De `Inschrijvingvolgnummer` van een
+(RO-BPV heeft zelf geen BRIN, GRONDSLAG-BPV wel). Levert de bron een BRIN die afwijkt van de
+parent, dan staat die bronwaarde in `_brin_bron` (anders leeg) en telt `quality.json` →
+`star.brin_conflict` de rijen als warning (#357). De `Inschrijvingvolgnummer` van een
 TBGI-diploma zonder inschrijving is leeg (zie hieronder).
 
 **Bekostiging over leveringen heen.** TBGI-bekostiging komt altijd uit een andere levering dan

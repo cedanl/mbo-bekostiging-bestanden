@@ -16,7 +16,11 @@ import re
 
 import polars as pl
 
-from mbo_bekostiging_bestanden.contracts import PERIODE_SLEUTEL, SCHOOLJAAR_FEIT
+from mbo_bekostiging_bestanden.contracts import (
+    BRIN_BRON,
+    PERIODE_SLEUTEL,
+    SCHOOLJAAR_FEIT,
+)
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
 from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS
 from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
@@ -295,6 +299,8 @@ def _met_brin_van_inschrijving(
     Het schema van een detailfeit hangt zo niet af van de bronmix: RO-BPV heeft
     zelf geen BRIN, GRONDSLAG-BPV wel. De eigen bronwaarde telt alleen voor
     rijen zonder parent (bijv. een TBG-i-diploma zonder inschrijving, #196).
+    Wijkt ze af van de parent, dan staat ze in ``_brin_bron`` (#357); anders
+    is die kolom leeg.
     """
     if detail.is_empty() or "BRIN" not in fact_inschrijving.columns:
         return detail
@@ -302,9 +308,13 @@ def _met_brin_van_inschrijving(
         *PERIODE_SLEUTEL, pl.col("BRIN").alias("_brin_parent")
     ).unique(subset=PERIODE_SLEUTEL, keep="first")
     eigen = pl.col("BRIN") if "BRIN" in detail.columns else pl.lit(None, pl.Utf8)
+    afwijkend = pl.when(eigen != pl.col("_brin_parent")).then(eigen)
     return (
         detail.join(parent, on=PERIODE_SLEUTEL, how="left")
-        .with_columns(pl.coalesce("_brin_parent", eigen).alias("BRIN"))
+        .with_columns(
+            pl.coalesce("_brin_parent", eigen).alias("BRIN"),
+            afwijkend.cast(pl.Utf8).alias(BRIN_BRON),
+        )
         .drop("_brin_parent")
     )
 
