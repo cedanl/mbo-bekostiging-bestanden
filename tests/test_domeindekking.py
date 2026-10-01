@@ -16,11 +16,12 @@ from mbo_bekostiging_bestanden.metadata import load_schema
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.waardenlijsten import (
     controleer_waardedomeinen,
+    dekkingsoverzicht,
     domeindekking,
     velden_zonder_domein,
 )
 
-SCHEMAS = ("ro", "grondslag")
+SCHEMAS = ("ro", "grondslag", "tbgi")
 
 
 @pytest.mark.parametrize("schema", SCHEMAS)
@@ -30,6 +31,12 @@ def test_elk_veld_heeft_een_domein_of_een_reden(schema):
         for rt, velden in domeindekking(schema).items()
     }
     assert {rt: v for rt, v in ongedekt.items() if v} == {}
+
+
+def test_tbgi_dekkingsoverzicht_heeft_geen_ongedekte_velden():
+    """#356: de belofte \"een domein of een reden per veld\" gold alleen voor RO en
+    GRONDSLAG."""
+    assert dekkingsoverzicht("tbgi")["geen"] == 0
 
 
 def test_elke_reden_hoort_bij_een_veld_zonder_domein():
