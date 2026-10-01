@@ -104,6 +104,29 @@ def test_onbekend_element_in_een_genest_element_krijgt_zijn_eigen_groep(tmp_path
     }
 
 
+def test_element_binnen_een_bladelement_wordt_gemeld_onder_dat_blad(tmp_path):
+    """#359: de tekstwaarde van het blad wordt nog gelezen, maar een kind
+    erbinnen (een DUO-uitbreiding) was onzichtbaar."""
+    bron = _kopie(
+        tmp_path,
+        ("<BRIN>25LX</BRIN>", "<BRIN>25LX<Extra>xyz</Extra></BRIN>"),
+    )
+    assert inventariseer_xml_elementen(bron) == {
+        "onbekende_xml_elementen": {"BRIN": {"Extra": 1}}
+    }
+
+
+def test_diep_genest_element_in_een_blad_telt_ook(tmp_path):
+    bron = _kopie(
+        tmp_path,
+        ("<BRIN>25LX</BRIN>", "<BRIN>25LX<A><B>1</B></A></BRIN>"),
+    )
+    assert inventariseer_xml_elementen(bron)["onbekende_xml_elementen"]["BRIN"] == {
+        "A": 1,
+        "B": 1,
+    }
+
+
 def test_inventaris_van_demo_is_leeg():
     assert inventariseer_xml_elementen(DEMO_TBGI) == {"onbekende_xml_elementen": {}}
 
