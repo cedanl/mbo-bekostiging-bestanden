@@ -160,7 +160,8 @@
                 "type": "object",
                 "properties": {
                   "aantal": {
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "Echte domeinschendingen, inclusief lege waarden in een verplicht veld; 0 als alleen buiten_geldigheid of zonder_peildatum telt (#360)"
                   },
                   "ernst": {
                     "type": "string",
@@ -172,11 +173,11 @@
                   },
                   "buiten_geldigheid": {
                     "type": "integer",
-                    "description": "Deel van aantal: waarde binnen het domein maar buiten haar geldigheidsperiode op de peildatum van het recordtype (#325)"
+                    "description": "Waarden binnen het domein maar buiten hun geldigheidsperiode op de peildatum van het recordtype; niet in aantal en alleen een warning (#325, #360)"
                   },
                   "zonder_peildatum": {
                     "type": "integer",
-                    "description": "Tijdgebonden waarden zonder peildatum, dus zonder geldigheidstoets; niet in aantal (#325)"
+                    "description": "Tijdgebonden waarden zonder peildatum, dus zonder geldigheidstoets; niet in aantal en alleen een warning (#325, #360)"
                   }
                 },
                 "required": ["aantal", "ernst"],

@@ -117,26 +117,37 @@ def lees_status(quality_json: Path | str) -> tuple[str, int]:
     return samenvatting["status"], samenvatting["total_errors"]
 
 
-# Deelaantallen van een domeinafwijking en hun tekst in de melding. Lege
-# waarden apart sinds #320; buiten de geldigheidsperiode, of niet controleerbaar
-# bij een ontbrekende peildatum, sinds #325.
-_DEELAANTALLEN = {
-    "leeg": "waarvan leeg",
-    "buiten_geldigheid": "waarvan buiten hun geldigheid",
+# Tellers van een domeinafwijking die in ``aantal`` zitten (lege waarden apart
+# sinds #320) en tellers die ernaast staan: een waarde buiten haar
+# geldigheidsperiode of zonder peildatum is geen domeinschending (#325, #360).
+_DEELAANTAL_TEKST = {"leeg": "waarvan leeg"}
+_NEVENTELLER_TEKST = {
+    "buiten_geldigheid": "buiten hun geldigheid",
     "zonder_peildatum": "zonder peildatum voor de geldigheid",
 }
 
 
 def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
-    """Aantal afwijkende waarden, met de deelaantallen apart benoemd."""
+    """Het aantal schendingen, met de deelaantallen en neventellers benoemd.
+
+    Een neventeller staat alleen in de tekst als hij gevuld is, en zonder
+    schendingen is er geen ``0 (...)`` maar alleen de neventeller.
+    """
     delen = [
         f"{tekst}: {afwijking[sleutel]}"
-        for sleutel, tekst in _DEELAANTALLEN.items()
+        for sleutel, tekst in _DEELAANTAL_TEKST.items()
         if afwijking.get(sleutel)
     ]
-    if not delen:
-        return afwijking["aantal"]
-    return f"{afwijking['aantal']} ({'; '.join(delen)})"
+    aantal = afwijking["aantal"]
+    neven = [
+        f"{tekst}: {afwijking[sleutel]}"
+        for sleutel, tekst in _NEVENTELLER_TEKST.items()
+        if afwijking.get(sleutel)
+    ]
+    schendingen = f"{aantal} ({'; '.join(delen)})" if delen else aantal
+    if not neven:
+        return schendingen
+    return "; ".join(([str(schendingen)] if aantal else []) + neven)
 
 
 # Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.

@@ -212,9 +212,10 @@ def controleer_waardedomeinen(
         anders ``"warning"``, #238). Bij een domein met ``verplicht = true``
         telt een lege waarde ook mee in ``aantal`` en staat het aantal lege
         waarden apart in ``leeg`` (#320); anders tellen lege waarden niet.
-        Een waarde buiten haar ``geldigheid`` op de peildatum telt mee en staat
-        apart in ``buiten_geldigheid``; ``zonder_peildatum`` telt de
-        tijdgebonden waarden die niet te toetsen waren (niet in ``aantal``).
+        Een waarde buiten haar ``geldigheid`` op de peildatum staat apart in
+        ``buiten_geldigheid`` en ``zonder_peildatum`` telt de tijdgebonden
+        waarden die niet te toetsen waren; beide tellen niet mee in ``aantal``
+        en geven alleen een ``warning`` (#360).
     """
     schema = load_schema(schema_name)
     domeinen = _laad()["domein"]
@@ -233,12 +234,15 @@ def controleer_waardedomeinen(
             tellingen = _tel_afwijkingen(df, veld, domein, peildatum)
             if not tellingen:
                 continue
-            buiten = tellingen.pop("buiten", 0)
+            aantal = tellingen.pop("buiten", 0) + tellingen.get("leeg", 0)
+            # Zonder echte domeinschending is de waarde hooguit historisch of
+            # niet toetsbaar (#360): nooit een error, ook niet bij een
+            # verplicht veld.
             afwijking: dict[str, int | str] = {
-                "aantal": buiten
-                + tellingen.get("leeg", 0)
-                + tellingen.get("buiten_geldigheid", 0),
-                "ernst": domein.get("ernst", ernst.WARNING),
+                "aantal": aantal,
+                "ernst": domein.get("ernst", ernst.WARNING)
+                if aantal
+                else ernst.WARNING,
             }
             afwijkingen.setdefault(rt, {})[veld] = afwijking | tellingen
     return afwijkingen
