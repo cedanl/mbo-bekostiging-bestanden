@@ -14,7 +14,13 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import PAGINA_INTRO, tabel_help
-from _utils import groepeer_prepared, vind_prepared_dirs, vind_star_dir
+from _utils import (
+    analysemodel_bijschrift,
+    brondata_bijschrift,
+    groepeer_prepared,
+    vind_prepared_dirs,
+    vind_star_dir,
+)
 
 from mbo_bekostiging_bestanden.contracts import (
     KOPPELSTATUS,
@@ -67,12 +73,17 @@ def _filter_koppelstatus(df: pl.DataFrame, tabel: str) -> pl.DataFrame:
     return df.filter(pl.col(KOPPELSTATUS).is_in(gekozen)) if gekozen else df
 
 
-def _toon_tabel_sectie(titel: str, tabellen: dict[str, Path], help_fn=None):
-    """Render tabel-selectie, preview en download."""
+def _toon_tabel_sectie(
+    titel: str, tabellen: dict[str, Path], help_fn=None, bijschrift: str = ""
+):
+    """Render tabel-selectie, preview en download; ``bijschrift`` noemt map en
+    status van het product (#285)."""
     if not tabellen:
         return False
 
     st.subheader(titel)
+    if bijschrift:
+        st.caption(bijschrift)
     gekozen = st.selectbox(
         "Kies tabel", list(tabellen), key=f"tabel_{titel}", label_visibility="collapsed"
     )
@@ -170,16 +181,23 @@ if not star_tabellen and not tbgi_prepared and not other_prepared:
 if not star_tabellen:
     st.warning("Nog geen analysemodel (star schema) gebouwd; de brondata is er wel.")
 
-if star_tabellen:
-    _toon_tabel_sectie(_SECTIE_ANALYSEMODEL, star_tabellen, help_fn=tabel_help)
+if star_tabellen and star_dir:
+    _toon_tabel_sectie(
+        _SECTIE_ANALYSEMODEL,
+        star_tabellen,
+        help_fn=tabel_help,
+        bijschrift=analysemodel_bijschrift(star_dir),
+    )
 
-if other_prepared:
-    st.divider()
-    _toon_tabel_sectie(f"{_SECTIE_BRONDATA} — RO en GRONDSLAG", other_prepared)
-
-if tbgi_prepared:
-    st.divider()
-    _toon_tabel_sectie(f"{_SECTIE_BRONDATA} — TBG-i", tbgi_prepared)
+# Het bijschrift geldt voor de brondata als geheel: één keer, bij de eerste sectie.
+brondata = brondata_bijschrift(prepared_dirs) if prepared_dirs else ""
+for groep, tabellen in (("RO en GRONDSLAG", other_prepared), ("TBG-i", tbgi_prepared)):
+    if tabellen:
+        st.divider()
+        _toon_tabel_sectie(
+            f"{_SECTIE_BRONDATA} — {groep}", tabellen, bijschrift=brondata
+        )
+        brondata = ""
 
 st.write("")
 col_terug, _ = st.columns([1, 3])
