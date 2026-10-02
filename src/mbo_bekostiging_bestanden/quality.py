@@ -107,6 +107,7 @@ _REGELINVENTARIS_MELDINGEN = {
         "herhalen; betekenis onbekend, waarde bewaard in de brondata"
     ),
 }
+_ONLEESBARE_XML_VELDEN = "onleesbare_xml_velden"
 
 
 class KwaliteitsFout(Exception):
@@ -248,6 +249,17 @@ class QualityReport:
         for sleutel, tekst in _REGELINVENTARIS_MELDINGEN.items():
             if inventaris.get(sleutel):
                 self.warnings.append(f"{tekst}: {inventaris[sleutel]}")
+        # Waardeverlies, net als parseverlies (#390): een error (#421).
+        if onleesbaar := inventaris.get(_ONLEESBARE_XML_VELDEN):
+            self.errors.append(
+                "XML-velden met een genest element in plaats van een waarde "
+                "(niet ingelezen): "
+                + "; ".join(
+                    f"{groep}.{veld}: {m['aantal']} ({', '.join(m['plaatsen'])})"
+                    for groep, per_veld in onleesbaar.items()
+                    for veld, m in per_veld.items()
+                )
+            )
 
     def meld_domeinafwijkingen(
         self, afwijkingen: dict[str, dict[str, dict[str, int | str]]]
