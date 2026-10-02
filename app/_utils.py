@@ -5,6 +5,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from mbo_bekostiging_bestanden.metadata import load_schema
+from mbo_bekostiging_bestanden.publicatie import DIAGNOSE
 
 # Relatieve datapaden in config.toml gelden t.o.v. de projectroot, zodat de app
 # vanuit elke werkmap hetzelfde gedrag heeft.
@@ -79,7 +80,13 @@ def vind_prepared_dirs(sessie: Mapping) -> list[Path]:
     basis = prepared_dir()
     if not basis.exists():
         return []
-    return sorted({parquet.parent for parquet in basis.rglob("*.parquet")})
+    return sorted(
+        {
+            parquet.parent
+            for parquet in basis.rglob("*.parquet")
+            if parquet.parent.name != DIAGNOSE
+        }
+    )
 
 
 def groepeer_prepared(
