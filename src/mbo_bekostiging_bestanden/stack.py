@@ -38,13 +38,14 @@ def _controleer_bronnen(paths: list[Path], labels: list[str] | None) -> None:
 
 
 def _lees_levering(
-    path: Path, label: str, label_col: str
+    path: Path, label: str, label_col: str, identifiers_toegestaan: bool
 ) -> list[tuple[str, pl.DataFrame]]:
     """Tabellen van één levering, met de leveringskolom als eerste kolom."""
     uit = []
     for parquet in sorted(path.glob("*.parquet")):
         df = pl.read_parquet(parquet)
-        if identifiers := [c for c in PERSOON_COLS if c in df.columns]:
+        identifiers = [c for c in PERSOON_COLS if c in df.columns]
+        if identifiers and not identifiers_toegestaan:
             # Brondata van vóór v4.0.0: pseudoniem pas in de sterbouw (#173).
             raise ValueError(
                 f"{parquet} bevat persoonsidentifiers {identifiers}; verwerk de "
@@ -61,6 +62,7 @@ def stack_prepared(
     label_col: str = "levering",
     labels: list[str] | None = None,
     relative_to: Path | str | None = None,
+    identifiers_toegestaan: bool = False,
 ) -> dict[str, pl.DataFrame]:
     """Voeg genormaliseerde tabellen van meerdere leveringen samen.
 
@@ -75,6 +77,9 @@ def stack_prepared(
         labels:      Labels per bron. Standaard: mapnamen, of relatieve paden
                      t.o.v. ``relative_to`` als dat is opgegeven.
         relative_to: Basispad voor automatische relatieve-pad-labels.
+        identifiers_toegestaan: Brondata met BSN/ONR/PGN is bewust bewaard
+                     (``identifiers_behouden``, #435). Anders geldt brondata
+                     met identifiers als van vóór v4.0.0 en wordt ze geweigerd.
 
     Returns:
         Dict van tabelnaam naar gecombineerde DataFrame.
@@ -97,7 +102,7 @@ def stack_prepared(
 
     tables: dict[str, list[pl.DataFrame]] = {}
     for path, label in zip(paths, labels, strict=True):
-        for tabel, df in _lees_levering(path, label, label_col):
+        for tabel, df in _lees_levering(path, label, label_col, identifiers_toegestaan):
             tables.setdefault(tabel, []).append(df)
 
     return {

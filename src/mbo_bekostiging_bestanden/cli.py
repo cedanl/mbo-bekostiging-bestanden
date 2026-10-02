@@ -2,6 +2,7 @@
 
 Gebruik:
     mbo verwerk <source> <target> [--fmt parquet|csv]
+              [--persoonsverwerking pseudonimiseren|identifiers_behouden]
     mbo stapel <dir...> --output <dir> [--fmt parquet|csv]
               [--label-col <naam>] [--relative-to <pad>]
     mbo star <dir...> --output <dir> [--relative-to <pad>] [--scenario <label>]
@@ -15,6 +16,10 @@ from pathlib import Path
 import polars as pl
 
 from mbo_bekostiging_bestanden.export import export_frames
+from mbo_bekostiging_bestanden.identiteit import (
+    WAARSCHUWING_IDENTIFIERS_BEHOUDEN,
+    Persoonsverwerking,
+)
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline, run_star
 from mbo_bekostiging_bestanden.quality import (
     SCENARIO_ONBEKEND,
@@ -37,11 +42,17 @@ def _meld_resultaat(actie: str, frames: dict[str, pl.DataFrame], doel: Path) -> 
 
 
 def _verwerk(args: argparse.Namespace) -> None:
+    verwerking = Persoonsverwerking(
+        getattr(args, "persoonsverwerking", Persoonsverwerking.PSEUDONIMISEREN)
+    )
+    if verwerking == Persoonsverwerking.IDENTIFIERS_BEHOUDEN:
+        print(WAARSCHUWING_IDENTIFIERS_BEHOUDEN, file=sys.stderr)
     frames = run_auto_pipeline(
         args.source,
         args.target,
         fmt=args.fmt,
         fail_on_errors=not getattr(args, "allow_quality_errors", False),
+        persoonsverwerking=verwerking,
     )
     _meld_resultaat("Verwerkt", frames, args.target)
 
@@ -87,6 +98,16 @@ def build_parser() -> argparse.ArgumentParser:
         default="parquet",
         choices=["parquet", "csv"],
         help="Uitvoerformaat (standaard: parquet)",
+    )
+    p_verwerk.add_argument(
+        "--persoonsverwerking",
+        default=Persoonsverwerking.PSEUDONIMISEREN.value,
+        choices=[v.value for v in Persoonsverwerking],
+        help=(
+            "pseudonimiseren (standaard, vereist MBO_PSEUDONIMISERING_SALT) of "
+            "identifiers_behouden (BSN/ONR/PGN blijven in de uitvoer; alleen in "
+            "een vertrouwde omgeving)"
+        ),
     )
     p_verwerk.add_argument(
         "--allow-quality-errors",

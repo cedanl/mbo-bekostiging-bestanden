@@ -4,7 +4,7 @@
 
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
-- `MBO_PSEUDONIMISERING_SALT` (zie [Pseudonimisering](#pseudonimisering))
+- `MBO_PSEUDONIMISERING_SALT`, tenzij je bewust [identifiers behoudt](#persoonsverwerking-kiezen) (zie [Pseudonimisering](#pseudonimisering))
 
 ## Installatie
 
@@ -64,10 +64,43 @@ Gebruik voor alle leveringen die samen in één analysemodel komen dezelfde salt
   voor oude setups, maar de meegeleverde config bevat bewust géén salt meer.
   Gebruik die fallback niet voor echte data; een echte salt hoort er niet thuis.
 
+### Persoonsverwerking kiezen
+
+Pseudonimiseren is de standaard. Voor een BI-team dat de DUO-gegevens in een
+beveiligde, interne omgeving aan een eigen administratie koppelt, is er een
+tweede, expliciete modus:
+
+| Modus | Wanneer | Salt | Uitvoer |
+|---|---|---|---|
+| **Pseudonimiseren** (standaard) | Je hebt geen persoonskoppeling nodig | Vereist; zonder salt stopt de verwerking | Alleen `_persoon_id`, geen BSN/ONR/PGN |
+| **Identifiers behouden** | Je koppelt intern aan een eigen bronbestand, in een vertrouwde omgeving | Niet nodig | BSN, onderwijsnummer en PGN blijven staan; in het analysemodel alleen in `dim_deelnemer` |
+
+Kies de modus op Home ("Hoe moeten persoonsidentifiers worden verwerkt?") of in
+de CLI:
+
+```bash
+uv run mbo verwerk <bron> <doel> --persoonsverwerking identifiers_behouden
+```
+
+- Een ontbrekende salt schakelt de tweede modus **nooit** in: zonder de
+  expliciete keuze faalt de verwerking nog steeds.
+- Bij identifiers behouden bevat de uitvoer persoonsgegevens. De CLI en de app
+  waarschuwen daarvoor; behandel `02-prepared/` en `03-output/` dan als
+  persoonsgegevens en deel ze niet.
+- `_persoon_id` is in deze modus een ongezouten SHA-256 per identifierdomein:
+  een stabiele join-sleutel, geen privacybescherming.
+- Het gekozen profiel staat als `privacyprofiel` in `quality.json`. Leveringen
+  met verschillende profielen kunnen niet in één analysemodel; verwerk ze dan
+  allemaal opnieuw met dezelfde keuze.
+- In de app blijven persoonskolommen in preview en download standaard
+  verborgen, ook de identifiers.
+- De standaardkeuze op Home staat in `app/config.toml` (`[security]
+  persoonsverwerking`); de gebruiker kiest altijd zelf.
+
 ### Opslag en retentie van brondata
 
 De brondata (`data/02-prepared/`) bevat geen BSN, onderwijsnummer of PGN meer, alleen
-het pseudoniem `_persoon_id` (#173). Het blijft persoonsgegevens: pseudoniemen plus
+het pseudoniem `_persoon_id` (#173); bij de opt-in modus identifiers behouden (#435) wel. Het blijft persoonsgegevens: pseudoniemen plus
 kenmerken als geboortedatum en postcodecijfers. De ruwe bestanden in `data/01-raw/` zijn
 de auditbron met de echte identifiers. Ga met beide zorgvuldig om:
 

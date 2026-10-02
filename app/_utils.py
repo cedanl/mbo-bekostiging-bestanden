@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
+from mbo_bekostiging_bestanden.identiteit import Persoonsverwerking
 from mbo_bekostiging_bestanden.metadata import load_schema
 from mbo_bekostiging_bestanden.publicatie import DIAGNOSE, KWALITEITSRAPPORT
 from mbo_bekostiging_bestanden.quality import (
@@ -53,6 +54,16 @@ def output_dir() -> Path:
 def scenario() -> str:
     """Scenariolabel voor ``quality.json`` uit ``config.toml``."""
     return load_config()["data"]["scenario"]
+
+
+def persoonsverwerking() -> Persoonsverwerking:
+    """Standaardkeuze voor de verwerking van identifiers uit ``config.toml``.
+
+    Zonder instelling geldt pseudonimiseren; een onbekende waarde faalt
+    (``ValueError``) in plaats van stil terug te vallen.
+    """
+    waarde = load_config().get("security", {}).get("persoonsverwerking")
+    return Persoonsverwerking(waarde) if waarde else Persoonsverwerking.PSEUDONIMISEREN
 
 
 def star_dir() -> Path:

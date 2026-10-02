@@ -22,6 +22,7 @@ from mbo_bekostiging_bestanden.contracts import (
     SCHOOLJAAR_FEIT,
 )
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
+from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS
 from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
 from mbo_bekostiging_bestanden.referentiedata import meta_referentiedata
 from mbo_bekostiging_bestanden.schooljaar import (
@@ -149,12 +150,20 @@ def build_star(
     tables = bouw_analysetabellen(stacked)
     inschrijvingen = tables["inschrijvingen"]
 
-    dim_deelnemer = _build_dim(inschrijvingen, _DIM_DEELNEMER_COLS, "_persoon_id")
+    # Alleen aanwezig bij ``identifiers_behouden`` (#435): ze horen bij de
+    # deelnemer en nergens anders in het model.
+    identifiers = [c for c in PERSOON_COLS if c in inschrijvingen.columns]
+    dim_deelnemer = _build_dim(
+        inschrijvingen, [*_DIM_DEELNEMER_COLS, *identifiers], "_persoon_id"
+    )
     dim_opleiding = _build_dim(inschrijvingen, _DIM_OPLEIDING_COLS, "Opleidingcode")
     dim_instelling = _build_dim_instelling(tables)
 
     dim_col_set = (
-        set(_DIM_DEELNEMER_COLS) | set(_DIM_OPLEIDING_COLS) | set(_DIM_INSTELLING_COLS)
+        set(_DIM_DEELNEMER_COLS)
+        | set(identifiers)
+        | set(_DIM_OPLEIDING_COLS)
+        | set(_DIM_INSTELLING_COLS)
     ) - _FK_COLS
 
     geo_cols = {c for c in inschrijvingen.columns if _GEO_COL_RE.match(c)}
@@ -166,7 +175,7 @@ def build_star(
 
     fact_inschrijving = fact_inschrijving.drop(_HULPKOLOMMEN, strict=False)
 
-    return {
+    ster = {
         "dim_deelnemer": dim_deelnemer,
         "dim_opleiding": dim_opleiding,
         "dim_instelling": dim_instelling,
@@ -191,6 +200,12 @@ def build_star(
         "meta_canonicalisatie": tables["meta_canonicalisatie"],
         "meta_koppelkeuzes": tables["meta_koppelkeuzes"],
         REFERENTIE_TABEL: meta_referentiedata(),
+    }
+    return {
+        naam: tabel
+        if naam == "dim_deelnemer"
+        else tabel.drop(PERSOON_COLS, strict=False)
+        for naam, tabel in ster.items()
     }
 
 
