@@ -1,26 +1,14 @@
-"""Resultaten — blader door de verwerkte tabellen en download.
+"""Gedeelde bouwstenen van de tabelpagina's (Werkbare data en Analysemodel).
 
-Twee gelijkwaardige producten (#213): het **analysemodel** (star schema, met
-ontwerpkeuzes zoals canonicalisatie en hoofdinschrijving) en de **brondata per
-levering** (getrouw aan het DUO-bestand, per recordtype). Persoonsgegevens zijn
-in preview én download standaard verborgen.
+Tabelkeuze, preview, kolomfilter, PII-verberging en CSV-download staan hier één
+keer; de pagina's bepalen alleen welke tabellen ze tonen.
 """
 
-import sys
 from pathlib import Path
+from typing import NoReturn
 
 import polars as pl
 import streamlit as st
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from _tabel_docs import PAGINA_INTRO, tabel_help
-from _utils import (
-    analysemodel_bijschrift,
-    brondata_bijschrift,
-    groepeer_prepared,
-    vind_prepared_dirs,
-    vind_star_dir,
-)
 
 from mbo_bekostiging_bestanden.contracts import (
     KOPPELSTATUS,
@@ -30,8 +18,6 @@ from mbo_bekostiging_bestanden.contracts import (
 from mbo_bekostiging_bestanden.pii import detect_pii_columns, zichtbare_kolommen
 
 _MAX_WEERGAVE_RIJEN = 1_000  # rijen in de tabelweergave; de download is volledig
-_SECTIE_ANALYSEMODEL = "Analysemodel (star schema)"
-_SECTIE_BRONDATA = "Brondata per levering"
 
 
 @st.cache_resource(show_spinner=False)
@@ -73,7 +59,7 @@ def _filter_koppelstatus(df: pl.DataFrame, tabel: str) -> pl.DataFrame:
     return df.filter(pl.col(KOPPELSTATUS).is_in(gekozen)) if gekozen else df
 
 
-def _toon_tabel_sectie(
+def toon_tabel_sectie(
     titel: str, tabellen: dict[str, Path], help_fn=None, bijschrift: str = ""
 ):
     """Render tabel-selectie, preview en download; ``bijschrift`` noemt map en
@@ -149,65 +135,27 @@ def _toon_tabel_sectie(
     return False
 
 
-st.markdown(
-    '<span style="font-size:.75rem;font-weight:700;color:#4d5d8a;'
-    'text-transform:uppercase;letter-spacing:.08em">Resultaten</span>',
-    unsafe_allow_html=True,
-)
-st.title("Resultaten")
-
-st.info(PAGINA_INTRO)
-
-# Verzamel star- en prepared-tabellen
-star_dir = vind_star_dir(st.session_state)
-star_tabellen = (
-    {p.stem: p for p in sorted((star_dir / "datamodel").glob("*.parquet"))}
-    if star_dir
-    else {}
-)
-
-prepared_dirs = vind_prepared_dirs(st.session_state)
-st.session_state["prepared_dirs"] = [str(d) for d in prepared_dirs]
-tbgi_prepared, other_prepared = groepeer_prepared(prepared_dirs)
-
-if not star_tabellen and not tbgi_prepared and not other_prepared:
-    st.warning(
-        "Geen resultaten — verwerk eerst een of meer bestanden op de Home-pagina."
+def toon_paginakop(label: str, titel: str) -> None:
+    """Klein label boven de paginatitel, in de huisstijl van de app."""
+    st.markdown(
+        '<span style="font-size:.75rem;font-weight:700;color:#4d5d8a;'
+        f'text-transform:uppercase;letter-spacing:.08em">{label}</span>',
+        unsafe_allow_html=True,
     )
+    st.title(titel)
+
+
+def stop_met_terug_naar_home(melding: str) -> NoReturn:
+    """Toon ``melding`` met een knop naar Home en stop de pagina."""
+    st.warning(melding)
     if st.button("← Home"):
         st.switch_page("pages/home.py")
     st.stop()
 
-tab_analysemodel, tab_brondata = st.tabs([_SECTIE_ANALYSEMODEL, _SECTIE_BRONDATA])
 
-with tab_analysemodel:
-    if star_tabellen and star_dir:
-        _toon_tabel_sectie(
-            _SECTIE_ANALYSEMODEL,
-            star_tabellen,
-            help_fn=tabel_help,
-            bijschrift=analysemodel_bijschrift(star_dir),
-        )
-    else:
-        st.warning(
-            "Nog geen analysemodel (star schema) gebouwd; de brondata is er wel."
-        )
-
-with tab_brondata:
-    # Het bijschrift geldt voor de brondata als geheel: één keer, bij de eerste groep.
-    brondata = brondata_bijschrift(prepared_dirs) if prepared_dirs else ""
-    groepen = (("RO en GRONDSLAG", other_prepared), ("TBG-i", tbgi_prepared))
-    for groep, tabellen in groepen:
-        if tabellen:
-            _toon_tabel_sectie(
-                f"{_SECTIE_BRONDATA} — {groep}", tabellen, bijschrift=brondata
-            )
-            brondata = ""
-    if not (other_prepared or tbgi_prepared):
-        st.warning("Nog geen brondata verwerkt; het analysemodel is er wel.")
-
-st.write("")
-col_terug, _ = st.columns([1, 3])
-with col_terug:
-    if st.button("← Home", width="stretch"):
-        st.switch_page("pages/home.py")
+def toon_terugknop() -> None:
+    st.write("")
+    col_terug, _ = st.columns([1, 3])
+    with col_terug:
+        if st.button("← Home", width="stretch"):
+            st.switch_page("pages/home.py")

@@ -1,6 +1,6 @@
-"""Documentatie per tabel op de Resultaten-pagina.
+"""Documentatie per tabel op de Analysemodel-pagina.
 
-Elke star-schema-tabel in ``resultaten.py`` krijgt via :func:`tabel_help` een
+Elke star-schema-tabel in ``analysemodel.py`` krijgt via :func:`tabel_help` een
 uitklapbaar uitlegblok in gewone taal: wát de tabel bevat en op welk
 DUO-bronbestand (h15 RO / h16 TBGI / h17 GRONDSLAG) de records gebaseerd zijn.
 Waar een tabel leeg kán blijven, staat dat er expliciet bij.
@@ -10,14 +10,19 @@ Bewust géén bedrijfslogica; het model leeft in ``src/.../star.py``.
 
 import streamlit as st
 
-PAGINA_INTRO = (
-    "De verwerking levert twee producten.  **Brondata per levering**: elk "
-    "DUO-bestand per recordtype, getrouw aan de levering (alleen getypeerd).  "
-    "**Analysemodel (star schema)**: de leveringen samengevoegd tot dimensies en "
-    "feiten, met ontwerpkeuzes zoals canonicalisatie van overlappende "
-    "leveringen, hoofdinschrijving en niveau-aanvulling (zie de documentatie).  "
-    "Kies een tabel, kies eventueel welke kolommen je ziet en download de "
-    "volledige tabel als CSV; persoonsgegevens zijn standaard verborgen.\n\n"
+BRONDATA_INTRO = (
+    "Elk DUO-bestand per levering en recordtype, getrouw aan de levering en "
+    "alleen getypeerd: de werkbare vorm van de ruwe bestanden. Kies een tabel, "
+    "kies eventueel welke kolommen je ziet en download de volledige tabel als "
+    "CSV; persoonsgegevens zijn standaard verborgen."
+)
+
+ANALYSEMODEL_INTRO = (
+    "De leveringen samengevoegd tot dimensies en feiten (star schema), met "
+    "ontwerpkeuzes zoals canonicalisatie van overlappende leveringen, "
+    "hoofdinschrijving en niveau-aanvulling (zie de documentatie). Kies een "
+    "tabel, kies eventueel welke kolommen je ziet en download de volledige "
+    "tabel als CSV; persoonsgegevens zijn standaard verborgen.\n\n"
     "Een tabel kan **leeg** zijn als het bijbehorende bronbestand niet is "
     "verwerkt (bijvoorbeeld geen h16-TBGI meegeleverd). Dat is geen fout."
 )
