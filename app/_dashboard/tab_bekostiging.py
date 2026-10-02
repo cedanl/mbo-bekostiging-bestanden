@@ -3,10 +3,10 @@
 import polars as pl
 import streamlit as st
 from _chart_docs import chart_help
-from _indicatoren import ingeschreven_na_peildatum
 
 from _dashboard.data import Selectie
 from _dashboard.grafieken import hbar, heeft_kolommen
+from mbo_bekostiging_bestanden.indicatoren import ingeschreven_na_peildatum
 
 _GEEN_SCHOOLJAARFEIT = "fact_inschrijving_schooljaar niet beschikbaar."
 

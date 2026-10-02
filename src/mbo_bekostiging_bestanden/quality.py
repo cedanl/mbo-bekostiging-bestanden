@@ -159,10 +159,13 @@ def _aantal_tekst(afwijking: dict[str, int | str]) -> int | str:
 
 
 # Conformiteit (#331): wat de uitkomst betekent, naast of ze technisch klopt.
-# JR/DR zijn proxy's tot #296 besloten is; per proxy de afwijkingen vastleggen (#369).
+# JR/DR blijven proxy's en formeel gebruik is uitgesloten: er komt geen officiële
+# studiesucces-laag (besluit #296, optie B). Per proxy de afwijkingen (#369).
+FORMEEL_GEBRUIK_UITGESLOTEN = "uitgesloten"
 INDICATOREN_STATUS = {
     "JR": {
         "status": "proxy",
+        "formeel_gebruik": FORMEEL_GEBRUIK_UITGESLOTEN,
         "afwijkingen": [
             {"code": "geen_driejaarsvenster", "tekst": "geen formeel 3-jaarsvenster"},
             {
@@ -173,6 +176,7 @@ INDICATOREN_STATUS = {
     },
     "DR": {
         "status": "proxy",
+        "formeel_gebruik": FORMEEL_GEBRUIK_UITGESLOTEN,
         "afwijkingen": [
             {"code": "geen_driejaarsvenster", "tekst": "geen formeel 3-jaarsvenster"},
         ],

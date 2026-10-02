@@ -11,9 +11,15 @@ bestanden onderwijsresultaten voor het bekostigd MBO" (31 mei 2024):
   buiten beschouwing, zie ``waardenlijsten.toml``) en niveau >= 2 (bijlage 3).
 - Entree-uitstroom/doorstroom in vier categorieën (hoofdstuk 5).
 
-Deze module is bewust onafhankelijk van Streamlit, zodat de logica
-unit-testbaar is. Ze staat in ``app/`` (niet in de kernpackage): het is
-presentatielogica voor het dashboard, door niemand anders geïmporteerd (#253).
+JR en DR zijn **proxy's** van de indicatoren uit de Regeling studiesucces mbo,
+geen formele uitkomsten: geen driejaarscijfer en geen 1-oktober-/
+jaartijdvaksemantiek. Formeel gebruik is uitgesloten (besluit #296, optie B);
+de afwijkingen staan in ``quality.json`` → ``conformiteit.indicatoren``.
+
+Een leaf-module in de package (#294): ze leest alleen stertabellen en
+``metadata/normen.toml`` en hangt niet van de sterbouw of Streamlit af, zodat
+R- en notebookgebruikers dezelfde regels gebruiken als het dashboard. De app
+formatteert alleen.
 """
 
 from __future__ import annotations
@@ -28,8 +34,6 @@ from mbo_bekostiging_bestanden.metadata import SCHEMA_DIR
 from mbo_bekostiging_bestanden.waardenlijsten import (
     leertrajecten_buiten_indicatorpopulatie,
 )
-
-_METADATA = SCHEMA_DIR
 
 # Minimale omvang van de noemer voordat een indicator beoordeeld kan worden.
 _MIN_NOEMER = 12
@@ -62,7 +66,7 @@ _INDICATOR_SLEUTELS = {
 @functools.cache
 def _laad_normen() -> dict[str, dict[int, dict[str, int | None]]]:
     """Lees normen.toml: indicator → niveau → {voldoende, hoog}."""
-    pad = _METADATA / "normen.toml"
+    pad = SCHEMA_DIR / "normen.toml"
     with pad.open("rb") as f:
         ruw = tomllib.load(f)
     normen: dict[str, dict[int, dict[str, int | None]]] = {}

@@ -10,6 +10,7 @@ from mbo_bekostiging_bestanden.quality import (
     ERNST_ERROR,
     ERNST_INFO,
     ERNST_WARNING,
+    FORMEEL_GEBRUIK_UITGESLOTEN,
     kwaliteitsmeldingen,
     slr_status_icoon,
 )
@@ -47,6 +48,12 @@ def _indicatoren_tekst(indicatoren: dict[str, Any]) -> str:
     statussen = ", ".join(
         f"{naam} {gegevens['status']}" for naam, gegevens in indicatoren.items()
     )
+    # Besluit #296: geen officiële laag; ``formeel_gebruik`` ontbreekt vóór v4.0.0.
+    if any(
+        g.get("formeel_gebruik") == FORMEEL_GEBRUIK_UITGESLOTEN
+        for g in indicatoren.values()
+    ):
+        statussen += " (formeel gebruik uitgesloten)"
     afwijkingen = [
         afwijking["code"]
         for gegevens in indicatoren.values()

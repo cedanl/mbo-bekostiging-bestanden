@@ -87,6 +87,15 @@ def test_quality_hangt_niet_af_van_de_sterbouw():
     assert _afhankelijkheden("quality") & STERBOUW == set()
 
 
+def test_indicatoren_zijn_een_leaf_module_in_de_package():
+    """#294: de indicatorregels zijn publiek importeerbaar (R, notebooks), lezen
+    alleen stertabellen en normen, en hangen niet van de sterbouw of de app af."""
+    bestand = _module_bestand("indicatoren")
+    assert bestand is not None
+    assert _afhankelijkheden("indicatoren") & STERBOUW == set()
+    assert "streamlit" not in bestand.read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize(
     "bron",
     [

@@ -47,6 +47,21 @@ def test_indicatorstatus_komt_uit_een_constante():
     )
 
 
+def test_formeel_gebruik_van_de_proxys_is_uitgesloten():
+    """Besluit #296 (optie B): geen officiële studiesucces-laag; een afnemer
+    leest uit ``quality.json`` dat JR/DR niet voor formele verantwoording zijn."""
+    for naam in ("JR", "DR"):
+        assert INDICATOREN_STATUS[naam]["formeel_gebruik"] == "uitgesloten"
+
+
+def test_dashboard_meldt_dat_formeel_gebruik_uitgesloten_is(ster_dir):
+    app = AppTest.from_file(_DASHBOARD, default_timeout=120)
+    app.session_state["resultaten_dir"] = ster_dir
+    app.run()
+
+    assert any("formeel gebruik uitgesloten" in c.value for c in app.caption)
+
+
 def test_brondata_rapport_heeft_het_profiel_brondata():
     rapport = QualityReport(levering="L", schema_type="ro")
     assert rapport.as_dict()["privacyprofiel"] == "brondata"
