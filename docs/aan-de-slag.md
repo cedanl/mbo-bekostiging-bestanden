@@ -153,7 +153,7 @@ Naast de tabellen schrijft elke run een `quality.json` in de doelmap:
 
 | Sleutel | Betekenis |
 |---|---|
-| `slr_status` / `slr_details` | Gelezen recordaantallen tegen de controletotalen in het sluitrecord (`match`, `mismatch` of `unknown`) |
+| `slr_status` / `slr_details` | Gelezen recordaantallen tegen de controletotalen in het sluitrecord (`match`, `mismatch` of `unknown`). Een `mismatch` is een onvolledige levering en dus een `error` (#413) |
 | `parseverlies` | Per recordtype en kolom het aantal gevulde bronwaarden dat na typering leeg is (ongeldige datum of getal); een error, dus exitcode 3 tenzij `--allow-quality-errors` (#390) |
 | `onbekende_datums` | Per recordtype en kolom het aantal datums met jaar `0000`: null in de output, precisie `onbekend`; een warning (#391) |
 | `conformiteit` | Wat de uitkomst betekent, naast of ze klopt (#331): `pve_versie` (gebruikte PvE-bronversie), `pve_bron_integriteit` (`pass`/`fail`: manifest-hash en upstream-check, #299), `pve_inhoudelijke_conformiteit` (`niet_beoordeeld`: veld- en businessregelconformiteit nog niet formeel afgetekend, #364), `indicatoren` (per JR/DR een `status` en `afwijkingen`; nu `proxy`, want JR/DR zijn geen formele Inspectie-indicatoren, #296/#297/#369), `privacyprofiel` (`gepseudonimiseerd` voor het analysemodel; brondata-rapporten dragen `brondata`) en `pgn_stabiliteit` (#128) |
