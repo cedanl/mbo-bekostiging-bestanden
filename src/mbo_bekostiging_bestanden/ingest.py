@@ -1,6 +1,5 @@
 """Inlezen van ruwe bekostigingsbestanden."""
 
-import copy
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -512,9 +511,10 @@ class _XmlInventaris:
 
 def _als_xml(elem: ET.Element) -> str:
     """Het element met inhoud, zonder de tekst die erna in de ouder volgt."""
-    kopie = copy.copy(elem)
-    kopie.tail = None
-    return ET.tostring(kopie, encoding="unicode")
+    los = ET.Element(elem.tag, elem.attrib)
+    los.text = elem.text
+    los.extend(elem)
+    return ET.tostring(los, encoding="unicode")
 
 
 def _doorloop(
