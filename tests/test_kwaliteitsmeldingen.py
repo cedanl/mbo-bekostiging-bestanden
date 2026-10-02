@@ -133,7 +133,7 @@ def test_tabelpagina_s_tonen_geen_pii_in_preview(demo_prepared, demo_star_dir):
         app.session_state["prepared_dirs"] = [str(d) for d in dirs]
         app.run()
         assert not app.exception
-        koppen = [h.value for h in app.subheader]
+        koppen = [h.value for h in app.subheader if h.value != "Alles downloaden"]
         assert koppen
         assert all(k.startswith(kop) for k in koppen), pagina
         for tabel in app.dataframe:

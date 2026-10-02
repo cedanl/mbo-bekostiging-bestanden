@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import ANALYSEMODEL_INTRO, tabel_help
 from _tabellen import (
     stop_met_terug_naar_home,
+    toon_download_alles,
     toon_paginakop,
     toon_tabel_sectie,
     toon_terugknop,
@@ -21,6 +22,7 @@ from _tabellen import (
 from _utils import analysemodel_bijschrift, vind_star_dir
 
 _SECTIE_ANALYSEMODEL = "Analysemodel (star schema)"
+_BESTANDSNAAM_DOWNLOAD = "analysemodel"
 
 toon_paginakop("Brondata → ster", "Analysemodel")
 st.info(ANALYSEMODEL_INTRO)
@@ -32,11 +34,13 @@ if not star_dir:
         "uit de werkbare data."
     )
 
+star_tabellen = {p.stem: p for p in sorted((star_dir / "datamodel").glob("*.parquet"))}
 toon_tabel_sectie(
     _SECTIE_ANALYSEMODEL,
-    {p.stem: p for p in sorted((star_dir / "datamodel").glob("*.parquet"))},
+    star_tabellen,
     help_fn=tabel_help,
     bijschrift=analysemodel_bijschrift(star_dir),
 )
+toon_download_alles(star_tabellen, f"{_BESTANDSNAAM_DOWNLOAD}.zip")
 
 toon_terugknop()
