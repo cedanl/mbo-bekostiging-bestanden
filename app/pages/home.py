@@ -15,8 +15,19 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from _invoer import maak_werkmap, synchroniseer_selectie
-from _utils import prepared_dir, raw_dir, scenario, star_dir, vind_star_dir
+from _utils import (
+    persoonsverwerking,
+    prepared_dir,
+    raw_dir,
+    scenario,
+    star_dir,
+    vind_star_dir,
+)
 
+from mbo_bekostiging_bestanden.identiteit import (
+    WAARSCHUWING_IDENTIFIERS_BEHOUDEN,
+    Persoonsverwerking,
+)
 from mbo_bekostiging_bestanden.pipeline import (
     detect_bestandstype,
     run_auto_pipeline,
@@ -54,6 +65,20 @@ _KWALITEITSMELDINGEN = {
     ),
 }
 
+_VERWERKING_LABELS = {
+    Persoonsverwerking.PSEUDONIMISEREN: "Pseudonimiseren (aanbevolen)",
+    Persoonsverwerking.IDENTIFIERS_BEHOUDEN: "Identifiers behouden",
+}
+_VERWERKING_TOELICHTING = {
+    Persoonsverwerking.PSEUDONIMISEREN: (
+        "Persoonsidentifiers worden vervangen door een pseudoniem. Vereist een "
+        "salt (`MBO_PSEUDONIMISERING_SALT`)."
+    ),
+    Persoonsverwerking.IDENTIFIERS_BEHOUDEN: (
+        "Persoonsidentifiers blijven beschikbaar voor interne koppeling. Gebruik "
+        "deze optie alleen in een vertrouwde omgeving; er is geen salt nodig."
+    ),
+}
 _BRON_MAP = "Vaste invoermap"
 _BRON_SELECTIE = "Bestanden selecteren"
 _SESSIE_WERKMAP = "selectie_werkmap"
@@ -124,8 +149,27 @@ def _prepared_dirs_op_schijf(
     return [d for d in kandidaten if any(d.glob("*.parquet"))]
 
 
+def _kies_persoonsverwerking() -> Persoonsverwerking:
+    """Keuze vóór de verwerking; pseudonimiseren tenzij de gebruiker anders kiest."""
+    opties = list(Persoonsverwerking)
+    labels = [_VERWERKING_LABELS[o] for o in opties]
+    gekozen = st.radio(
+        "Hoe moeten persoonsidentifiers worden verwerkt?",
+        labels,
+        index=opties.index(persoonsverwerking()),
+        captions=[_VERWERKING_TOELICHTING[o] for o in opties],
+    )
+    keuze = opties[labels.index(gekozen)]
+    if keuze == Persoonsverwerking.IDENTIFIERS_BEHOUDEN:
+        st.warning(WAARSCHUWING_IDENTIFIERS_BEHOUDEN, icon="⚠️")
+    return keuze
+
+
 def _verwerk_bestanden(
-    groepen: dict[str, list[Path]], raw: Path, prepared: Path
+    groepen: dict[str, list[Path]],
+    raw: Path,
+    prepared: Path,
+    verwerking: Persoonsverwerking,
 ) -> list[str]:
     """Stap 1: elk ruw bestand naar brondata; geeft de fouten terug."""
     bestanden = [f for periode in sorted(groepen) for f in groepen[periode]]
@@ -138,7 +182,7 @@ def _verwerk_bestanden(
         target = _prepared_subdir(raw_file, raw, prepared)
         target.mkdir(parents=True, exist_ok=True)
         try:
-            run_auto_pipeline(raw_file, target)
+            run_auto_pipeline(raw_file, target, persoonsverwerking=verwerking)
         except Exception as exc:
             # Geen verouderde brondata of diagnose: die zou stil in de ster
             # belanden (de pipeline zelf laat bij een fout de vorige versie staan).
@@ -344,8 +388,9 @@ st.caption(
     "Ruwe bestanden → per levering en recordtype, getrouw aan de levering "
     "(`data/02-prepared`)."
 )
+verwerking = _kies_persoonsverwerking()
 if st.button("Verwerk bestanden", type="primary", width="stretch"):
-    fouten_brondata = _verwerk_bestanden(groepen, raw, prepared)
+    fouten_brondata = _verwerk_bestanden(groepen, raw, prepared, verwerking)
     prep_dirs = _prepared_dirs_op_schijf(groepen, raw, prepared)
     st.session_state["prepared_dirs"] = [str(d) for d in prep_dirs]
     st.session_state["fouten_brondata"] = fouten_brondata

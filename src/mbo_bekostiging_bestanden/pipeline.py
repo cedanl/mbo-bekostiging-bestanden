@@ -8,6 +8,7 @@ import polars as pl
 
 from mbo_bekostiging_bestanden.decode import decode_grondslag, decode_ro, decode_tbgi
 from mbo_bekostiging_bestanden.export import OutputFormat, export_frames
+from mbo_bekostiging_bestanden.identiteit import Persoonsverwerking
 from mbo_bekostiging_bestanden.ingest import (
     inventariseer_regels,
     inventariseer_xml_elementen,
@@ -27,8 +28,11 @@ from mbo_bekostiging_bestanden.publicatie import (
     staging,
 )
 from mbo_bekostiging_bestanden.quality import (
+    PROFIEL_IDENTIFIERS_BEHOUDEN,
+    PROFIEL_PER_VERWERKING,
     SCENARIO_ONBEKEND,
     KwaliteitsFout,
+    QualityReport,
     check_slr_reconciliation,
     compile_quality_report,
     lees_leveringsrapport,
@@ -75,6 +79,7 @@ def run_auto_pipeline(
     target: str | Path,
     fmt: OutputFormat = "parquet",
     fail_on_errors: bool = True,
+    persoonsverwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
 ) -> dict[str, pl.DataFrame]:
     """Detecteer het bestandstype en draai de juiste pipeline automatisch.
 
@@ -83,6 +88,9 @@ def run_auto_pipeline(
         target: Doelmap voor de uitvoerbestanden.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
         fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
+        persoonsverwerking: Pseudonimiseren (standaard; vereist een salt) of
+                identifiers behouden (#435); de keuze staat als
+                ``privacyprofiel`` in ``quality.json``.
 
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
@@ -98,7 +106,11 @@ def run_auto_pipeline(
             f"Ondersteund: {sorted(_PIPELINES)}"
         )
     return _PIPELINES[bestandstype](
-        source, target, fmt=fmt, fail_on_errors=fail_on_errors
+        source,
+        target,
+        fmt=fmt,
+        fail_on_errors=fail_on_errors,
+        persoonsverwerking=persoonsverwerking,
     )
 
 
@@ -113,13 +125,14 @@ def _run(
     inventaris: Callable[[Path, str], dict] = inventariseer_regels,
     layouts: Callable[[Path, str], dict] | None = layoutvarianten,
     fail_on_errors: bool = True,
+    persoonsverwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
 ) -> dict[str, pl.DataFrame]:
     source_path = Path(source)
     target_path = Path(target)
     controleer_brondatamap(target_path)
 
     ruw = reader(source_path)
-    frames = decoder(ruw)
+    frames = decoder(ruw, persoonsverwerking)
     validator(frames)
 
     # Genereer kwaliteitsrapport (SLR-reconciliatie, parseverlies)
@@ -133,6 +146,7 @@ def _run(
     quality_report.domeindekking = dekkingsoverzicht(schema_naam)
     quality_report.bronbestand = bronbestand(source_path)
     quality_report.kwaliteitsfouten_toegestaan = not fail_on_errors
+    quality_report.privacyprofiel = PROFIEL_PER_VERWERKING[persoonsverwerking]
     quality_report.meld_regelinventaris(inventaris(source_path, schema_naam))
     if layouts is not None:
         quality_report.layoutvarianten = layouts(source_path, schema_naam)
@@ -163,6 +177,7 @@ def run_pipeline(
     target: str | Path,
     fmt: OutputFormat = "parquet",
     fail_on_errors: bool = True,
+    persoonsverwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
 ) -> dict[str, pl.DataFrame]:
     """Draai de volledige RO-pipeline van ruw bestand naar schone output.
 
@@ -171,6 +186,9 @@ def run_pipeline(
         target: Doelmap voor de uitvoerbestanden in ``data/02-prepared/``.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
         fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
+        persoonsverwerking: Pseudonimiseren (standaard; vereist een salt) of
+                identifiers behouden (#435); de keuze staat als
+                ``privacyprofiel`` in ``quality.json``.
 
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
@@ -184,6 +202,7 @@ def run_pipeline(
         fmt,
         schema_naam="ro",
         fail_on_errors=fail_on_errors,
+        persoonsverwerking=persoonsverwerking,
     )
 
 
@@ -192,6 +211,7 @@ def run_grondslag_pipeline(
     target: str | Path,
     fmt: OutputFormat = "parquet",
     fail_on_errors: bool = True,
+    persoonsverwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
 ) -> dict[str, pl.DataFrame]:
     """Draai de volledige GRONDSLAG IP MBO-pipeline van ruw bestand naar schone output.
 
@@ -200,6 +220,9 @@ def run_grondslag_pipeline(
         target: Doelmap voor de uitvoerbestanden in ``data/02-prepared/``.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
         fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
+        persoonsverwerking: Pseudonimiseren (standaard; vereist een salt) of
+                identifiers behouden (#435); de keuze staat als
+                ``privacyprofiel`` in ``quality.json``.
 
     Returns:
         Dict van recordtype-code naar getypeerde DataFrame.
@@ -213,6 +236,7 @@ def run_grondslag_pipeline(
         fmt,
         schema_naam="grondslag",
         fail_on_errors=fail_on_errors,
+        persoonsverwerking=persoonsverwerking,
     )
 
 
@@ -221,6 +245,7 @@ def run_tbgi_pipeline(
     target: str | Path,
     fmt: OutputFormat = "parquet",
     fail_on_errors: bool = True,
+    persoonsverwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
 ) -> dict[str, pl.DataFrame]:
     """Draai de volledige TBGI-pipeline van ruw XML-bestand naar schone output.
 
@@ -229,6 +254,9 @@ def run_tbgi_pipeline(
         target: Doelmap voor de uitvoerbestanden in ``data/02-prepared/``.
         fmt:    Uitvoerformaat: ``"parquet"`` (standaard) of ``"csv"``.
         fail_on_errors: Werp KwaliteitsFout als de status fail is (#361).
+        persoonsverwerking: Pseudonimiseren (standaard; vereist een salt) of
+                identifiers behouden (#435); de keuze staat als
+                ``privacyprofiel`` in ``quality.json``.
 
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
@@ -244,7 +272,26 @@ def run_tbgi_pipeline(
         inventaris=inventariseer_xml_elementen,
         layouts=None,
         fail_on_errors=fail_on_errors,
+        persoonsverwerking=persoonsverwerking,
     )
+
+
+def _identifiers_behouden(deliveries: dict[str, QualityReport]) -> bool:
+    """Of de leveringen identifiers bewaren; een mengsel met pseudoniemen mag niet.
+
+    ``_persoon_id`` is bij de twee modi op een andere manier afgeleid: in één
+    ster koppelen ze dezelfde persoon niet.
+    """
+    profielen = {d.privacyprofiel for d in deliveries.values()}
+    if PROFIEL_IDENTIFIERS_BEHOUDEN not in profielen:
+        return False
+    if len(profielen) > 1:
+        raise ValueError(
+            "Leveringen met verschillende persoonsverwerking (privacyprofielen "
+            f"{sorted(profielen)}) horen niet in één analysemodel; verwerk ze "
+            "allemaal opnieuw met dezelfde persoonsverwerking"
+        )
+    return True
 
 
 def run_star(
@@ -271,19 +318,25 @@ def run_star(
         ``<target>/datamodel/`` met ``<target>/quality.json`` (``publicatie.py``).
 
     Raises:
+        ValueError: Bij leveringen met verschillende persoonsverwerking
+            (:func:`_identifiers_behouden`), of brondata met identifiers zonder
+            het profiel ``identifiers_behouden``.
         KwaliteitsFout: Bij status ``fail`` en ``fail_on_errors``. De ster en
             ``quality.json`` staan dan in ``<target>/diagnose/``; een eerdere
             publicatie blijft ongewijzigd (#363).
     """
     target = Path(target)
     labels = leveringslabels(sources, relative_to)
-    invoer = stack_prepared(sources, labels=labels)
-    star_tables = build_star(invoer)
     # Per-levering SLR, parseverlies en bronbestand, onder het label uit de ster.
     deliveries = {
         label: lees_leveringsrapport(Path(source) / "quality.json", label)
         for source, label in zip(sources, labels, strict=True)
     }
+    identifiers_behouden = _identifiers_behouden(deliveries)
+    invoer = stack_prepared(
+        sources, labels=labels, identifiers_toegestaan=identifiers_behouden
+    )
+    star_tables = build_star(invoer)
 
     star_tables["meta_leveringen"] = met_bronbestanden(
         star_tables["meta_leveringen"], deliveries

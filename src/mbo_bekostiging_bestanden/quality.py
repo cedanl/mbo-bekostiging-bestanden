@@ -39,6 +39,7 @@ from mbo_bekostiging_bestanden.contracts import (
 )
 from mbo_bekostiging_bestanden.decode import leeg_naar_null
 from mbo_bekostiging_bestanden.filters import detail_zonder_inschrijving
+from mbo_bekostiging_bestanden.identiteit import Persoonsverwerking
 from mbo_bekostiging_bestanden.koppelingen import UNIEK
 from mbo_bekostiging_bestanden.metadata import pve_bron
 from mbo_bekostiging_bestanden.niveau import KOLOM as _NIVEAU_HERKOMST
@@ -201,6 +202,12 @@ PGN_STABILITEIT = "onbekend"
 # Brondata en analysemodel bevatten sinds #173 allebei alleen het pseudoniem;
 # "brondata" (met identifiers) komt alleen nog voor in rapporten van vóór v4.0.0.
 PROFIEL_GEPSEUDONIMISEERD = "gepseudonimiseerd"
+# Opt-in voor een vertrouwde omgeving (#435): BSN/ONR/PGN staan in de brondata.
+PROFIEL_IDENTIFIERS_BEHOUDEN = "identifiers_behouden"
+PROFIEL_PER_VERWERKING = {
+    Persoonsverwerking.PSEUDONIMISEREN: PROFIEL_GEPSEUDONIMISEERD,
+    Persoonsverwerking.IDENTIFIERS_BEHOUDEN: PROFIEL_IDENTIFIERS_BEHOUDEN,
+}
 
 
 @dataclass
@@ -229,6 +236,9 @@ class QualityReport:
     # De run mocht doorgaan bij errors (``--allow-quality-errors``, #394): zo is
     # een prepared-map met errors later te herkennen als bewust toegestaan.
     kwaliteitsfouten_toegestaan: bool = False
+    # Hoe persoons-identifiers zijn verwerkt (#435); bepaalt of de brondata
+    # identifiers mag bevatten (:func:`pipeline.run_star`).
+    privacyprofiel: str = PROFIEL_GEPSEUDONIMISEERD
 
     def meld_parseverlies(self, verlies: dict[str, dict[str, int]]) -> None:
         """Neem parseverlies (zie :func:`tel_parseverlies`) op, als error (#390).
@@ -318,7 +328,7 @@ class QualityReport:
             "errors": self.errors,
             "bronbestand": self.bronbestand,
             "kwaliteitsfouten_toegestaan": self.kwaliteitsfouten_toegestaan,
-            "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
+            "privacyprofiel": self.privacyprofiel,
         }
 
 
@@ -419,6 +429,7 @@ def lees_leveringsrapport(pad: Path, levering: str) -> QualityReport:
         errors=data.get("errors", []),
         bronbestand=data.get("bronbestand"),
         kwaliteitsfouten_toegestaan=data.get("kwaliteitsfouten_toegestaan", False),
+        privacyprofiel=data.get("privacyprofiel", PROFIEL_GEPSEUDONIMISEERD),
     )
 
 
@@ -741,6 +752,15 @@ def _evaluate_star_checks_status(star_checks: dict[str, Any]) -> tuple[int, int]
     return ernsten.count(ERNST_ERROR), ernsten.count(ERNST_WARNING)
 
 
+def _ster_privacyprofiel(deliveries: dict[str, QualityReport] | None) -> str:
+    """Identifiers behouden zodra een levering ze bevat; anders gepseudonimiseerd."""
+    behouden = any(
+        d.privacyprofiel == PROFIEL_IDENTIFIERS_BEHOUDEN
+        for d in (deliveries or {}).values()
+    )
+    return PROFIEL_IDENTIFIERS_BEHOUDEN if behouden else PROFIEL_GEPSEUDONIMISEERD
+
+
 def compile_quality_report(
     star: dict[str, pl.DataFrame],
     deliveries: dict[str, QualityReport] | None = None,
@@ -792,7 +812,7 @@ def compile_quality_report(
             "pve_bron_integriteit": PVE_BRON_INTEGRITEIT,
             "pve_inhoudelijke_conformiteit": PVE_INHOUDELIJKE_CONFORMITEIT,
             "indicatoren": INDICATOREN_STATUS,
-            "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
+            "privacyprofiel": _ster_privacyprofiel(deliveries),
             "pgn_stabiliteit": PGN_STABILITEIT,
         },
         "deliveries": deliveries_list,

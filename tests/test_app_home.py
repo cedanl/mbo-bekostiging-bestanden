@@ -53,6 +53,58 @@ def test_bestanden_selecteren_staat_naast_de_vaste_map(paden):
     assert not [b for b in app.button if b.label == "Verwerk bestanden"]
 
 
+_KEUZE = "Hoe moeten persoonsidentifiers worden verwerkt?"
+
+
+def _keuze(app: AppTest):
+    [radio] = [r for r in app.radio if r.label == _KEUZE]
+    return radio
+
+
+def test_pseudonimiseren_is_voorgeselecteerd_zonder_waarschuwing(paden):
+    """Wie niets wijzigt, behoudt de huidige modus (#435)."""
+    app = _home()
+
+    assert "Pseudonimiseren" in _keuze(app).value
+    assert not any("persoonsgegevens" in w.value for w in app.warning)
+
+
+def test_identifiers_behouden_toont_waarschuwing_voor_verwerking(paden):
+    app = _home()
+    _keuze(app).set_value(_keuze(app).options[1]).run()
+
+    assert not app.exception
+    assert any("persoonsgegevens" in w.value for w in app.warning)
+
+
+def test_identifiers_behouden_verwerkt_zonder_salt(paden, monkeypatch, tmp_path):
+    """Zonder salt werkt alleen de expliciete keuze, nooit de standaard."""
+    import polars as pl
+
+    from mbo_bekostiging_bestanden import identiteit
+    from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS
+
+    monkeypatch.delenv("MBO_PSEUDONIMISERING_SALT", raising=False)
+    monkeypatch.setattr(identiteit, "_DEMO_CONFIG", tmp_path / "bestaat_niet.toml")
+    identiteit.laad_pseudonimisering_salt.cache_clear()
+    prepared, _ = paden
+    try:
+        app = _home()
+        _knop(app, "Verwerk bestanden").click().run()
+        assert not any(prepared.rglob("*.parquet"))  # standaard: fail-closed
+
+        _keuze(app).set_value(_keuze(app).options[1]).run()
+        _knop(app, "Verwerk bestanden").click().run()
+    finally:
+        identiteit.laad_pseudonimisering_salt.cache_clear()
+
+    assert not app.exception
+    persoonstabellen = list(prepared.rglob("PER.parquet"))
+    assert persoonstabellen
+    for pad in persoonstabellen:  # RO levert BSN/ONR, GRONDSLAG een PGN
+        assert set(PERSOON_COLS) & set(pl.read_parquet(pad).columns), pad
+
+
 def test_analysemodel_kan_pas_na_brondata(paden):
     app = _home()
     assert not _knop(app, "Verwerk bestanden").disabled

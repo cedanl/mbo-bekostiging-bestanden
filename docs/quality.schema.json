@@ -267,8 +267,8 @@
             "description": "Status van de brondata van deze levering, met dezelfde regel als summary.status: fail bij errors, warn bij alleen warnings (#285). Ontbreekt in prepared-rapporten van vóór v4.0.0"
           },
           "privacyprofiel": {
-            "enum": ["brondata", "gepseudonimiseerd"],
-            "description": "Sinds v4.0.0 gepseudonimiseerd: decode vervangt BSN/ONR/PGN door _persoon_id (#173). brondata (met identifiers) komt alleen voor in rapporten van vóór v4.0.0 (#331)"
+            "enum": ["brondata", "gepseudonimiseerd", "identifiers_behouden"],
+            "description": "Standaard gepseudonimiseerd: decode vervangt BSN/ONR/PGN door _persoon_id (#173). identifiers_behouden: bewust gekozen voor een vertrouwde omgeving, BSN/ONR/PGN staan in de brondata (#435). brondata (met identifiers) komt alleen voor in rapporten van vóór v4.0.0 (#331)"
           },
           "bronbestand": {
             "type": ["object", "null"],
@@ -357,8 +357,8 @@
           }
         },
         "privacyprofiel": {
-          "enum": ["brondata", "gepseudonimiseerd"],
-          "description": "Het analysemodel is gepseudonimiseerd (#331)"
+          "enum": ["brondata", "gepseudonimiseerd", "identifiers_behouden"],
+          "description": "Het analysemodel is gepseudonimiseerd, of bevat bij identifiers_behouden BSN/ONR/PGN in dim_deelnemer (#331, #435)"
         },
         "pgn_stabiliteit": {
           "enum": ["ja", "nee", "onbekend"],

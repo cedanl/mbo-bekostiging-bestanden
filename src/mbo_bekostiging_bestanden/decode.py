@@ -5,7 +5,7 @@ from collections.abc import Callable
 import polars as pl
 
 from mbo_bekostiging_bestanden.contracts import PRECISIE_ONBEKEND, PRECISIE_SUFFIX
-from mbo_bekostiging_bestanden.identiteit import pseudonimiseer
+from mbo_bekostiging_bestanden.identiteit import Persoonsverwerking, pseudonimiseer
 from mbo_bekostiging_bestanden.metadata import load_schema
 from mbo_bekostiging_bestanden.waardenlijsten import indicatie_bekostigbaar
 
@@ -128,6 +128,7 @@ def _normaliseer_indicatie_bekostigbaar(df: pl.DataFrame) -> pl.DataFrame:
 def decode_frames(
     frames: dict[str, pl.DataFrame],
     schema_name: str,
+    verwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
 ) -> dict[str, pl.DataFrame]:
     """Cast velden naar het juiste type op basis van het opgegeven schema-TOML.
 
@@ -145,12 +146,14 @@ def decode_frames(
     - ``IndicatieBekostigbaar`` wordt genormaliseerd naar ``"J"``/``"N"``.
     - Persoonsidentifiers (BSN, onderwijsnummer, PGN) worden vervangen door
       het pseudoniem ``_persoon_id`` (:func:`identiteit.pseudonimiseer`, #173);
-      zonder salt faalt decode.
+      zonder salt faalt decode. Bij ``IDENTIFIERS_BEHOUDEN`` (#435) blijven ze
+      staan naast een ongezouten ``_persoon_id``, zonder salt.
     - Overige velden blijven ``pl.Utf8``.
 
     Args:
         frames:      Dict van tabelnaam naar ruwe DataFrame.
         schema_name: Naam van het schema (bijv. ``"ro"``, ``"grondslag"``, ``"tbgi"``).
+        verwerking:  Pseudonimiseren (standaard) of identifiers behouden.
 
     Returns:
         Dict van tabelnaam naar getypeerde DataFrame.
@@ -191,25 +194,34 @@ def decode_frames(
                 exprs.append(leeg_naar_null(pl.col(col)).alias(col))
 
         result[rt] = pseudonimiseer(
-            _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs))
+            _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs)), verwerking
         )
 
     return result
 
 
-def decode_ro(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+def decode_ro(
+    frames: dict[str, pl.DataFrame],
+    verwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
+) -> dict[str, pl.DataFrame]:
     """Decodeer een RO-pakket. Dunne wrapper om :func:`decode_frames`
     met schema ``"ro"``."""
-    return decode_frames(frames, "ro")
+    return decode_frames(frames, "ro", verwerking)
 
 
-def decode_grondslag(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+def decode_grondslag(
+    frames: dict[str, pl.DataFrame],
+    verwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
+) -> dict[str, pl.DataFrame]:
     """Decodeer een GRONDSLAG IP MBO-pakket. Dunne wrapper om
     :func:`decode_frames` met schema ``"grondslag"``."""
-    return decode_frames(frames, "grondslag")
+    return decode_frames(frames, "grondslag", verwerking)
 
 
-def decode_tbgi(frames: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
+def decode_tbgi(
+    frames: dict[str, pl.DataFrame],
+    verwerking: Persoonsverwerking = Persoonsverwerking.PSEUDONIMISEREN,
+) -> dict[str, pl.DataFrame]:
     """Decodeer een TBGI-pakket. Dunne wrapper om :func:`decode_frames`
     met schema ``"tbgi"``."""
-    return decode_frames(frames, "tbgi")
+    return decode_frames(frames, "tbgi", verwerking)

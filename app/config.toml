@@ -11,4 +11,8 @@ scenario = "demo"
 # Voor alle omgevingen: zet een sterke, willekeurige sleutel in env var MBO_PSEUDONIMISERING_SALT
 # De applicatie faalt als deze sleutel niet is ingesteld (fail-closed).
 [security]
+# Standaardkeuze op Home: "pseudonimiseren" (vereist een salt) of
+# "identifiers_behouden" (BSN/ONR/PGN blijven in de uitvoer; alleen in een
+# vertrouwde omgeving). De gebruiker kiest op Home altijd zelf.
+persoonsverwerking = "pseudonimiseren"
 # De salt staat hier bewust niet: alleen via de env-var MBO_PSEUDONIMISERING_SALT.

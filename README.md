@@ -44,6 +44,11 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 > willekeurige salt per shell. Bewaar die zelf als je pseudoniemen tussen sessies
 > wilt kunnen koppelen. Bewaar echte salts nooit in git — een
 > `app/config.toml`-fallback is puur voor demo en bevat geen salt meer.
+>
+> Alleen voor een vertrouwde omgeving die DUO-gegevens intern aan een eigen
+> administratie koppelt, kun je expliciet kiezen voor **identifiers behouden**
+> (geen salt, BSN/ONR/PGN blijven in de uitvoer). Een ontbrekende salt kiest
+> dat nooit. Zie [Aan de slag](docs/aan-de-slag.md#persoonsverwerking-kiezen).
 
 > **Alleen lokaal gebruiken:** de app is een lokale, single-user analysetool en
 > wordt bewust níet gehost (ook niet op SURF). Er is geen login, geen
