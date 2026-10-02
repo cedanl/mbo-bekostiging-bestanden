@@ -13,6 +13,27 @@ uv sync
 export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ```
 
+### Windows
+
+Gebruik PowerShell (de `export`-syntax werkt daar niet):
+
+```powershell
+uv sync
+$env:MBO_PSEUDONIMISERING_SALT = python -c "import secrets; print(secrets.token_hex(32))"
+uv run streamlit run app/main.py
+```
+
+In `cmd.exe`:
+
+```bat
+uv sync
+for /f %i in ('python -c "import secrets; print(secrets.token_hex(32))"') do set "MBO_PSEUDONIMISERING_SALT=%i"
+uv run streamlit run app/main.py
+```
+
+De variabele geldt alleen voor het huidige venster. Genereer de salt niet met
+`%RANDOM%`: dat levert te weinig entropie voor een pseudonimiseringssleutel.
+
 ---
 
 ## Pseudonimisering
