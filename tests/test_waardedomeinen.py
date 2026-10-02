@@ -23,10 +23,21 @@ DEMO = Path("data/01-raw/demo")
 DIP_MET_POS_7 = "DIP|BSN1||8286771|25655|2025-06-15||J|1|101A741"
 DIP_OFFICIEEL = "DIP|BSN1||8286771|25655|2025-06-15|J|1|101A741"
 # Alle verplichte recordtypes (#322); ``{vlp}`` en ``{dip}`` zijn het variabele deel.
+# Recordtypes in de volgorde van de SLR-tellers (ro_schema.toml) en hun aantal
+# regels in ``_RO``.
+_SLR_TELLERS = ("PER", "ISG", "ISP", "ISE", "BPV", "DIP", "AMO", "GEO", "KZD")
+_RO_AANTALLEN = {"PER": 1, "ISG": 1, "ISP": 1, "DIP": 1}
+
+
+def _slr(zonder: str | None = None) -> str:
+    """Sluitrecord dat klopt met ``_RO``, eventueel zonder één recordtype."""
+    aantallen = {rt: n for rt, n in _RO_AANTALLEN.items() if rt != zonder}
+    return "SLR|" + "|".join(str(aantallen.get(rt, 0)) for rt in _SLR_TELLERS)
+
+
 _RO = (
     "{vlp}\nPER|BSN1||2001-05-17|V\nISG|BSN1||1|2025-08-01|2027-07-31||\n"
-    "ISP|BSN1||1|2025-08-01|25618|BBL||J||101A741|100X974|||\n{dip}\n"
-    "SLR|1|1|1|0|0|1|0|0|0\n"
+    "ISP|BSN1||1|2025-08-01|25618|BBL||J||101A741|100X974|||\n{dip}\n" + _slr() + "\n"
 )
 _VLP = "VLP|99XX|2025-08-01|2026-07-31|2026-08-01"
 
@@ -185,9 +196,16 @@ def test_ingest_faalt_bij_ontbrekend_verplicht_recordtype(tmp_path, recordtype):
 
 @pytest.mark.parametrize("recordtype", ["DIP", "ISE", "BPV", "GEO", "KZD", "AMO"])
 def test_optioneel_recordtype_mag_ontbreken(tmp_path, recordtype):
+    """Het sluitrecord telt het type dan ook niet; anders is het een SLR-mismatch
+    (#413)."""
     regels = _RO.format(vlp=_VLP, dip=DIP_MET_POS_7).splitlines()
     bron = tmp_path / "RO_99XX_20250801_20260731.csv"
     bron.write_text(
-        "\n".join(r for r in regels if not r.startswith(recordtype)), encoding="utf-8"
+        "\n".join(
+            _slr(zonder=recordtype) if r.startswith("SLR") else r
+            for r in regels
+            if not r.startswith(recordtype)
+        ),
+        encoding="utf-8",
     )
     run_auto_pipeline(bron, tmp_path / "prepared")

@@ -122,6 +122,9 @@ def test_slr_mismatch_status():
     assert report.slr_status == "mismatch", (
         f"Expected 'mismatch', got {report.slr_status}"
     )
+    # Een onvolledige levering mag niet als waarschuwing door de poort (#413).
+    assert any("SLR-mismatch" in e and "PER" in e for e in report.errors)
+    assert not any("SLR-mismatch" in w for w in report.warnings)
 
 
 def test_slr_status_icoon_dekt_tri_state():

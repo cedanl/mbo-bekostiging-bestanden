@@ -92,15 +92,36 @@ def test_cli_override_geeft_exitcode_nul_en_meldt_de_status(
     assert "fail" in capsys.readouterr().out
 
 
-def test_cli_verwerk_eindigt_exit_3_bij_quality_errors(tmp_path, monkeypatch):
-    """``mbo verwerk`` eindigt met exitcode 3 (niet 0) bij quality-errors (#361)."""
-    bron_demo = Path("data/01-raw/demo/h15/RO_21CY_20250730_20250731.csv")
-    bron = tmp_path / bron_demo.name
-    # Maak een bestand met lege BRIN (quality error)
+def _demo_met_lege_brin(tmp_path: Path) -> Path:
+    """Demo-RO met een lege VLP-BRIN: een error-domeinafwijking (#238)."""
+    bron = tmp_path / DEMO_RO.name
     bron.write_text(
-        bron_demo.read_text(encoding="utf-8").replace("VLP;21CY;", "VLP;;", 1),
+        DEMO_RO.read_text(encoding="utf-8").replace("VLP;21CY;", "VLP;;", 1),
         encoding="utf-8",
     )
+    return bron
+
+
+def _demo_zonder_eerste_isp(tmp_path: Path) -> Path:
+    """Demo-RO met één ISP-regel minder dan het sluitrecord telt (#413)."""
+    regels = DEMO_RO.read_text(encoding="utf-8").splitlines(keepends=True)
+    eerste_isp = next(i for i, r in enumerate(regels) if r.startswith("ISP;"))
+    bron = tmp_path / DEMO_RO.name
+    bron.write_text("".join(regels[:eerste_isp] + regels[eerste_isp + 1 :]))
+    return bron
+
+
+@pytest.mark.parametrize(
+    "bron_met_fout", [_demo_met_lege_brin, _demo_zonder_eerste_isp]
+)
+def test_cli_verwerk_eindigt_exit_3_bij_quality_errors(
+    bron_met_fout, tmp_path, monkeypatch
+):
+    """``mbo verwerk`` eindigt met exitcode 3 (niet 0) bij quality-errors (#361).
+
+    Een SLR-mismatch is een onvolledige levering en dus een error (#413).
+    """
+    bron = bron_met_fout(tmp_path)
     doel = tmp_path / "prepared"
     monkeypatch.setattr("sys.argv", ["mbo", "verwerk", str(bron), str(doel)])
     with pytest.raises(SystemExit) as uit:
@@ -108,15 +129,9 @@ def test_cli_verwerk_eindigt_exit_3_bij_quality_errors(tmp_path, monkeypatch):
     assert uit.value.code == 3
 
 
-def test_cli_verwerk_dengan_allow_quality_errors_exit_nul(tmp_path, monkeypatch):
+def test_cli_verwerk_met_allow_quality_errors_exit_nul(tmp_path, monkeypatch):
     """``mbo verwerk --allow-quality-errors`` slaat quality-errors over (#361)."""
-    bron_demo = Path("data/01-raw/demo/h15/RO_21CY_20250730_20250731.csv")
-    bron = tmp_path / bron_demo.name
-    # Maak een bestand met lege BRIN (quality error)
-    bron.write_text(
-        bron_demo.read_text(encoding="utf-8").replace("VLP;21CY;", "VLP;;", 1),
-        encoding="utf-8",
-    )
+    bron = _demo_met_lege_brin(tmp_path)
     doel = tmp_path / "prepared"
     monkeypatch.setattr(
         "sys.argv", ["mbo", "verwerk", str(bron), str(doel), "--allow-quality-errors"]

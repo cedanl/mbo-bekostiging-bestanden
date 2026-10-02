@@ -49,6 +49,9 @@ from mbo_bekostiging_bestanden.referentiedata import (
 )
 from mbo_bekostiging_bestanden.referentiedata import TABEL as _META_REFERENTIEDATA
 
+# Elk SLR-veld ``Aantal<recordtype>`` is DUO's controletotaal voor dat type.
+_SLR_TELLER_PREFIX = "Aantal"
+
 # Icoon per SLR-status voor de app-weergave.
 _SLR_STATUS_ICONS = {
     "match": "✅",
@@ -419,25 +422,13 @@ def check_slr_reconciliation(
 
     slr_row = slr.row(0, named=True)
 
-    # Mapping: SLR-veldnaam -> recordtype (RO + GRONDSLAG recordtypes)
-    slr_mapping = {
-        "AantalPER": "PER",
-        "AantalISG": "ISG",
-        "AantalISP": "ISP",
-        "AantalBPV": "BPV",
-        "AantalDIP": "DIP",
-        "AantalAMO": "AMO",
-        "AantalGEO": "GEO",
-        "AantalKZD": "KZD",
-        "AantalISE": "ISE",  # GRONDSLAG
-        "AantalBII": "BII",  # GRONDSLAG
-        "AantalBID": "BID",  # GRONDSLAG
-    }
-
     mismatches = []
-    for slr_veld, rt in slr_mapping.items():
-        expected = int(slr_row.get(slr_veld, 0)) if slr_row.get(slr_veld) else 0
-        actual = frames.get(rt, pl.DataFrame()).shape[0]
+    for slr_veld, expected in slr_row.items():
+        if not slr_veld.startswith(_SLR_TELLER_PREFIX):
+            continue
+        rt = slr_veld.removeprefix(_SLR_TELLER_PREFIX)
+        expected = int(expected or 0)
+        actual = frames.get(rt, pl.DataFrame()).height
 
         report.slr_checks[rt] = {"verwacht": expected, "gelezen": actual}
 
@@ -445,8 +436,9 @@ def check_slr_reconciliation(
             mismatches.append(f"{rt}: verwacht {expected}, gelezen {actual}")
 
     if mismatches:
+        # Een onvolledige levering is een error, geen waarschuwing (#413).
         report.slr_status = "mismatch"
-        report.warnings.append(f"SLR-mismatch: {'; '.join(mismatches)}")
+        report.errors.append(f"SLR-mismatch: {'; '.join(mismatches)}")
     else:
         # Match = geen problemen: de status zelf is het signaal, dus géén
         # 'SLR-reconciliatie: OK'-start in warnings (die tonen in de UI ⚠️).
