@@ -29,6 +29,8 @@ export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.to
 uv run streamlit run app/main.py
 ```
 
+Op Windows: zie [Aan de slag](docs/aan-de-slag.md#windows).
+
 De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 
 > **Pseudonimisering (fail-closed):** persoons-identifiers worden gehasht met
