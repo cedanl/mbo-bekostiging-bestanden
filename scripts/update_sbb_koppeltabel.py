@@ -32,6 +32,7 @@ from mbo_bekostiging_bestanden.referentiedata import (
     laad_manifest,
     werk_manifest_bij,
 )
+from mbo_bekostiging_bestanden.waardenlijsten import waardedomein
 
 _OUT_KOPPEL = METADATA / "sbb_koppeltabel.parquet"
 _OUT_CREBO = METADATA / "sbb_crebolijst.parquet"
@@ -132,6 +133,8 @@ _CODE_COLS = ["Crebonummer", "Erkende opleidingscode", "Opleidingscode"]
 
 # Bestanden met ≥ dit aantal codes zijn volledige lijsten (geen tussentijdse varianten)
 _FULL_MIN = 200
+# Kwalificatiecode volgens het waardedomein van Opleidingcode.
+_KWALIFICATIECODE = waardedomein("opleidingcode")["patroon"]
 
 
 def _parse_geldig_datum(header: str) -> datetime.date | None:
@@ -143,6 +146,18 @@ def _parse_geldig_datum(header: str) -> datetime.date | None:
     if m:
         return datetime.date(int(m.group(1)), 8, 1)
     return None
+
+
+def kwalificatiecodes(df: pl.DataFrame) -> pl.DataFrame:
+    """Alleen rijen met een echte kwalificatiecode, getrimd (#316).
+
+    Codes kunnen op een harde spatie eindigen ("25617\xa0") en kwamen dan niet
+    overeen met dezelfde code uit een andere lijst; een titelregel boven de kop
+    brengt de kop als datarij binnen ("Crebonummer").
+    """
+    return df.with_columns(pl.col("kwalificatiecode").str.strip_chars()).filter(
+        pl.col("kwalificatiecode").str.contains(_KWALIFICATIECODE)
+    )
 
 
 def _download_crebolijst(
@@ -176,11 +191,7 @@ def _download_crebolijst(
     if "Soort opleiding" in df.columns:
         select_map["Soort opleiding"] = "soort_opleiding"
 
-    result = (
-        df.select(list(select_map.keys()))
-        .rename(select_map)
-        .filter(pl.col("kwalificatiecode").is_not_null())
-    )
+    result = kwalificatiecodes(df.select(list(select_map.keys())).rename(select_map))
     for missing in ("prijsfactor", "soort_opleiding"):
         if missing not in result.columns:
             result = result.with_columns(pl.lit(None).alias(missing))

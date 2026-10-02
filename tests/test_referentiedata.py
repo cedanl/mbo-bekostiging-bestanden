@@ -7,6 +7,7 @@ en ``quality.json`` nemen dat over.
 """
 
 from datetime import date
+from pathlib import Path
 
 import polars as pl
 import pytest
@@ -113,3 +114,59 @@ def test_afwijkend_referentiebestand_waarschuwt():
 
 def test_ster_bevat_meta_referentiedata(demo_star):
     assert demo_star["meta_referentiedata"].height == len(_DATABESTANDEN)
+
+
+# Herkomst vastgesteld (#316): de #19-bestanden zijn DUO-decodeerbestanden en
+# crebo.csv komt van S-BB. "onbekend" mag niet meer voorkomen.
+
+
+@pytest.mark.parametrize("bestand", _DATABESTANDEN)
+def test_herkomst_is_bekend(bestand):
+    regel = laad_manifest()[bestand]
+    assert not regel["bron"].startswith("onbekend"), bestand
+    # De DUO-decodeerbestanden zijn niet openbaar: dan het bronbestand.
+    assert regel.get("bron_url") or regel.get("bron_bestand"), bestand
+
+
+@pytest.mark.parametrize("bestand", referentiedata.OPLEIDINGSREFERENTIES)
+def test_opleidingsreferentie_heeft_een_dekking(bestand):
+    """Zonder dekking werkt de controle op codes na de dekking niet (#132)."""
+    assert laad_manifest()[bestand].get("dekking_tot"), bestand
+
+
+def test_dekking_van_crebo_volgt_uit_de_sbb_crebolijst():
+    """``crebo.csv`` heeft geen datums; de dekking is de laatste dag van het
+    schooljaar tot waarin álle S-BB-kwalificaties erin staan."""
+    crebo = set(pl.read_csv(METADATA / "crebo.csv", infer_schema_length=0)["code"])
+    sbb = pl.read_parquet(METADATA / "sbb_crebolijst.parquet")
+    dekking = laad_manifest()["crebo.csv"]["dekking_tot"]
+    binnen = sbb.filter(pl.col("geldig_van") <= dekking)["kwalificatiecode"]
+    assert set(binnen) <= crebo
+    na = sbb.filter(pl.col("geldig_van") > dekking)["kwalificatiecode"]
+    assert not set(na) <= crebo, "de dekking kan later"
+
+
+def test_sbb_crebolijst_bevat_alleen_kwalificatiecodes():
+    """Een titelregel in het S-BB-Excelbestand gaf kopteksten als code."""
+    codes = pl.read_parquet(METADATA / "sbb_crebolijst.parquet")["kwalificatiecode"]
+    assert codes.str.contains(r"^\d{5}$").all(), codes.filter(
+        ~codes.str.contains(r"^\d{5}$")
+    ).to_list()
+
+
+def test_updatescript_trimt_codes_en_laat_kopteksten_weg():
+    import importlib.util
+
+    pad = Path(__file__).parents[1] / "scripts" / "update_sbb_koppeltabel.py"
+    spec = importlib.util.spec_from_file_location("update_sbb_koppeltabel", pad)
+    assert spec and spec.loader
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+
+    ruw = pl.DataFrame(
+        {"kwalificatiecode": ["25617\xa0", "Crebonummer", "25618", None]}
+    )
+    assert script.kwalificatiecodes(ruw)["kwalificatiecode"].to_list() == [
+        "25617",
+        "25618",
+    ]
