@@ -457,7 +457,7 @@ wheels = [
 
 [[package]]
 name = "mbo-bekostiging-bestanden"
-version = "3.4.0"
+version = "4.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "polars" },
