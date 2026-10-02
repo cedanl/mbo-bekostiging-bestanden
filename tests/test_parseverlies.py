@@ -1,6 +1,6 @@
 """Parseverlies: gevulde bronwaarden die na typering leeg zijn (#129).
 
-De datumparsing kiest één formaat per bestand en parst niet-strikt; ook
+De datumparsing herkent de notatie per cel en parst niet-strikt (#417); ook
 getallen worden niet-strikt gecast. Wat daarbij verloren gaat, moet zichtbaar
 zijn in quality.json in plaats van stil null te worden. Synthetische data: de
 demo wordt nooit aangepast, alleen een kopie in tmp_path.

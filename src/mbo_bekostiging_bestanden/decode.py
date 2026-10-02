@@ -1,6 +1,6 @@
 """Decoderen van velden: strings omzetten naar juiste types via schema-metadata."""
 
-import re
+from collections.abc import Callable
 
 import polars as pl
 
@@ -11,32 +11,13 @@ from mbo_bekostiging_bestanden.waardenlijsten import indicatie_bekostigbaar
 _DECIMAALKOMMA = ","
 
 
-def _detect_date_format(sample: str) -> str:
-    """Detecteer datumformaat uit een niet-lege voorbeeldwaarde.
-
-    Returns:
-        ``"iso"``     voor ``ccyy-mm-dd``  (bijv. ``2026-03-25``)
-        ``"compact"`` voor ``ccyymmdd``    (bijv. ``20251119``)
-        ``"dutch"``   voor ``d-m-yyyy``    (bijv. ``1-8-2025``)
-    """
-    if re.match(r"^\d{4}-\d{2}-\d{2}$", sample):
-        return "iso"
-    if re.match(r"^\d{8}$", sample):
-        return "compact"
-    return "dutch"
-
-
-def _iso_uit_iso(col: pl.Expr) -> pl.Expr:
-    return col
-
-
 def _iso_uit_compact(col: pl.Expr) -> pl.Expr:
     """``ccyymmdd`` → ``ccyy-mm-dd``."""
     return col.str.replace(r"^(\d{4})(\d{2})(\d{2})$", "${1}-${2}-${3}")
 
 
 def _iso_uit_dutch(col: pl.Expr) -> pl.Expr:
-    """``d-m-yyyy`` (zonder voorloopnullen) → ``ccyy-mm-dd``."""
+    """``d-m-ccyy`` (zonder voorloopnullen) → ``ccyy-mm-dd``."""
     parts = col.str.split("-")
     day = parts.list.get(0, null_on_oob=True).str.zfill(2)
     month = parts.list.get(1, null_on_oob=True).str.zfill(2)
@@ -44,12 +25,27 @@ def _iso_uit_dutch(col: pl.Expr) -> pl.Expr:
     return pl.concat_str([year, month, day], separator="-", ignore_nulls=False)
 
 
-# Per bronformaat: expressie die een datumstring naar ISO-tekst omzet.
-_NAAR_ISO = {
-    "iso": _iso_uit_iso,
-    "compact": _iso_uit_compact,
-    "dutch": _iso_uit_dutch,
-}
+# Datumnotaties in de leveringen, met het patroon dat ze herkent en de omzetting
+# naar ISO-tekst. De patronen sluiten elkaar uit, dus de notatie wordt per cel
+# bepaald: één afwijkende cel kost alleen zichzelf (#417).
+_NOTATIES: tuple[tuple[str, Callable[[pl.Expr], pl.Expr]], ...] = (
+    (r"^\d{4}-\d{2}-\d{2}$", lambda col: col),  # ccyy-mm-dd
+    (r"^\d{8}$", _iso_uit_compact),  # ccyymmdd
+    (r"^\d{1,2}-\d{1,2}-\d{4}$", _iso_uit_dutch),  # d-m-ccyy
+)
+
+
+def _naar_iso(col: pl.Expr) -> pl.Expr:
+    """Datumtekst in een van de :data:`_NOTATIES` → ``ccyy-mm-dd``; anders null.
+
+    Een onbekende notatie wordt null en telt zo als parseverlies.
+    """
+    (patroon, omzetting), *overige = _NOTATIES
+    expr = pl.when(col.str.contains(patroon)).then(omzetting(col))
+    for patroon, omzetting in overige:
+        expr = expr.when(col.str.contains(patroon)).then(omzetting(col))
+    return expr.otherwise(None)
+
 
 # Onbekende dag/maand ("00", PvE §15.5.2) → eerste van de maand/het jaar.
 _ONBEKENDE_MAAND = r"-00-00$"
@@ -93,19 +89,6 @@ def _deels_bekende_datum(iso: pl.Expr) -> tuple[pl.Expr, pl.Expr]:
     return datum, precisie
 
 
-def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) -> str:
-    """Zoek de eerste niet-lege datumwaarde door alle schema-datumvelden te scannen."""
-    for rt, df in frames.items():
-        if rt not in schema or df.height == 0:
-            continue
-        for field in schema[rt].get("date_fields", []):
-            if field in df.columns:
-                val = (df[field][0] or "").strip()
-                if val:
-                    return val
-    return ""
-
-
 def leeg_naar_null(col: pl.Expr) -> pl.Expr:
     """Trim omringende witruimte (#392) en maak een lege waarde null.
 
@@ -147,7 +130,8 @@ def decode_frames(
 ) -> dict[str, pl.DataFrame]:
     """Cast velden naar het juiste type op basis van het opgegeven schema-TOML.
 
-    - Datumvelden worden ``pl.Date`` (null bij lege waarde). Velden in
+    - Datumvelden worden ``pl.Date`` (null bij lege waarde); de notatie
+      (``ccyy-mm-dd``, ``ccyymmdd`` of ``d-m-ccyy``) geldt per cel. Velden in
       ``partial_date_fields`` mogen een onbekende dag/maand (``00``) hebben:
       die wordt de eerste van de maand/het jaar, met ``<veld>_precisie``
       (``dag``/``maand``/``jaar``). Jaar ``0000`` wordt null met precisie
@@ -169,10 +153,6 @@ def decode_frames(
     """
     schema = load_schema(schema_name)
 
-    sample = _find_date_sample(frames, schema)
-    date_fmt = _detect_date_format(sample) if sample else "iso"
-    naar_iso = _NAAR_ISO[date_fmt]
-
     result: dict[str, pl.DataFrame] = {}
     for rt, df in frames.items():
         if rt not in schema:
@@ -189,13 +169,13 @@ def decode_frames(
         for col in df.columns:
             if col in partial_date_fields:
                 datum, precisie = _deels_bekende_datum(
-                    naar_iso(leeg_naar_null(pl.col(col)))
+                    _naar_iso(leeg_naar_null(pl.col(col)))
                 )
                 exprs.append(datum.alias(col))
                 exprs.append(precisie.alias(col + PRECISIE_SUFFIX))
             elif col in date_fields:
                 exprs.append(
-                    _naar_datum(naar_iso(leeg_naar_null(pl.col(col)))).alias(col)
+                    _naar_datum(_naar_iso(leeg_naar_null(pl.col(col)))).alias(col)
                 )
             elif col in int_fields:
                 exprs.append(

@@ -95,3 +95,33 @@ def test_jaar_0_zonder_00_toestemming_blijft_parseverlies():
 
 def test_dim_deelnemer_bevat_precisie(demo_star):
     assert "Geboortedatum_precisie" in demo_star["dim_deelnemer"].columns
+
+
+# Notatie per cel in plaats van uit één voorbeeldcel voor het hele bestand
+# (#417): één lege of ongeldige eerste datum maakte alle andere datums null.
+
+
+def test_gemengde_notaties_in_een_kolom_parsen_allemaal():
+    per = decode_frames(_per(["1992-05-17", "17-5-1992", "19920517"]), "ro")["PER"]
+    assert per["Geboortedatum"].to_list() == [date(1992, 5, 17)] * 3
+
+
+def test_ongeldige_eerste_datum_kost_alleen_zichzelf():
+    ruw = {
+        "VLP": pl.DataFrame({"DatumBeginPeriode": ["not-a-date"]}),
+        "ISG": pl.DataFrame({"DatumInschrijving": ["1-8-2025", "2025-08-02"]}),
+    }
+    getypeerd = decode_frames(ruw, "ro")
+    assert getypeerd["ISG"]["DatumInschrijving"].to_list() == [
+        date(2025, 8, 1),
+        date(2025, 8, 2),
+    ]
+    assert tel_parseverlies(ruw, getypeerd) == {"VLP": {"DatumBeginPeriode": 1}}
+
+
+@pytest.mark.parametrize("ongeldig", ["2025-8-1x", "1-8-25", "2025/08/01", "202508"])
+def test_onbekende_notatie_is_parseverlies(ongeldig):
+    ruw = {"ISG": pl.DataFrame({"DatumInschrijving": [ongeldig]})}
+    assert tel_parseverlies(ruw, decode_frames(ruw, "ro")) == {
+        "ISG": {"DatumInschrijving": 1}
+    }

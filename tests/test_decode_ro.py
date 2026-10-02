@@ -70,12 +70,11 @@ def test_decode_ro_slr_counts_are_integer():
 
 
 # ---------------------------------------------------------------------------
-# Datumformaat-detectie zonder VLP
+# Datums zonder VLP: de notatie hangt niet aan één recordtype (#417)
 # ---------------------------------------------------------------------------
 
 
 def test_decode_ro_dates_typed_without_vlp():
-    """Datumformaat wordt gevonden via andere recordtypes als VLP ontbreekt."""
     frames = read_ro(RO_27DV)
     frames_no_vlp = {rt: df for rt, df in frames.items() if rt != "VLP"}
     result = decode_ro(frames_no_vlp)
@@ -83,7 +82,6 @@ def test_decode_ro_dates_typed_without_vlp():
 
 
 def test_decode_ro_dutch_dates_typed_without_vlp():
-    """Dutch datumformaat wordt ook zonder VLP correct gedetecteerd."""
     frames = read_ro(RO_25LX)
     frames_no_vlp = {rt: df for rt, df in frames.items() if rt != "VLP"}
     result = decode_ro(frames_no_vlp)
