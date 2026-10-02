@@ -36,6 +36,7 @@ from mbo_bekostiging_bestanden.contracts import (
     SCHOOLJAAR_FEIT,
     SCHOOLJAAR_GRAIN,
 )
+from mbo_bekostiging_bestanden.decode import leeg_naar_null
 from mbo_bekostiging_bestanden.filters import detail_zonder_inschrijving
 from mbo_bekostiging_bestanden.koppelingen import UNIEK
 from mbo_bekostiging_bestanden.metadata import pve_bron
@@ -334,7 +335,8 @@ def tel_parseverlies(
     null.  ``ruw`` en ``getypeerd`` hebben per tabel dezelfde rijvolgorde.
 
     Een onbekende datum (jaar ``0000``) is geen verlies: die telt
-    :func:`tel_onbekende_datums`.
+    :func:`tel_onbekende_datums`. Een cel met alleen witruimte ook niet: die
+    maakt decode zelf leeg, net als in tekstvelden (#418).
     """
     verlies: dict[str, dict[str, int]] = {}
     for tabel, typed in getypeerd.items():
@@ -347,7 +349,9 @@ def tel_parseverlies(
                 continue
             if bron[kolom].dtype != pl.Utf8:
                 continue
-            gevuld = bron[kolom].is_not_null() & (bron[kolom] != "")
+            gevuld = bron.select(
+                leeg_naar_null(pl.col(kolom)).is_not_null()
+            ).to_series()
             verloren = gevuld & typed[kolom].is_null()
             aantal = int((verloren & ~_is_onbekende_datum(typed, kolom)).sum())
             if aantal:

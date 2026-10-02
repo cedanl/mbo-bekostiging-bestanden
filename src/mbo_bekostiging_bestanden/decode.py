@@ -106,7 +106,7 @@ def _find_date_sample(frames: dict[str, pl.DataFrame], schema: dict[str, dict]) 
     return ""
 
 
-def _leeg_naar_null(col: pl.Expr) -> pl.Expr:
+def leeg_naar_null(col: pl.Expr) -> pl.Expr:
     """Trim omringende witruimte (#392) en maak een lege waarde null.
 
     Hier en niet bij ingest, zodat de ruwe levering getrouw blijft tot decode.
@@ -120,7 +120,7 @@ def _to_float_expr(col: pl.Expr) -> pl.Expr:
     eerst genormaliseerd naar een punt (#207).
     """
     return (
-        _leeg_naar_null(col)
+        leeg_naar_null(col)
         .str.replace(_DECIMAALKOMMA, ".", literal=True)
         .cast(pl.Float64, strict=False)
     )
@@ -189,22 +189,22 @@ def decode_frames(
         for col in df.columns:
             if col in partial_date_fields:
                 datum, precisie = _deels_bekende_datum(
-                    naar_iso(_leeg_naar_null(pl.col(col)))
+                    naar_iso(leeg_naar_null(pl.col(col)))
                 )
                 exprs.append(datum.alias(col))
                 exprs.append(precisie.alias(col + PRECISIE_SUFFIX))
             elif col in date_fields:
                 exprs.append(
-                    _naar_datum(naar_iso(_leeg_naar_null(pl.col(col)))).alias(col)
+                    _naar_datum(naar_iso(leeg_naar_null(pl.col(col)))).alias(col)
                 )
             elif col in int_fields:
                 exprs.append(
-                    _leeg_naar_null(pl.col(col)).cast(pl.Int64, strict=False).alias(col)
+                    leeg_naar_null(pl.col(col)).cast(pl.Int64, strict=False).alias(col)
                 )
             elif col in float_fields:
                 exprs.append(_to_float_expr(pl.col(col)).alias(col))
             else:
-                exprs.append(_leeg_naar_null(pl.col(col)).alias(col))
+                exprs.append(leeg_naar_null(pl.col(col)).alias(col))
 
         result[rt] = _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs))
 
