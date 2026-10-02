@@ -1,33 +1,45 @@
 {
   "brinnummer.csv": {
-    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "bron": "DUO-decodeerbestand Dec_brinnummer.asc uit de 1cijferHO-levering (niet openbaar)",
     "opgenomen": "2026-07-29",
     "sha256": "f07253c39e8c27753c90ec1edc5816ef8c0463fe741cfea939fd169672aa765d",
-    "rijen": 19209
+    "rijen": 19209,
+    "bron_bestand": "Dec_brinnummer.asc",
+    "bewerking": "vaste breedte → CSV, gelezen als cp1252; de rij 26RL zonder naam weggelaten (vastgesteld 2026-10-02)"
   },
   "crebo.csv": {
-    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "bron": "S-BB kwalificatiestructuur, historische crebolijst (herkomst bevestigd door de gebruiker 2026-10-02; het lijstbestand zelf is niet vastgelegd)",
     "opgenomen": "2026-07-29",
     "sha256": "4734afdbf3baf6ad8355c2222a668827f7b4a60464f8daf29a6eb4a2501f89e4",
-    "rijen": 4288
+    "rijen": 4288,
+    "bron_url": "https://kwalificatie-mijn.s-bb.nl/Lijsten/Output/",
+    "dekking_tot": "2026-07-31",
+    "bewerking": "dekking afgeleid uit sbb_crebolijst: alle kwalificaties met geldig_van t/m 2025-08-01 staan erin, geen van 2026-08-01"
   },
   "landcode.csv": {
-    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "bron": "DUO-decodeerbestand Dec_landcode.asc uit de 1cijferHO-levering (niet openbaar)",
     "opgenomen": "2026-07-29",
     "sha256": "87a0dcf0c237dfd3ee11a337318029111d21fb3f0cce626854f9f537336504fa",
-    "rijen": 391
+    "rijen": 391,
+    "bron_bestand": "Dec_landcode.asc",
+    "bewerking": "vaste breedte → CSV; inhoud identiek (vastgesteld 2026-10-02)"
   },
   "nationaliteitscode.csv": {
-    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "bron": "DUO-decodeerbestand Dec_nationaliteitscode.asc uit de 1cijferHO-levering (niet openbaar)",
     "opgenomen": "2026-07-29",
     "sha256": "48d7c16be5757e0f80a3dc2af7def4fef1c08f4ffe1c87cab3c989c8078974f8",
-    "rijen": 219
+    "rijen": 219,
+    "bron_bestand": "Dec_nationaliteitscode.asc",
+    "bewerking": "vaste breedte → CSV; inhoud identiek (vastgesteld 2026-10-02)"
   },
   "postcodecijfers.csv": {
-    "bron": "onbekend: zonder herkomst opgenomen in #19 (commit cee9c07)",
+    "bron": "DUO-decodeerbestand Dec_postcodecijfers_2024.asc uit de 1cijferHO-levering (niet openbaar)",
     "opgenomen": "2026-07-29",
     "sha256": "e1eddee393e0b1b80a899c221fa95473fd308e74006661836e86dffe3c881157",
-    "rijen": 4104
+    "rijen": 4104,
+    "bron_bestand": "Dec_postcodecijfers_2024.asc",
+    "peildatum": "2024-01-01",
+    "bewerking": "vaste breedte → CSV; alleen postcodes zonder postbus (Postbus J/N = N); gemeente-indeling per 1 januari 2024, gelijk aan die van 2023 (vastgesteld 2026-10-02)"
   },
   "sbb_crebolijst.parquet": {
     "bron": "S-BB kwalificatiestructuur, groep 14 (crebolijsten)",
@@ -61,8 +73,9 @@
     ],
     "opgenomen": "2026-08-06",
     "dekking_tot": "2027-07-31",
-    "sha256": "0057ab79678272f691242a12e44f1284f1e78660103f4517e9fd5a36ccdda9ac",
-    "rijen": 1075
+    "sha256": "5e4f33ffdebf5e8b415b02e99c0afcf243ee8115ffa23a9d187b679c7cf61557",
+    "rijen": 1061,
+    "bewerking": "2026-10-02 (#316): codes getrimd (harde spatie, \"25617\\xa0\"), kopteksten als datarij verwijderd, en per code samengevoegd (geldig_van = vroegste, overige velden uit de nieuwste lijst), zoals het gecorrigeerde updatescript doet. Opnieuw ophalen kon niet: de S-BB-bestands-id's gaven 404/500."
   },
   "sbb_koppeltabel.parquet": {
     "bron": "S-BB kwalificatiestructuur, groep 19 (opleidingskoppeltabel)",

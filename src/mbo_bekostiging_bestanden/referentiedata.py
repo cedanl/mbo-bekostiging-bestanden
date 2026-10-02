@@ -2,11 +2,13 @@
 
 ``metadata/referentiedata.json`` legt per databestand vast:
 
-- ``bron``: waar het vandaan komt (``bron_url``/``bron_ids`` als het script het
-  ophaalt); ``onbekend`` als dat niet is vastgelegd bij opname.
+- ``bron``: waar het vandaan komt, met ``bron_url``/``bron_ids`` als het script
+  het ophaalt, of ``bron_bestand`` als de bron niet openbaar is (de
+  DUO-decodeerbestanden uit de 1cijferHO-levering, #316).
+- ``bewerking``: hoe de inhoud van de bron afwijkt, of hoe een veld is afgeleid.
 - ``opgenomen``: wanneer deze inhoud in de repo kwam.
-- ``dekking_tot``: laatste datum waarvoor het bestand de opleidingen dekt
-  (alleen bekend voor de S-BB-lijsten, per schooljaar gepubliceerd).
+- ``dekking_tot``: laatste datum waarvoor het bestand de opleidingen dekt; voor
+  de opleidingsreferenties (:data:`OPLEIDINGSREFERENTIES`).
 - ``sha256`` en ``rijen``: de inhoud; een test bewaakt dat ze kloppen.
 
 De ster neemt het manifest over als ``meta_referentiedata``, met ``afwijkend``
