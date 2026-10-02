@@ -1,4 +1,4 @@
-"""Publicatie van de ster: atomair en alleen na de kwaliteitspoort (#363).
+"""Atomaire publicatie, alleen na de kwaliteitspoort (#363, #414, #415).
 
 Padcontract onder de doelmap van ``run_star``, gedeeld door CLI, app en
 externe afnemers:
@@ -8,10 +8,14 @@ externe afnemers:
   diagnose/      zelfde indeling, van een run met status ``fail`` zonder
                  override: niet gepubliceerd, alleen om de oorzaak te lezen
 
-Een run schrijft eerst naar een verborgen staging-map in de doelmap (zelfde
-bestandssysteem, dus een rename is atomair). ``datamodel/`` is daardoor nooit
-half geschreven, en een mislukte of onderbroken run laat de vorige publicatie
-staan.
+De brondata van één levering (``02-prepared``) staat plat in de doelmap: één
+bestand per recordtype plus ``quality.json``, en bij een foute run eveneens
+``diagnose/``.
+
+Een run schrijft eerst naar een verborgen staging-map op hetzelfde
+bestandssysteem, dus een rename is atomair. De publicatie is daardoor nooit
+half geschreven, bevat geen tabellen van een eerdere bron, en een mislukte of
+onderbroken run laat de vorige publicatie staan.
 """
 
 import shutil
@@ -32,14 +36,26 @@ _VORIGE = f"{DATAMODEL}.vorige"
 
 
 @contextmanager
-def staging(doel: Path) -> Iterator[Path]:
-    """Lege staging-map in ``doel``; verdwijnt na afloop, ook bij een onderbreking."""
-    doel.mkdir(parents=True, exist_ok=True)
-    map_ = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=doel))
+def staging(basis: Path) -> Iterator[Path]:
+    """Lege staging-map in ``basis``; verdwijnt na afloop, ook bij een onderbreking.
+
+    ``basis`` ligt op hetzelfde bestandssysteem als wat vervangen wordt: de
+    doelmap zelf (ster) of de map erboven (brondata).
+    """
+    basis.mkdir(parents=True, exist_ok=True)
+    map_ = Path(tempfile.mkdtemp(prefix=_STAGING_PREFIX, dir=basis))
     try:
         yield map_
     finally:
         shutil.rmtree(map_, ignore_errors=True)
+
+
+def _vervang(nieuw: Path, doel: Path, opzij: Path) -> None:
+    """Zet ``nieuw`` op de plek van ``doel``; een bestaande ``doel`` gaat naar
+    ``opzij`` (in de staging-map, dus die verdwijnt met de staging)."""
+    if doel.exists():
+        doel.rename(opzij)
+    nieuw.rename(doel)
 
 
 def publiceer(staging_map: Path, doel: Path) -> Path:
@@ -52,10 +68,7 @@ def publiceer(staging_map: Path, doel: Path) -> Path:
     Returns:
         Het pad van het gepubliceerde ``quality.json``.
     """
-    datamodel = doel / DATAMODEL
-    if datamodel.exists():
-        datamodel.rename(staging_map / _VORIGE)
-    (staging_map / DATAMODEL).rename(datamodel)
+    _vervang(staging_map / DATAMODEL, doel / DATAMODEL, staging_map / _VORIGE)
     rapport = (staging_map / KWALITEITSRAPPORT).replace(doel / KWALITEITSRAPPORT)
     shutil.rmtree(doel / DIAGNOSE, ignore_errors=True)
     return rapport
@@ -68,9 +81,38 @@ def bewaar_diagnose(staging_map: Path, doel: Path) -> Path:
         Het pad van het ``quality.json`` van de diagnose.
     """
     diagnose = doel / DIAGNOSE
+    doel.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(diagnose, ignore_errors=True)
     staging_map.rename(diagnose)
     return diagnose / KWALITEITSRAPPORT
+
+
+def controleer_brondatamap(doel: Path) -> None:
+    """Weiger een doelmap die niet leeg is en geen eerdere brondata bevat.
+
+    :func:`publiceer_brondata` vervangt de doelmap in zijn geheel; een per
+    ongeluk gekozen bovenliggende map mag daarbij niet leeg raken.
+
+    Raises:
+        ValueError: als ``doel`` andere inhoud heeft.
+    """
+    if not doel.exists() or not any(doel.iterdir()):
+        return
+    if not ((doel / KWALITEITSRAPPORT).exists() or (doel / DIAGNOSE).is_dir()):
+        raise ValueError(
+            f"Doelmap {doel} bevat geen eerdere brondata (geen "
+            f"{KWALITEITSRAPPORT} of {DIAGNOSE}/) en zou in zijn geheel worden "
+            "vervangen; kies een lege of eigen map per levering"
+        )
+
+
+def publiceer_brondata(staging_map: Path, nieuw: Path, doel: Path) -> None:
+    """Vervang de brondatamap ``doel`` in zijn geheel door ``nieuw``.
+
+    ``staging_map`` staat naast ``doel`` (zie :func:`staging`); de vorige
+    inhoud, inclusief een oude ``diagnose/``, verdwijnt daarmee.
+    """
+    _vervang(nieuw, doel, staging_map / _VORIGE)
 
 
 def lees_ster(

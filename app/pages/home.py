@@ -108,7 +108,8 @@ def _verwerk_bestanden(
         try:
             run_auto_pipeline(raw_file, target)
         except Exception as exc:
-            # Geen halve of verouderde brondata: die zou stil in de ster belanden.
+            # Geen verouderde brondata of diagnose: die zou stil in de ster
+            # belanden (de pipeline zelf laat bij een fout de vorige versie staan).
             shutil.rmtree(target)
             fouten.append(f"{raw_file.name}: {exc}")
     voortgang.empty()

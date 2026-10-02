@@ -120,6 +120,8 @@ uv run mbo stapel \
     --relative-to data/02-prepared/demo
 ```
 
+`mbo verwerk` vervangt de doelmap in zijn geheel en pas na de kwaliteitspoort: een herverwerking laat geen tabellen van een eerdere bron achter (#414). Bij status `fail` eindigt het met exitcode 3, blijft een eerdere versie in de doelmap ongewijzigd en staan tabellen en rapport in `<doel>/diagnose/` (#415). Een doelmap die niet leeg is en geen eerdere brondata bevat, weigert `mbo verwerk`.
+
 `mbo star` eindigt met exitcode 3 als `quality.json` de status `fail` heeft (#289). De ster wordt dan niet gepubliceerd: ster en rapport staan als diagnose in `<output>/diagnose/`, en een eerdere publicatie in `<output>/datamodel/` blijft ongewijzigd (#363). Met `--allow-quality-errors` bouwt de run door voor exploratief werk; dat staat in `provenance.kwaliteitsfouten_toegestaan` (ster) en in `kwaliteitsfouten_toegestaan` van het leveringsrapport (prepared, #394). Een kapot bronbestand geeft exitcode 1 met een korte melding (#291). De app blijft bouwen en toont de fout op Home (#290).
 
 ---
@@ -262,7 +264,7 @@ data/
 │   ├── h16/   ← TBGI XML (bekostigingsgrondslagen)
 │   └── h17/   ← GRONDSLAG IP MBO
 ├── 02-prepared/demo/
-│   ├── h15/RO_27DV_20240731_20260324/   ← één submap per bronbestand (volledige naam)
+│   ├── h15/RO_27DV_20240731_20260324/   ← één submap per bronbestand (volledige naam); bij een fout ook diagnose/
 │   ├── h16/TBGI_25LX_2027_20251124/
 │   └── h17/GRONDSLAG_IP_MBO_27DV_20251119_2025/
 └── 03-output/demo/

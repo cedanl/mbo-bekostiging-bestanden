@@ -21,7 +21,9 @@ from mbo_bekostiging_bestanden.publicatie import (
     DATAMODEL,
     KWALITEITSRAPPORT,
     bewaar_diagnose,
+    controleer_brondatamap,
     publiceer,
+    publiceer_brondata,
     staging,
 )
 from mbo_bekostiging_bestanden.quality import (
@@ -114,6 +116,7 @@ def _run(
 ) -> dict[str, pl.DataFrame]:
     source_path = Path(source)
     target_path = Path(target)
+    controleer_brondatamap(target_path)
 
     ruw = reader(source_path)
     frames = decoder(ruw)
@@ -134,19 +137,23 @@ def _run(
     if layouts is not None:
         quality_report.layoutvarianten = layouts(source_path, schema_naam)
 
-    report_path = target_path / "quality.json"
-    target_path.mkdir(parents=True, exist_ok=True)
-    with open(report_path, "w", encoding="utf-8") as f:
-        json.dump(quality_report.as_dict(), f, indent=2, ensure_ascii=False)
+    # Naast de doelmap bouwen: die wordt in zijn geheel vervangen (#414), en
+    # pas na de kwaliteitspoort (#415).
+    with staging(target_path.parent) as map_:
+        uitvoer = map_ / target_path.name
+        uitvoer.mkdir()
+        with open(uitvoer / KWALITEITSRAPPORT, "w", encoding="utf-8") as f:
+            json.dump(quality_report.as_dict(), f, indent=2, ensure_ascii=False)
+        export_frames(frames, uitvoer, fmt=fmt)
 
-    export_frames(frames, target_path, fmt=fmt)
-
-    # Controleer kwaliteitsstatus (#361)
-    if fail_on_errors and quality_report.errors:
-        raise KwaliteitsFout(
-            f"Kwaliteitsstatus fail ({len(quality_report.errors)} error(s)); "
-            f"zie {report_path}"
-        )
+        # Controleer kwaliteitsstatus (#361)
+        if fail_on_errors and quality_report.errors:
+            rapport_pad = bewaar_diagnose(uitvoer, target_path)
+            raise KwaliteitsFout(
+                f"Kwaliteitsstatus fail ({len(quality_report.errors)} error(s)); "
+                f"niet gepubliceerd, zie {rapport_pad}"
+            )
+        publiceer_brondata(map_, uitvoer, target_path)
 
     return frames
 

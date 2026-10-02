@@ -76,6 +76,16 @@ def test_vind_prepared_dirs_valt_terug_op_schijf_zonder_sessie(tmp_path, monkeyp
     assert sorted(_utils.vind_prepared_dirs({})) == sorted([ro, tbgi])
 
 
+def test_vind_prepared_dirs_slaat_diagnose_over(tmp_path, monkeypatch):
+    """Een niet-gepubliceerde run staat in ``<levering>/diagnose/`` (#415)."""
+    schijf = tmp_path / "schijf"
+    ro = _prepared_map(schijf / "h15" / "RO_27DV", "ISP")
+    _prepared_map(ro / "diagnose", "ISP")
+    monkeypatch.setattr(_utils, "prepared_dir", lambda: schijf)
+
+    assert _utils.vind_prepared_dirs({}) == [ro]
+
+
 def test_vind_prepared_dirs_zonder_schijf_of_sessie_geeft_lege_lijst(
     tmp_path, monkeypatch
 ):
