@@ -99,8 +99,8 @@ def test_onbekend_element_in_een_genest_element_krijgt_zijn_eigen_groep(tmp_path
         tmp_path,
         ("<Parameter>", "<Parameter><Extra>1</Extra>"),
     )
-    assert inventariseer_xml_elementen(bron) == {
-        "onbekende_xml_elementen": {"Parameter": {"Extra": 1}}
+    assert inventariseer_xml_elementen(bron)["onbekende_xml_elementen"] == {
+        "Parameter": {"Extra": 1}
     }
 
 
@@ -111,8 +111,8 @@ def test_element_binnen_een_bladelement_wordt_gemeld_onder_dat_blad(tmp_path):
         tmp_path,
         ("<BRIN>25LX</BRIN>", "<BRIN>25LX<Extra>xyz</Extra></BRIN>"),
     )
-    assert inventariseer_xml_elementen(bron) == {
-        "onbekende_xml_elementen": {"BRIN": {"Extra": 1}}
+    assert inventariseer_xml_elementen(bron)["onbekende_xml_elementen"] == {
+        "BRIN": {"Extra": 1}
     }
 
 
@@ -128,7 +128,10 @@ def test_diep_genest_element_in_een_blad_telt_ook(tmp_path):
 
 
 def test_inventaris_van_demo_is_leeg():
-    assert inventariseer_xml_elementen(DEMO_TBGI) == {"onbekende_xml_elementen": {}}
+    assert inventariseer_xml_elementen(DEMO_TBGI) == {
+        "onbekende_xml_elementen": {},
+        "onleesbare_xml_velden": {},
+    }
 
 
 @pytest.mark.parametrize(
@@ -145,3 +148,65 @@ def test_boolean_buiten_domein_is_error(tmp_path, veld):
         "ernst": "error",
     }
     assert any(veld in e for e in rapport["errors"])
+
+
+# Een blad met een genest element en zonder eigen tekst (#421): de waarde zit in
+# het kind en wordt niet gelezen. Dat is waardeverlies, geen uitbreiding.
+
+
+def _diploma_opleidingcode_genest(tmp_path: Path) -> Path:
+    return _kopie(
+        tmp_path,
+        (
+            "<Opleidingcode>25297</Opleidingcode>",
+            "<Opleidingcode><Deel>25297</Deel></Opleidingcode>",
+        ),
+    )
+
+
+def test_onleesbaar_veld_staat_met_plaats_in_de_inventaris(tmp_path):
+    inventaris = inventariseer_xml_elementen(_diploma_opleidingcode_genest(tmp_path))
+    assert inventaris["onleesbare_xml_velden"] == {
+        "Diploma": {
+            "Opleidingcode": {"aantal": 1, "plaatsen": ["Diploma[1]/Opleidingcode"]}
+        }
+    }
+
+
+def test_onleesbaar_veld_is_een_error(tmp_path):
+    rapport = _rapport(_diploma_opleidingcode_genest(tmp_path), tmp_path)
+    assert any(
+        "Diploma.Opleidingcode" in e and "Diploma[1]/Opleidingcode" in e
+        for e in rapport["errors"]
+    )
+
+
+def test_plaats_volgt_het_pad_vanaf_het_record(tmp_path):
+    bron = _kopie(
+        tmp_path,
+        (
+            '<Opleidingcode xsi:nil="true"/>',
+            "<Opleidingcode><Deel>1</Deel></Opleidingcode>",
+        ),
+    )
+    plaatsen = inventariseer_xml_elementen(bron)["onleesbare_xml_velden"]
+    assert plaatsen == {
+        "BekostigingsrelevanteBPV": {
+            "Opleidingcode": {
+                "aantal": 1,
+                "plaatsen": [
+                    "Inschrijving[1]/Teldatum[1]/BekostigingsrelevanteBPV[1]"
+                    "/Opleidingcode"
+                ],
+            }
+        }
+    }
+
+
+def test_blad_met_eigen_waarde_en_kind_blijft_uitbreiding(tmp_path):
+    """#359 blijft: de waarde wordt gelezen, het kind is een warning."""
+    bron = _kopie(
+        tmp_path,
+        ("<BRIN>25LX</BRIN>", "<BRIN>25LX<Extra>xyz</Extra></BRIN>"),
+    )
+    assert inventariseer_xml_elementen(bron)["onleesbare_xml_velden"] == {}

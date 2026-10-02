@@ -471,28 +471,60 @@ def _tbgi_structuur(velden: dict[str, list[str]]) -> dict[str, dict[str, str | N
     }
 
 
+# Plaatsen per onleesbaar veld in quality.json; het aantal staat ernaast.
+_MAX_PLAATSEN = 10
+
+
+def _meld_onleesbaar(
+    onleesbaar: dict[str, dict[str, dict]], groep: str, veld: str, plaats: str
+) -> None:
+    melding = onleesbaar.setdefault(groep, {}).setdefault(
+        veld, {"aantal": 0, "plaatsen": []}
+    )
+    melding["aantal"] += 1
+    if len(melding["plaatsen"]) < _MAX_PLAATSEN:
+        melding["plaatsen"].append(plaats)
+
+
 def _tel_onbekende_elementen(
     elem: ET.Element,
     groep: str,
     structuur: dict[str, dict[str, str | None]],
     gevonden: dict[str, dict[str, int]],
+    onleesbaar: dict[str, dict[str, dict]],
+    pad: str = "",
 ) -> None:
+    """Tel elementen buiten ``structuur`` en meld onleesbare bladen.
+
+    ``pad`` is de plaats van ``elem`` als ``Tag[n]/``-reeks vanaf het record
+    (n telt per tag binnen de ouder): een plaats zonder persoonsgegevens.
+    """
+
     def tel(in_groep: str, tag: str) -> None:
         per_tag = gevonden.setdefault(in_groep, {})
         per_tag[tag] = per_tag.get(tag, 0) + 1
 
+    volgnummers: dict[str, int] = {}
     for kind in elem:
+        volgnummers[kind.tag] = volgnummers.get(kind.tag, 0) + 1
         kindgroep = structuur[groep].get(kind.tag, False)
         if kindgroep is False:
             tel(groep, kind.tag)
         elif kindgroep:
-            _tel_onbekende_elementen(kind, kindgroep, structuur, gevonden)
+            kindpad = f"{pad}{kind.tag}[{volgnummers[kind.tag]}]/"
+            _tel_onbekende_elementen(
+                kind, kindgroep, structuur, gevonden, onleesbaar, kindpad
+            )
         else:
             # Een blad heeft geen kinderen; wat erin staat is een uitbreiding
             # van DUO onder dat blad (#359). De tekstwaarde van het blad zelf
-            # wordt wel gelezen.
-            for afstammeling in list(kind.iter())[1:]:
+            # wordt wel gelezen. Zonder eigen tekst zit de waarde in het kind
+            # en gaat ze verloren (#421).
+            afstammelingen = list(kind.iter())[1:]
+            for afstammeling in afstammelingen:
                 tel(kind.tag, afstammeling.tag)
+            if afstammelingen and not (kind.text or "").strip():
+                _meld_onleesbaar(onleesbaar, groep, kind.tag, f"{pad}{kind.tag}")
 
 
 def inventariseer_xml_elementen(path: str | Path, schema_name: str = "tbgi") -> dict:
@@ -504,18 +536,23 @@ def inventariseer_xml_elementen(path: str | Path, schema_name: str = "tbgi") -> 
 
     Returns:
         ``onbekende_xml_elementen``: groep → tagnaam → aantal.
+        ``onleesbare_xml_velden``: groep → veld → ``{"aantal", "plaatsen"}``
+        voor schemavelden met een genest element en zonder eigen waarde; die
+        waarde is niet ingelezen (#421).
     """
     velden = {tabel: spec["fields"] for tabel, spec in load_schema(schema_name).items()}
     root = ET.parse(path).getroot()
     gevonden: dict[str, dict[str, int]] = {}
+    onleesbaar: dict[str, dict[str, dict]] = {}
     _tel_onbekende_elementen(
-        root, "Bekostigingsgrondslagen", _tbgi_structuur(velden), gevonden
+        root, "Bekostigingsgrondslagen", _tbgi_structuur(velden), gevonden, onleesbaar
     )
     return {
         "onbekende_xml_elementen": {
             groep: dict(sorted(tags.items()))
             for groep, tags in sorted(gevonden.items())
-        }
+        },
+        "onleesbare_xml_velden": dict(sorted(onleesbaar.items())),
     }
 
 

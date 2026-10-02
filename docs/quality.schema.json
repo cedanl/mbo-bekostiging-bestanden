@@ -112,7 +112,7 @@
           },
           "regelinventaris": {
             "type": "object",
-            "description": "Posities buiten het PvE die afwijken van het veld dat ze herhalen (#120) en, voor TBGI (XML), elementen buiten het schema (#324)",
+            "description": "Posities buiten het PvE die afwijken van het veld dat ze herhalen (#120) en, voor TBGI (XML), elementen buiten het schema (#324) en velden met een genest element in plaats van een waarde (#421)",
             "properties": {
               "onbekende_xml_elementen": {
                 "type": "object",
@@ -121,6 +121,29 @@
                   "type": "object",
                   "additionalProperties": {
                     "type": "integer"
+                  }
+                }
+              },
+              "onleesbare_xml_velden": {
+                "type": "object",
+                "description": "TBGI: schemavelden met een genest element en zonder eigen waarde, per groep en veld; de waarde is niet ingelezen, een error (#421). plaatsen: de eerste plaatsen als Tag[n]/-pad vanaf het record",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "aantal": {
+                        "type": "integer"
+                      },
+                      "plaatsen": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": ["aantal", "plaatsen"],
+                    "additionalProperties": false
                   }
                 }
               },
