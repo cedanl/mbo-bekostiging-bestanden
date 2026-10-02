@@ -14,6 +14,7 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from _invoer import maak_werkmap, synchroniseer_selectie
 from _utils import prepared_dir, raw_dir, scenario, star_dir, vind_star_dir
 
 from mbo_bekostiging_bestanden.pipeline import (
@@ -53,6 +54,10 @@ _KWALITEITSMELDINGEN = {
     ),
 }
 
+_BRON_MAP = "Vaste invoermap"
+_BRON_SELECTIE = "Bestanden selecteren"
+_SESSIE_WERKMAP = "selectie_werkmap"
+
 # ---------------------------------------------------------------------------
 # Hulpfuncties
 # ---------------------------------------------------------------------------
@@ -67,6 +72,33 @@ def _scan_raw(raw: Path) -> dict[str, list[Path]]:
             groep = rel.parts[0] if len(rel.parts) > 1 else "overig"
             groepen[groep].append(p)
     return dict(groepen)
+
+
+def _kies_invoer() -> tuple[Path, str]:
+    """Invoer uit de vaste map of uit gekozen bestanden: ``(map, omschrijving)``.
+
+    Gekozen bestanden gaan naar een tijdelijke werkmap (niet naar de
+    configureerbare invoermap, die demo-bronbestanden in git kan bevatten).
+    """
+    bron = st.radio(
+        "Invoer",
+        [_BRON_MAP, _BRON_SELECTIE],
+        horizontal=True,
+        help="Lees alle bestanden uit de vaste invoermap, of kies zelf bestanden.",
+    )
+    if bron == _BRON_MAP:
+        raw = raw_dir()
+        return raw, f"`{raw}`"
+
+    gekozen = st.file_uploader(
+        "Selecteer RO-, GRONDSLAG- of TBGI-bestanden",
+        accept_multiple_files=True,
+        help="De bestanden blijven lokaal en worden alleen in een tijdelijke "
+        "werkmap gezet om te verwerken.",
+    )
+    werkmap = st.session_state.setdefault(_SESSIE_WERKMAP, str(maak_werkmap()))
+    synchroniseer_selectie(((f.name, f.getvalue()) for f in gekozen), Path(werkmap))
+    return Path(werkmap), "de geselecteerde bestanden"
 
 
 def _prepared_subdir(raw_file: Path, raw: Path, prepared: Path) -> Path:
@@ -280,19 +312,20 @@ st.markdown(
 )
 
 # ── Ontdek bestanden ─────────────────────────────────────────────────────────
-raw = raw_dir()
+raw, invoer = _kies_invoer()
 groepen = _scan_raw(raw)
 
 if not groepen:
     st.info(
-        f"Geen herkenbare bestanden gevonden in `{raw}`.  \n"
-        "Zet RO-, GRONDSLAG- of TBGI-bestanden in de invoermap."
+        f"Geen herkenbare bestanden gevonden in {invoer}.  \n"
+        "Gebruik RO-, GRONDSLAG- of TBGI-bestanden."
     )
     st.stop()
 
 totaal_bestanden = sum(len(v) for v in groepen.values())
 st.write(
-    f"**{totaal_bestanden} bestand(en) gevonden** in `{raw}` — {len(groepen)} map(pen):"
+    f"**{totaal_bestanden} bestand(en) gevonden** in {invoer} — "
+    f"{len(groepen)} map(pen):"
 )
 
 for periode in sorted(groepen):

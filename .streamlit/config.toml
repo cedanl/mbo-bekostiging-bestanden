@@ -1,6 +1,8 @@
 [server]
 headless = true
 port = 8501
+# MB; ruime marge boven de standaard 200 MB voor echte DUO-bestanden bij "Bestanden selecteren".
+maxUploadSize = 2048
 
 [browser]
 gatherUsageStats = false

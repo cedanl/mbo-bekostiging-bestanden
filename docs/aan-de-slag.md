@@ -90,6 +90,12 @@ de auditbron met de echte identifiers. Ga met beide zorgvuldig om:
 uv run streamlit run app/main.py
 ```
 
+Op Home kies je de invoer: de **vaste invoermap** (`[data] raw` in
+`app/config.toml`) of **bestanden selecteren**. Gekozen bestanden worden in een
+tijdelijke werkmap gezet en daarna net zo verwerkt; de invoermap blijft
+ongemoeid. De brondata en het analysemodel komen op dezelfde plek als bij de
+vaste map (`[data] prepared` en `output`).
+
 !!! warning "Alleen lokaal"
     De app is een lokale, single-user analysetool en wordt bewust niet gehost
     (ook niet op SURF). Er is geen login, geen rolgebaseerd exportrecht en geen

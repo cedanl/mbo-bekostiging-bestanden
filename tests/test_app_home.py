@@ -40,6 +40,19 @@ def _home() -> AppTest:
     return app
 
 
+def test_bestanden_selecteren_staat_naast_de_vaste_map(paden):
+    """Zonder gekozen bestanden valt er niets te verwerken (#436)."""
+    app = _home()
+    assert app.radio[0].options == ["Vaste invoermap", "Bestanden selecteren"]
+    assert app.radio[0].value == "Vaste invoermap"
+
+    app.radio[0].set_value("Bestanden selecteren").run()
+
+    assert not app.exception
+    assert any("geselecteerde bestanden" in i.value for i in app.info)
+    assert not [b for b in app.button if b.label == "Verwerk bestanden"]
+
+
 def test_analysemodel_kan_pas_na_brondata(paden):
     app = _home()
     assert not _knop(app, "Verwerk bestanden").disabled
