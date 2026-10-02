@@ -153,7 +153,8 @@ bestanden in `data/01-raw/` en maakt de twee producten in aparte stappen (#264):
    brondata is, ook na een herstart; de ruwe bestanden worden niet opnieuw verwerkt.
 
 Open **Werkbare data** (brondata per levering) of **Analysemodel** (star schema) in de zijbalk
-om de tabellen te bekijken en te downloaden als CSV.
+om de tabellen te bekijken en te downloaden als CSV. Onder aan elke pagina download je
+alle tabellen van die pagina in één keer als zip met CSV's (persoonsgegevens standaard verborgen).
 
 ---
 

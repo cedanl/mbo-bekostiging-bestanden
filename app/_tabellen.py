@@ -4,6 +4,8 @@ Tabelkeuze, preview, kolomfilter, PII-verberging en CSV-download staan hier éé
 keer; de pagina's bepalen alleen welke tabellen ze tonen.
 """
 
+import io
+import zipfile
 from pathlib import Path
 from typing import NoReturn
 
@@ -133,6 +135,40 @@ def toon_tabel_sectie(
         )
         return True
     return False
+
+
+def maak_zip_met_csvs(tabellen: dict[str, Path], verberg_pii: bool) -> bytes:
+    """Zip met één CSV per tabel; ``"levering / tabel"`` wordt een submap."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipbestand:
+        for naam, pad in tabellen.items():
+            csv = _tabel_csv(str(pad), pad.stat().st_mtime, drop_pii=verberg_pii)
+            zipbestand.writestr(f"{naam.replace(' / ', '/')}.csv", csv)
+    return buffer.getvalue()
+
+
+def toon_download_alles(tabellen: dict[str, Path], bestandsnaam: str) -> None:
+    """Eén download met alle tabellen van de pagina als CSV's in een zip.
+
+    Persoonsgegevens zijn standaard verborgen, net als bij de losse downloads;
+    de zip wordt pas gebouwd als de gebruiker op de knop klikt.
+    """
+    if not tabellen:
+        return
+    st.subheader("Alles downloaden")
+    verberg_pii = st.checkbox(
+        "Verberg persoonsgegevens in de download",
+        value=True,
+        help="Aanbevolen. Uitvinken neemt in elke tabel alle kolommen mee.",
+        key=f"pii_alles_{bestandsnaam}",
+    )
+    st.download_button(
+        label=f"Download alle {len(tabellen)} tabellen (`{bestandsnaam}`)",
+        data=lambda: maak_zip_met_csvs(tabellen, verberg_pii),
+        file_name=bestandsnaam,
+        mime="application/zip",
+        width="stretch",
+    )
 
 
 def toon_paginakop(label: str, titel: str) -> None:

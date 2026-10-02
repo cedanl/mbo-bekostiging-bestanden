@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from _tabel_docs import BRONDATA_INTRO
 from _tabellen import (
     stop_met_terug_naar_home,
+    toon_download_alles,
     toon_paginakop,
     toon_tabel_sectie,
     toon_terugknop,
@@ -20,6 +21,7 @@ from _tabellen import (
 from _utils import brondata_bijschrift, groepeer_prepared, vind_prepared_dirs
 
 _SECTIE_BRONDATA = "Brondata per levering"
+_BESTANDSNAAM_DOWNLOAD = "werkbare_data"
 
 toon_paginakop("Ruw → werkbaar", "Werkbare data")
 st.info(BRONDATA_INTRO)
@@ -43,4 +45,7 @@ for groep, tabellen in (("RO en GRONDSLAG", other_prepared), ("TBG-i", tbgi_prep
         )
         bijschrift = ""
 
+toon_download_alles(
+    {**other_prepared, **tbgi_prepared}, f"{_BESTANDSNAAM_DOWNLOAD}.zip"
+)
 toon_terugknop()
