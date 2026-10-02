@@ -30,6 +30,7 @@ from mbo_bekostiging_bestanden.contracts import (
     KOPPELSTATUS,
     KOPPELSTATUS_BINNEN,
     KOPPELSTATUS_GEEN_INSCHRIJVING,
+    ONBEKENDE_XML,
     PERIODE_SLEUTEL,
     PRECISIE_ONBEKEND,
     PRECISIE_SUFFIX,
@@ -917,6 +918,7 @@ _NIET_DOORVERTAALD = {
         "zonder ISP-periode (#196)"
     ),
     "Signaal": "alleen in de brondata (02-prepared)",
+    ONBEKENDE_XML: "alleen in de brondata (02-prepared): XML buiten het schema (#420)",
     "BekostigingsrelevanteBPV": "alleen in de brondata (02-prepared)",
 }
 

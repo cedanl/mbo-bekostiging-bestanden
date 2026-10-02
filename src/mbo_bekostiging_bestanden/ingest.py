@@ -1,12 +1,14 @@
 """Inlezen van ruwe bekostigingsbestanden."""
 
+import copy
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.contracts import ONBEKENDE_XML
 from mbo_bekostiging_bestanden.metadata import (
     bestandsnaam_patroon,
     extra_kolommen,
@@ -473,66 +475,97 @@ def _tbgi_structuur(velden: dict[str, list[str]]) -> dict[str, dict[str, str | N
 
 # Plaatsen per onleesbaar veld in quality.json; het aantal staat ernaast.
 _MAX_PLAATSEN = 10
+_ONBEKENDE_XML_KOLOMMEN = ("groep", "plaats", "tag", "xml")
 
 
-def _meld_onleesbaar(
-    onleesbaar: dict[str, dict[str, dict]], groep: str, veld: str, plaats: str
-) -> None:
-    melding = onleesbaar.setdefault(groep, {}).setdefault(
-        veld, {"aantal": 0, "plaatsen": []}
-    )
-    melding["aantal"] += 1
-    if len(melding["plaatsen"]) < _MAX_PLAATSEN:
-        melding["plaatsen"].append(plaats)
+@dataclass
+class _XmlInventaris:
+    """Wat de TBG-i-XML bevat buiten de schemavelden.
+
+    ``onbekend``: groep → tag → aantal (#324). ``onleesbaar``: groep → veld →
+    ``{"aantal", "plaatsen"}`` voor een blad zonder eigen waarde met een genest
+    element (#421). ``bewaard``: elk onbekend element als ruwe XML met zijn
+    plaats, voor de brondata (#420).
+    """
+
+    onbekend: dict[str, dict[str, int]] = field(default_factory=dict)
+    onleesbaar: dict[str, dict[str, dict]] = field(default_factory=dict)
+    bewaard: list[dict[str, str]] = field(default_factory=list)
+
+    def tel(self, groep: str, tag: str) -> None:
+        per_tag = self.onbekend.setdefault(groep, {})
+        per_tag[tag] = per_tag.get(tag, 0) + 1
+
+    def bewaar(self, groep: str, elem: ET.Element, plaats: str) -> None:
+        self.bewaard.append(
+            {"groep": groep, "plaats": plaats, "tag": elem.tag, "xml": _als_xml(elem)}
+        )
+
+    def meld_onleesbaar(self, groep: str, veld: str, plaats: str) -> None:
+        melding = self.onleesbaar.setdefault(groep, {}).setdefault(
+            veld, {"aantal": 0, "plaatsen": []}
+        )
+        melding["aantal"] += 1
+        if len(melding["plaatsen"]) < _MAX_PLAATSEN:
+            melding["plaatsen"].append(plaats)
 
 
-def _tel_onbekende_elementen(
+def _als_xml(elem: ET.Element) -> str:
+    """Het element met inhoud, zonder de tekst die erna in de ouder volgt."""
+    kopie = copy.copy(elem)
+    kopie.tail = None
+    return ET.tostring(kopie, encoding="unicode")
+
+
+def _doorloop(
     elem: ET.Element,
     groep: str,
     structuur: dict[str, dict[str, str | None]],
-    gevonden: dict[str, dict[str, int]],
-    onleesbaar: dict[str, dict[str, dict]],
+    inventaris: _XmlInventaris,
     pad: str = "",
 ) -> None:
-    """Tel elementen buiten ``structuur`` en meld onleesbare bladen.
+    """Verzamel in ``inventaris`` wat onder ``elem`` buiten ``structuur`` valt.
 
     ``pad`` is de plaats van ``elem`` als ``Tag[n]/``-reeks vanaf het record
     (n telt per tag binnen de ouder): een plaats zonder persoonsgegevens.
     """
-
-    def tel(in_groep: str, tag: str) -> None:
-        per_tag = gevonden.setdefault(in_groep, {})
-        per_tag[tag] = per_tag.get(tag, 0) + 1
-
     volgnummers: dict[str, int] = {}
     for kind in elem:
         volgnummers[kind.tag] = volgnummers.get(kind.tag, 0) + 1
         kindgroep = structuur[groep].get(kind.tag, False)
         if kindgroep is False:
-            tel(groep, kind.tag)
+            inventaris.tel(groep, kind.tag)
+            inventaris.bewaar(groep, kind, f"{pad}{kind.tag}")
         elif kindgroep:
             kindpad = f"{pad}{kind.tag}[{volgnummers[kind.tag]}]/"
-            _tel_onbekende_elementen(
-                kind, kindgroep, structuur, gevonden, onleesbaar, kindpad
-            )
+            _doorloop(kind, kindgroep, structuur, inventaris, kindpad)
         else:
             # Een blad heeft geen kinderen; wat erin staat is een uitbreiding
             # van DUO onder dat blad (#359). De tekstwaarde van het blad zelf
             # wordt wel gelezen. Zonder eigen tekst zit de waarde in het kind
             # en gaat ze verloren (#421).
-            afstammelingen = list(kind.iter())[1:]
-            for afstammeling in afstammelingen:
-                tel(kind.tag, afstammeling.tag)
-            if afstammelingen and not (kind.text or "").strip():
-                _meld_onleesbaar(onleesbaar, groep, kind.tag, f"{pad}{kind.tag}")
+            for afstammeling in list(kind.iter())[1:]:
+                inventaris.tel(kind.tag, afstammeling.tag)
+            for kleinkind in kind:
+                inventaris.bewaar(
+                    kind.tag, kleinkind, f"{pad}{kind.tag}/{kleinkind.tag}"
+                )
+            if len(kind) and not (kind.text or "").strip():
+                inventaris.meld_onleesbaar(groep, kind.tag, f"{pad}{kind.tag}")
+
+
+def _inventariseer(root: ET.Element, velden: dict[str, list[str]]) -> _XmlInventaris:
+    inventaris = _XmlInventaris()
+    _doorloop(root, "Bekostigingsgrondslagen", _tbgi_structuur(velden), inventaris)
+    return inventaris
 
 
 def inventariseer_xml_elementen(path: str | Path, schema_name: str = "tbgi") -> dict:
     """Tel XML-elementen die het schema niet kent, per groep en tagnaam.
 
-    ``read_tbgi`` leest alleen de schemavelden; een element dat DUO toevoegt
-    verdween zonder spoor (#324). Het bestand breekt niet: DUO mag XML
-    uitbreiden, dus dit blijft een warning in ``quality.json``.
+    Het bestand breekt er niet op: DUO mag XML uitbreiden, dus dit blijft een
+    warning in ``quality.json`` (#324). De elementen zelf staan in de brondata
+    (:data:`~mbo_bekostiging_bestanden.contracts.ONBEKENDE_XML`, #420).
 
     Returns:
         ``onbekende_xml_elementen``: groep → tagnaam → aantal.
@@ -541,18 +574,13 @@ def inventariseer_xml_elementen(path: str | Path, schema_name: str = "tbgi") -> 
         waarde is niet ingelezen (#421).
     """
     velden = {tabel: spec["fields"] for tabel, spec in load_schema(schema_name).items()}
-    root = ET.parse(path).getroot()
-    gevonden: dict[str, dict[str, int]] = {}
-    onleesbaar: dict[str, dict[str, dict]] = {}
-    _tel_onbekende_elementen(
-        root, "Bekostigingsgrondslagen", _tbgi_structuur(velden), gevonden, onleesbaar
-    )
+    inventaris = _inventariseer(ET.parse(path).getroot(), velden)
     return {
         "onbekende_xml_elementen": {
             groep: dict(sorted(tags.items()))
-            for groep, tags in sorted(gevonden.items())
+            for groep, tags in sorted(inventaris.onbekend.items())
         },
-        "onleesbare_xml_velden": dict(sorted(onleesbaar.items())),
+        "onleesbare_xml_velden": dict(sorted(inventaris.onleesbaar.items())),
     }
 
 
@@ -634,4 +662,9 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
         tabel: pl.DataFrame(rows, schema=dict.fromkeys(velden[tabel], pl.Utf8))
         for tabel, rows in tables.items()
     }
+    # Alleen bij onbekende elementen: zo blijft de brondata getrouw (#420).
+    if bewaard := _inventariseer(root, velden).bewaard:
+        result[ONBEKENDE_XML] = pl.DataFrame(
+            bewaard, schema=dict.fromkeys(_ONBEKENDE_XML_KOLOMMEN, pl.Utf8)
+        )
     return result

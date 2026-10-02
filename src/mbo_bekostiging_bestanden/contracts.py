@@ -72,3 +72,7 @@ SCHOOLJAAR_GRAIN = ["BRIN", "_persoon_id", "Inschrijvingvolgnummer", SCHOOLJAAR]
 # Per groep precies één hoofdinschrijving (invariant, gecontroleerd in quality).
 HOOFDINSCHRIJVING_GROEP = ["BRIN", "_persoon_id", SCHOOLJAAR]
 HOOFDINSCHRIJVING = "_hoofdinschrijving"
+
+# Tabel in de TBG-i-brondata met XML-elementen buiten het schema, als ruwe XML
+# met hun plaats (#420); het analysemodel neemt hem niet over.
+ONBEKENDE_XML = "OnbekendeXML"

@@ -111,6 +111,11 @@ Voorbeeld: bekostigingsjaar 2027 = inschrijvingen studiejaar 2025–2026, diplom
 </Bekostigingsgrondslagen>
 ```
 
+Elementen die hier niet staan (een uitbreiding van DUO) worden niet
+geïnterpreteerd. Ze staan als ruwe XML, met hun plaats (bijv.
+`Inschrijving[1]/NieuwElement`), in de brondatatabel `OnbekendeXML` en worden
+gemeld in `quality.json` (#324, #420).
+
 ## Gegevensgroepen
 
 ### Inschrijving
