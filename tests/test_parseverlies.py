@@ -46,6 +46,16 @@ def test_geen_verlies_geeft_leeg_resultaat():
     assert tel_parseverlies(ruw, getypeerd) == {}
 
 
+def test_alleen_witruimte_is_geen_parseverlies():
+    """Decode trimt witruimte en maakt een lege cel null (#392); dat is de
+    eigen normalisatie en geen verlies. Voorheen blokkeerde een spatie in een
+    datumveld de run, terwijl dezelfde spatie in een tekstveld stil null werd
+    (#418)."""
+    ruw = {"BPV": pl.DataFrame({"Recordsoort": ["BPV", "BPV"], "Omvang": [" ", "x "]})}
+    getypeerd = decode_ro(ruw)
+    assert tel_parseverlies(ruw, getypeerd) == {"BPV": {"Omvang": 1}}
+
+
 def test_ongeldig_getal_wordt_null_in_plaats_van_crash():
     ruw = {"BPV": pl.DataFrame({"Recordsoort": ["BPV", "BPV"], "Omvang": ["900", "x"]})}
     getypeerd = decode_ro(ruw)
