@@ -178,26 +178,33 @@ if not star_tabellen and not tbgi_prepared and not other_prepared:
         st.switch_page("pages/home.py")
     st.stop()
 
-if not star_tabellen:
-    st.warning("Nog geen analysemodel (star schema) gebouwd; de brondata is er wel.")
+tab_analysemodel, tab_brondata = st.tabs([_SECTIE_ANALYSEMODEL, _SECTIE_BRONDATA])
 
-if star_tabellen and star_dir:
-    _toon_tabel_sectie(
-        _SECTIE_ANALYSEMODEL,
-        star_tabellen,
-        help_fn=tabel_help,
-        bijschrift=analysemodel_bijschrift(star_dir),
-    )
-
-# Het bijschrift geldt voor de brondata als geheel: één keer, bij de eerste sectie.
-brondata = brondata_bijschrift(prepared_dirs) if prepared_dirs else ""
-for groep, tabellen in (("RO en GRONDSLAG", other_prepared), ("TBG-i", tbgi_prepared)):
-    if tabellen:
-        st.divider()
+with tab_analysemodel:
+    if star_tabellen and star_dir:
         _toon_tabel_sectie(
-            f"{_SECTIE_BRONDATA} — {groep}", tabellen, bijschrift=brondata
+            _SECTIE_ANALYSEMODEL,
+            star_tabellen,
+            help_fn=tabel_help,
+            bijschrift=analysemodel_bijschrift(star_dir),
         )
-        brondata = ""
+    else:
+        st.warning(
+            "Nog geen analysemodel (star schema) gebouwd; de brondata is er wel."
+        )
+
+with tab_brondata:
+    # Het bijschrift geldt voor de brondata als geheel: één keer, bij de eerste groep.
+    brondata = brondata_bijschrift(prepared_dirs) if prepared_dirs else ""
+    groepen = (("RO en GRONDSLAG", other_prepared), ("TBG-i", tbgi_prepared))
+    for groep, tabellen in groepen:
+        if tabellen:
+            _toon_tabel_sectie(
+                f"{_SECTIE_BRONDATA} — {groep}", tabellen, bijschrift=brondata
+            )
+            brondata = ""
+    if not (other_prepared or tbgi_prepared):
+        st.warning("Nog geen brondata verwerkt; het analysemodel is er wel.")
 
 st.write("")
 col_terug, _ = st.columns([1, 3])
