@@ -172,14 +172,22 @@ def _buiten_geldigheid(
 
 
 def _tel_afwijkingen(
-    df: pl.DataFrame, veld: str, domein: dict, peildatum: pl.Series | None
+    df: pl.DataFrame,
+    veld: str,
+    domein: dict,
+    verplicht: bool,
+    peildatum: pl.Series | None,
 ) -> dict[str, int]:
-    """Aantallen per soort afwijking van één veld; alleen niet-nul."""
+    """Aantallen per soort afwijking van één veld; alleen niet-nul.
+
+    ``domein`` is leeg voor een verplicht veld zonder waardedomein: dan telt
+    alleen ``leeg``.
+    """
     waarde = pl.col(veld).cast(pl.Utf8)
     gevuld = waarde.is_not_null() & (waarde.str.strip_chars() != "")
     tellingen = {
-        "buiten": gevuld & ~_binnen_domein(waarde, domein),
-        "leeg": ~gevuld if domein.get("verplicht") else pl.lit(False),
+        "buiten": gevuld & ~_binnen_domein(waarde, domein) if domein else pl.lit(False),
+        "leeg": ~gevuld if verplicht else pl.lit(False),
     }
     if domein.get("geldigheid") and peildatum is not None:
         df = df.with_columns(peildatum.alias("_peildatum"))
@@ -190,6 +198,17 @@ def _tel_afwijkingen(
         tellingen["zonder_peildatum"] = gevuld & zonder
     rij = df.select(expr.sum().alias(soort) for soort, expr in tellingen.items())
     return {soort: n for soort, n in rij.row(0, named=True).items() if n}
+
+
+def _ernst(domein: dict, buiten: int, leeg: int) -> str:
+    """Een leeg verplicht veld is altijd een error (#419); een waarde buiten
+    het domein heeft de ernst van het domein. Zonder echte domeinschending is
+    de waarde hooguit historisch of niet toetsbaar (#360): een warning."""
+    if leeg:
+        return ernst.ERROR
+    if buiten:
+        return domein.get("ernst", ernst.WARNING)
+    return ernst.WARNING
 
 
 def controleer_waardedomeinen(
@@ -209,9 +228,11 @@ def controleer_waardedomeinen(
         Recordtype → veld → ``{"aantal": .., "ernst": ..}``; alleen niet-nul.
         ``ernst`` komt uit ``domein.<naam>.ernst`` in ``waardenlijsten.toml``
         (``"error"`` voor structurele velden zoals BRIN en Studiejaar,
-        anders ``"warning"``, #238). Bij een domein met ``verplicht = true``
-        telt een lege waarde ook mee in ``aantal`` en staat het aantal lege
-        waarden apart in ``leeg`` (#320); anders tellen lege waarden niet.
+        anders ``"warning"``, #238). Bij een veld in ``verplichte_velden`` van
+        het schema telt een lege waarde ook mee in ``aantal``, staat het aantal
+        lege waarden apart in ``leeg`` en is de ernst ``"error"`` (#320, #419);
+        ook zonder waardedomein. Bij een optioneel veld tellen lege waarden
+        niet.
         Een waarde buiten haar ``geldigheid`` op de peildatum staat apart in
         ``buiten_geldigheid`` en ``zonder_peildatum`` telt de tijdgebonden
         waarden die niet te toetsen waren; beide tellen niet mee in ``aantal``
@@ -227,22 +248,20 @@ def controleer_waardedomeinen(
             .get(rt, pl.DataFrame())
             .get_column(spec.get("peildatum", ""), default=None)
         )
-        for veld, naam in spec.get("domeinen", {}).items():
+        veld_domein = spec.get("domeinen", {})
+        verplicht = spec.get("verplichte_velden", [])
+        for veld in dict.fromkeys([*veld_domein, *verplicht]):
             if veld not in df.columns:
                 continue
-            domein = domeinen[naam]
-            tellingen = _tel_afwijkingen(df, veld, domein, peildatum)
+            domein = domeinen[veld_domein[veld]] if veld in veld_domein else {}
+            tellingen = _tel_afwijkingen(df, veld, domein, veld in verplicht, peildatum)
             if not tellingen:
                 continue
-            aantal = tellingen.pop("buiten", 0) + tellingen.get("leeg", 0)
-            # Zonder echte domeinschending is de waarde hooguit historisch of
-            # niet toetsbaar (#360): nooit een error, ook niet bij een
-            # verplicht veld.
+            buiten = tellingen.pop("buiten", 0)
+            leeg = tellingen.get("leeg", 0)
             afwijking: dict[str, int | str] = {
-                "aantal": aantal,
-                "ernst": domein.get("ernst", ernst.WARNING)
-                if aantal
-                else ernst.WARNING,
+                "aantal": buiten + leeg,
+                "ernst": _ernst(domein, buiten, leeg),
             }
             afwijkingen.setdefault(rt, {})[veld] = afwijking | tellingen
     return afwijkingen

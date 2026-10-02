@@ -20,12 +20,19 @@
 # PvE §17.3: GRONDSLAG_IP_MBO_<BRIN>_<einddatum selectie>_<studiejaar>.csv
 bestandsnaam = '(?i)^GRONDSLAG_IP_MBO_(?P<BRIN>[^_]+)_'
 
+# verplichte_velden: PvE V/O-kolom "V" per veld (§17.5); een lege waarde is een
+# error in quality.json (#416, #419). Recordsoort staat er niet in: die bepaalt
+# het recordtype zelf.
+
 [VLP]
 verplicht = true
 single_row  = true
 # Praktijk: echte leveringen hebben BRIN op positie 2 (zie demo-levering).
 layout      = "praktijk"
 fields      = ["Recordsoort", "BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
+# BRIN staat niet in de PvE-tabel van dit recordtype maar is structureel: leeg
+# wijst op een verschoven of afgeknipte regel (#320).
+verplichte_velden = ["BRIN", "Studiejaar", "DatumAanmaak", "BekostigingsType"]
 date_fields = ["DatumAanmaak"]
 int_fields  = ["Studiejaar"]
 domeinen = { BRIN = "brin", Studiejaar = "studiejaar", BekostigingsType = "bekostigingstype" }
@@ -52,6 +59,10 @@ fields = [
     "CodeLandWaarnaarVertrokken", "Verblijfstitel",
     "Nationaliteit1", "Nationaliteit2",
 ]
+verplichte_velden = [
+    "PseudoNummer", "Leeftijd1", "Leeftijd2", "Leeftijd3", "Leeftijd4", "Geslacht",
+    "Postcodecijfers",
+]
 optionele_achtervelden = [
     "DatumOverlijden", "DatumVestigingNederland", "DatumVertrekNederland",
     "CodeGeboorteland", "CodeGeboortelandOuder1", "CodeGeboortelandOuder2",
@@ -69,6 +80,10 @@ fields = [
     "Inschrijvingvolgnummer", "DatumInschrijving",
     "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
 ]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Inschrijvingvolgnummer", "DatumInschrijving",
+    "DatumUitschrijvingGepland",
+]
 optionele_achtervelden = ["DatumUitschrijvingWerkelijk", "RedenUitschrijving"]
 date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields  = []
@@ -82,6 +97,10 @@ fields = [
     "Opleidingcode", "Niveau", "Leertraject", "LocatiecodeVSV",
     "IndicatieBekostigbaar", "Onderwijsaanbieder", "Onderwijslocatie",
     "Leerroute", "Leerroutefase",
+]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Inschrijvingvolgnummer", "DatumBegin",
+    "Opleidingcode", "Leertraject", "IndicatieBekostigbaar",
 ]
 optionele_achtervelden = [
     "Onderwijsaanbieder", "Onderwijslocatie", "Leerroute", "Leerroutefase",
@@ -97,6 +116,10 @@ fields = [
     "Recordsoort", "PseudoNummer", "BRIN",
     "Inschrijvingvolgnummer", "DatumBeginExtraOndersteuning", "DatumEindExtraOndersteuning",
 ]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Inschrijvingvolgnummer",
+    "DatumBeginExtraOndersteuning",
+]
 optionele_achtervelden = ["DatumEindExtraOndersteuning"]
 date_fields = ["DatumBeginExtraOndersteuning", "DatumEindExtraOndersteuning"]
 int_fields  = []
@@ -108,6 +131,10 @@ fields = [
     "Inschrijvingvolgnummer", "Volgnummer",
     "Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk",
     "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
+]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Inschrijvingvolgnummer", "Volgnummer", "Afsluitdatum",
+    "DatumBegin", "DatumEindGepland", "Omvang", "LeerbedrijfID",
 ]
 optionele_achtervelden = ["Opleidingcode", "CodeKeuzedeel"]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
@@ -124,6 +151,11 @@ fields = [
     "BBLBOLFactor", "PrijsfactorMBO",
     "AantalBekostigdeVerblijfsjarenMBO", "Verblijfsjaarfactor",
     "BijdrageInschrijvingAanDeelnemerswaarde",
+]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Inschrijvingvolgnummer", "Teldatum",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+    "InschrijvingVoorCorrectiefactor",
 ]
 # Namen en typering gelijk aan TBG-i (tbgi_schema.toml [Teldatum]), zoals het
 # PvE ze in §16 en §17 noemt: één concept, één kolom in fact_bekostiging (#208).
@@ -142,6 +174,10 @@ fields = [
     "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
     "IndicatieBekostigbaar", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Resultaatvolgnummer", "Opleidingcode",
+    "DatumResultaat",
+]
 optionele_achtervelden = [
     "IndicatieBekostigbaar", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
@@ -158,6 +194,10 @@ fields = [
     "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
     "Bekostigingsstatus", "BijdrageDiplomawaarde",
 ]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Resultaatvolgnummer",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+]
 optionele_achtervelden = ["Bekostigingsstatus", "BijdrageDiplomawaarde"]
 date_fields  = []
 int_fields   = []
@@ -172,6 +212,7 @@ fields = [
     "ResultaatvolgnummerDiploma", "Resultaatvolgnummer", "CodeAMvBOnderdeel",
     "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+verplichte_velden = ["PseudoNummer", "BRIN", "Resultaatvolgnummer", "CodeAMvBOnderdeel"]
 optionele_achtervelden = [
     "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
@@ -187,6 +228,9 @@ fields = [
     "VrijstellingGeneriekExamenonderdeel",
     "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
     "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
+]
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Resultaatvolgnummer", "CodeGeneriekExamenonderdeel",
 ]
 optionele_achtervelden = [
     "Eindcijfer", "VrijstellingGeneriekExamenonderdeel", "CijferIE",
@@ -206,6 +250,11 @@ fields = [
     "CodeKeuzedeel", "Resultaat", "Certificaat",
     "DatumResultaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+# Certificaat is volgens het PvE (§17.5) verplicht, maar leveringen laten het
+# leeg (demo); in RO-KZD en GRONDSLAG-AMO is het optioneel.
+verplichte_velden = [
+    "PseudoNummer", "BRIN", "Resultaatvolgnummer", "CodeKeuzedeel",
+]
 optionele_achtervelden = [
     "Resultaat", "Certificaat", "DatumResultaat", "Inschrijvingvolgnummer",
     "Onderwijsaanbieder",
@@ -222,6 +271,10 @@ fields = [
     "AantalPER", "AantalISG", "AantalISP", "AantalISE",
     "AantalBPV", "AantalBII", "AantalDIP", "AantalBID",
     "AantalAMO", "AantalGEO", "AantalKZD",
+]
+verplichte_velden = [
+    "AantalPER", "AantalISG", "AantalISP", "AantalISE", "AantalBPV", "AantalBII",
+    "AantalDIP", "AantalBID", "AantalAMO", "AantalGEO", "AantalKZD",
 ]
 date_fields = []
 int_fields  = [

@@ -9,12 +9,21 @@
 # of een volgnummer; per veld staat de reden in ``[geen_domein]`` van
 # waardenlijsten.toml (#356).
 
+# verplichte_velden: PvE "Verplicht: Ja" per veld (§16.5); een lege waarde is
+# een error in quality.json (#416, #419). Velden die de ingest uit een
+# bovenliggend XML-element overneemt (BSN, Inschrijvingvolgnummer, ...) staan
+# niet in de PvE-tabel van het kind en dus niet in de lijst.
+
 [Inschrijving]
 fields = [
     "BRIN", "Burgerservicenummer", "Onderwijsnummer",
     "Inschrijvingvolgnummer",
     "DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk",
     "NiveauHoogstBekostigdeDiploma",
+]
+verplichte_velden = [
+    "BRIN", "Inschrijvingvolgnummer", "DatumInschrijving",
+    "DatumUitschrijvingGepland",
 ]
 date_fields  = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
 int_fields   = []
@@ -36,10 +45,18 @@ fields = [
     "AantalBekostigdeVerblijfsjarenMBO", "Verblijfsjaarfactor",
     "BijdrageInschrijvingAanDeelnemerswaarde",
 ]
+# BRIN staat niet in de PvE-tabel van dit recordtype maar is structureel: leeg
+# wijst op een verschoven of afgeknipte regel (#320).
+verplichte_velden = [
+    "BRIN", "Teldatum", "DatumTijdBepalingBekostigingsgrondslagen",
+    "StatusBepalingBekostigingsstatus", "LeeftijdOpEenAugustusStudiejaar",
+    "Opleidingcode", "Niveau", "Leertraject", "IndicatieBekostigbaar",
+    "InschrijvingVoorCorrectiefactor",
+]
 date_fields  = ["Teldatum"]
 int_fields   = ["LeeftijdOpEenAugustusStudiejaar", "AantalBekostigdeVerblijfsjarenMBO"]
 float_fields = ["BBLBOLFactor", "PrijsfactorMBO", "Verblijfsjaarfactor", "BijdrageInschrijvingAanDeelnemerswaarde"]
-domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Leerroutefase = "leerroutefase", IndicatieBekostigbaar = "indicatie_bekostigbaar", InschrijvingVoorCorrectiefactor = "boolean", Bekostigingsstatus = "boolean_optioneel", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", Leertraject = "leertraject", Leerroutefase = "leerroutefase", IndicatieBekostigbaar = "indicatie_bekostigbaar", InschrijvingVoorCorrectiefactor = "boolean", Bekostigingsstatus = "boolean", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
 # Datum voor de geldigheid van tijdgebonden waarden (#325).
 peildatum = "Teldatum"
 
@@ -52,6 +69,12 @@ fields = [
     "Teldatum",
     "InschrijvingvolgnummerBPV", "Volgnummer", "Afsluitdatum",
     "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk", "Opleidingcode",
+]
+# BRIN staat niet in de PvE-tabel van dit recordtype maar is structureel: leeg
+# wijst op een verschoven of afgeknipte regel (#320).
+verplichte_velden = [
+    "BRIN", "InschrijvingvolgnummerBPV", "Volgnummer", "Afsluitdatum", "DatumBegin",
+    "DatumEindGepland", "Opleidingcode",
 ]
 date_fields  = ["Teldatum", "Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
 int_fields   = []
@@ -69,10 +92,19 @@ fields = [
     "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
     "Bekostigingsstatus", "BijdrageDiplomawaarde",
 ]
+# NiveauHoogstBekostigdeDiploma en IndicatieHoogstBekostigdeDiplomaIsSpecialist
+# zijn volgens het PvE verplicht, maar zonder eerder bekostigd diploma is er geen
+# waarde; leveringen laten ze dan leeg (demo). Bij Inschrijving zijn ze optioneel.
+verplichte_velden = [
+    "BRIN", "Resultaatvolgnummer", "Opleidingcode", "Inschrijvingvolgnummer",
+    "DatumBehaald", "Niveau", "IndicatieSpecialistendiploma",
+    "DatumTijdBepalingBekostigingsgrondslagen", "StatusBepalingBekostigingsstatus",
+    "Bekostigingsstatus",
+]
 date_fields  = ["DatumBehaald"]
 int_fields   = []
 float_fields = ["BijdrageDiplomawaarde"]
-domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", NiveauHoogstBekostigdeDiploma = "niveau", IndicatieSpecialistendiploma = "boolean_optioneel", IndicatieHoogstBekostigdeDiplomaIsSpecialist = "boolean_optioneel", Bekostigingsstatus = "boolean", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
+domeinen = { BRIN = "brin", Opleidingcode = "opleidingcode", Niveau = "niveau", NiveauHoogstBekostigdeDiploma = "niveau", IndicatieSpecialistendiploma = "boolean", IndicatieHoogstBekostigdeDiplomaIsSpecialist = "boolean", Bekostigingsstatus = "boolean", StatusBepalingBekostigingsstatus = "status_bepaling_bekostigingsstatus" }
 
 [Signaal]
 # Bron = "Inschrijving" of "Diploma".
@@ -84,6 +116,9 @@ fields = [
     "Signaalvolgnummer", "Signaalcode", "Signaalomschrijving",
     "Parametervolgnummer", "Parameternaam", "Parameterwaarde",
 ]
+# BRIN staat niet in de PvE-tabel van dit recordtype maar is structureel: leeg
+# wijst op een verschoven of afgeknipte regel (#320).
+verplichte_velden = ["BRIN", "Signaalvolgnummer", "Signaalcode", "Signaalomschrijving"]
 date_fields  = []
 int_fields   = []
 float_fields = []

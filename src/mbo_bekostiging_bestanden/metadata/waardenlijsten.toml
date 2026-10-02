@@ -18,17 +18,15 @@ nee = ["N", "0", "FALSE"]
 # waardenlijst (alle waarden van een lijst hierboven), leeg (veld hoort leeg).
 # Ernst (#238): "error" voor velden waar een afwijking op een verschoven
 # recordlayout wijst (BRIN, Studiejaar) — anders "warning" (default).
-# Verplicht (#320): het PvE schrijft het veld voor, dus een lege waarde telt als
-# afwijking; zonder deze vlag tellen lege waarden niet (optioneel veld).
+# Lege waarden toetst een domein niet: verplichtheid is een eigenschap van het
+# veld en staat als `verplichte_velden` in het schema (#320, #419).
 [domein.brin]
 patroon = '^[0-9]{2}[A-Z]{2}$'
 ernst = "error"
-verplicht = true
 
 [domein.studiejaar]
 patroon = '^[0-9]{4}$'
 ernst = "error"
-verplicht = true
 
 [domein.onderwijsaanbieder]
 patroon = '^[0-9]{3}A[0-9]{3}$'
@@ -42,7 +40,6 @@ waarden = ["MBO-1", "MBO-2", "MBO-3", "MBO-4"]
 [domein.leertraject]
 waarden = ["BOL", "BOL_DT", "BBL", "OVO", "EX", "ODT"]
 ernst = "error"
-verplicht = true
 # Bijlage 3 van de toelichting onderwijsresultaten: alleen bol, bol-dt, bbl en
 # ex tellen mee in de indicatorpopulatie (JR/DR). OVO en ODT niet (#286).
 buiten_indicatorpopulatie = ["OVO", "ODT"]
@@ -64,7 +61,6 @@ waarden = ["D", "V"]
 [domein.bekostigingstype]
 waarden = ["V", "D"]
 ernst = "error"
-verplicht = true
 
 # PvE §16.6: voortgezet onderwijs of mbo.
 [domein.leerroutefase]
@@ -80,16 +76,10 @@ waarden = ["J", "N", "1", "0"]
 [domein.boolean]
 waarden = ["TRUE", "FALSE"]
 ernst = "error"
-verplicht = true
-
-[domein.boolean_optioneel]
-waarden = ["TRUE", "FALSE"]
-ernst = "error"
 
 [domein.indicatie_bekostigbaar]
 waardenlijst = "indicatie_bekostigbaar"
 ernst = "error"
-verplicht = true
 
 [domein.kzd_resultaat]
 waardenlijst = "kzd_resultaat"
@@ -102,7 +92,6 @@ ernst = "error"
 # PvE §15.5.2 (RO-PER): M, V, O (vastgesteld onbekend). Ook GRONDSLAG-PER.
 [domein.geslacht]
 waarden = ["M", "V", "O"]
-verplicht = true
 
 [domein.ja_nee]
 waarden = ["J", "N"]
@@ -140,12 +129,6 @@ patroon = '^[1-9][0-9]{8}$'
 # Postcodecijfers: N4, incl. 0010/0020/0030/0040 voor buitenland (§17.5).
 [domein.postcodecijfers]
 patroon = '^[0-9]{4}$'
-
-[domein.datum_verplicht]
-# Verplicht datumveld: mag niet leeg zijn (PvE §15.5.1 voor RO-VLP.DatumBeginPeriode, e.d.)
-patroon = '^.+$'
-ernst = "error"
-verplicht = true
 
 # Velden zonder domein (#288), per veldnaam over RO en GRONDSLAG: waarom er
 # bewust geen domein is. tests/test_domeindekking.py eist voor elk veld een
