@@ -12,7 +12,6 @@ from streamlit.testing.v1 import AppTest
 from mbo_bekostiging_bestanden.pipeline import run_star
 from mbo_bekostiging_bestanden.quality import (
     INDICATOREN_STATUS,
-    QualityReport,
     compile_quality_report,
 )
 
@@ -60,11 +59,6 @@ def test_dashboard_meldt_dat_formeel_gebruik_uitgesloten_is(ster_dir):
     app.run()
 
     assert any("formeel gebruik uitgesloten" in c.value for c in app.caption)
-
-
-def test_brondata_rapport_heeft_het_profiel_brondata():
-    rapport = QualityReport(levering="L", schema_type="ro")
-    assert rapport.as_dict()["privacyprofiel"] == "brondata"
 
 
 def test_dashboard_toont_de_proxystatus(ster_dir):

@@ -119,6 +119,14 @@ class KwaliteitsFout(Exception):
     """
 
 
+def kwaliteitsstatus(errors: int, warnings: int) -> str:
+    """Eén regel voor brondata en analysemodel (#285): ``fail`` bij errors,
+    ``warn`` bij alleen warnings, anders ``pass``."""
+    if errors:
+        return "fail"
+    return "warn" if warnings else "pass"
+
+
 def lees_status(quality_json: Path | str) -> tuple[str, int]:
     """``(status, aantal errors)`` uit een geschreven ``quality.json``."""
     samenvatting = json.loads(Path(quality_json).read_text(encoding="utf-8"))["summary"]
@@ -190,7 +198,8 @@ PVE_INHOUDELIJKE_CONFORMITEIT = "niet_beoordeeld"
 # DUO heeft niet bevestigd dat het omgenummerde GRONDSLAG-PGN over studiejaren
 # gelijk blijft (#128); de koppeling neemt aan van wel.
 PGN_STABILITEIT = "onbekend"
-PROFIEL_BRONDATA = "brondata"
+# Brondata en analysemodel bevatten sinds #173 allebei alleen het pseudoniem;
+# "brondata" (met identifiers) komt alleen nog voor in rapporten van vóór v4.0.0.
 PROFIEL_GEPSEUDONIMISEERD = "gepseudonimiseerd"
 
 
@@ -296,6 +305,7 @@ class QualityReport:
         return {
             "levering": self.levering,
             "schema_type": self.schema_type,
+            "status": kwaliteitsstatus(len(self.errors), len(self.warnings)),
             "slr_status": self.slr_status,
             "slr_details": self.slr_checks,
             "parseverlies": self.parseverlies,
@@ -308,7 +318,7 @@ class QualityReport:
             "errors": self.errors,
             "bronbestand": self.bronbestand,
             "kwaliteitsfouten_toegestaan": self.kwaliteitsfouten_toegestaan,
-            "privacyprofiel": PROFIEL_BRONDATA,
+            "privacyprofiel": PROFIEL_GEPSEUDONIMISEERD,
         }
 
 
@@ -767,7 +777,7 @@ def compile_quality_report(
     total_errors += star_errors
     total_warnings += star_warnings
 
-    status = "fail" if total_errors > 0 else ("warn" if total_warnings > 0 else "pass")
+    status = kwaliteitsstatus(total_errors, total_warnings)
 
     return {
         "timestamp": datetime.now(UTC).isoformat(),

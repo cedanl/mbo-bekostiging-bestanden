@@ -262,9 +262,13 @@
             "type": "boolean",
             "description": "De verwerking mocht doorgaan bij quality-errors (mbo verwerk --allow-quality-errors); errors in dit rapport zijn dan bewust genegeerd (#394). Ontbreekt in prepared-rapporten van vóór #394, te lezen als false"
           },
+          "status": {
+            "enum": ["pass", "warn", "fail"],
+            "description": "Status van de brondata van deze levering, met dezelfde regel als summary.status: fail bij errors, warn bij alleen warnings (#285). Ontbreekt in prepared-rapporten van vóór v4.0.0"
+          },
           "privacyprofiel": {
             "enum": ["brondata", "gepseudonimiseerd"],
-            "description": "Brondata bevat persoons-identifiers (BSN/ONR/PGN); het analysemodel niet (#331)"
+            "description": "Sinds v4.0.0 gepseudonimiseerd: decode vervangt BSN/ONR/PGN door _persoon_id (#173). brondata (met identifiers) komt alleen voor in rapporten van vóór v4.0.0 (#331)"
           },
           "bronbestand": {
             "type": ["object", "null"],
@@ -354,7 +358,7 @@
         },
         "privacyprofiel": {
           "enum": ["brondata", "gepseudonimiseerd"],
-          "description": "Het analysemodel is gepseudonimiseerd; brondata bevat identifiers"
+          "description": "Het analysemodel is gepseudonimiseerd (#331)"
         },
         "pgn_stabiliteit": {
           "enum": ["ja", "nee", "onbekend"],

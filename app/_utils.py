@@ -1,11 +1,18 @@
 """Gedeelde hulpfuncties voor de Streamlit-app."""
 
+import os
 import tomllib
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from mbo_bekostiging_bestanden.metadata import load_schema
-from mbo_bekostiging_bestanden.publicatie import DIAGNOSE
+from mbo_bekostiging_bestanden.publicatie import DIAGNOSE, KWALITEITSRAPPORT
+from mbo_bekostiging_bestanden.quality import (
+    kwaliteitsstatus,
+    lees_leveringsrapport,
+    lees_status,
+)
 
 # Relatieve datapaden in config.toml gelden t.o.v. de projectroot, zodat de app
 # vanuit elke werkmap hetzelfde gedrag heeft.
@@ -108,3 +115,28 @@ def groepeer_prepared(
             groep = tbgi if parquet.stem in tbgi_recordtypen else overig
             groep[f"{prep_dir.name} / {parquet.stem}"] = parquet
     return tbgi, overig
+
+
+def brondata_bijschrift(prepared_dirs: Iterable[Path | str]) -> str:
+    """Map en status van de brondata, als eigen product naast de ster (#285).
+
+    De status per levering komt uit haar ``quality.json``; ontbreekt dat, dan
+    meldt :func:`lees_leveringsrapport` een warning.
+    """
+    mappen = [Path(d) for d in prepared_dirs]
+    statussen = Counter(
+        kwaliteitsstatus(len(r.errors), len(r.warnings))
+        for r in (lees_leveringsrapport(m / KWALITEITSRAPPORT, m.name) for m in mappen)
+    )
+    telling = ", ".join(f"{n} {status}" for status, n in sorted(statussen.items()))
+    basis = Path(os.path.commonpath(mappen)) if mappen else prepared_dir()
+    return f"Brondata · `{basis}` · {len(mappen)} levering(en), status: {telling}"
+
+
+def analysemodel_bijschrift(ster: Path) -> str:
+    """Map en status van het analysemodel (``quality.json`` van de publicatie)."""
+    rapport = ster / KWALITEITSRAPPORT
+    if not rapport.exists():
+        return f"Analysemodel · `{ster}` · status onbekend (geen {KWALITEITSRAPPORT})"
+    status, fouten = lees_status(rapport)
+    return f"Analysemodel · `{ster}` · status: {status} ({fouten} errors)"

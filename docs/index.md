@@ -24,6 +24,7 @@ DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan co
 | Wat | Elk DUO-bestand per recordtype | Dimensies en feiten over alle leveringen |
 | Keuzes | Alleen technisch (typering, notaties) | Inhoudelijk: canonicalisatie, hoofdinschrijving, peildatum, niveau-aanvulling, … ([Ontwerpkeuzes](ontwerpkeuzes.md)) |
 | Gegarandeerd | Kolommen en volgorde volgens het PvE; een onbekend recordtype of gevuld veld voorbij het schema breekt de ingest (fail-closed, #257) in plaats van stil te worden genegeerd | Grain en relaties per tabel ([Datamodel](datamodel.md)); status in `quality.json` |
+| Status | Per levering in `quality.json` → `status`; in de app bij de brondata op Resultaten | `quality.json` → `summary.status`; in de app bij het analysemodel op Resultaten en in het dashboard |
 | Beperkingen | Gepseudonimiseerd (`_persoon_id` in plaats van BSN/ONr/PGN, #173), maar nog persoonsgegevens; zie [opslag en retentie](aan-de-slag.md#opslag-en-retentie-van-brondata) | JR/DR zijn indicatief: alleen de eigen leveringen (#118, #119) |
 | Voor wie | Wie eigen keuzes wil maken of een levering wil controleren | Wie direct wil analyseren met de keuzes van deze tool |
 
