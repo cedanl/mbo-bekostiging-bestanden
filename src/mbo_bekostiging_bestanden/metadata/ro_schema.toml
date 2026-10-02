@@ -9,17 +9,23 @@
 # type bevatten (PvE: geen optioneel recordtype); ontbreekt het, dan faalt de
 # ingest (#322). Recordtypes zonder vlag (DIP, GEO, ...) mogen ontbreken.
 
+# verplichte_velden: PvE "Verplicht: Ja" per veld (§15.5); een lege waarde is een
+# error in quality.json (#416, #419). Recordsoort staat er niet in: die bepaalt
+# het recordtype zelf.
+
 [VLP]
 verplicht = true
 single_row  = true
 fields      = ["Recordsoort", "BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
+verplichte_velden = ["BRIN", "DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 date_fields = ["DatumBeginPeriode", "DatumEindePeriode", "DatumAanmaak"]
 int_fields  = []
-domeinen = { BRIN = "brin", DatumBeginPeriode = "datum_verplicht" }
+domeinen = { BRIN = "brin" }
 
 [PER]
 verplicht = true
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Geboortedatum", "Geslacht"]
+verplichte_velden = ["Geboortedatum", "Geslacht"]
 date_fields = ["Geboortedatum"]
 # PvE §15.5.2: dag of dag+maand mag 00 zijn (onbekend) (#206).
 partial_date_fields = ["Geboortedatum"]
@@ -32,6 +38,9 @@ fields = [
     "Recordsoort", "Burgerservicenummer", "Onderwijsnummer",
     "Inschrijvingvolgnummer", "DatumInschrijving", "DatumUitschrijvingGepland",
     "DatumUitschrijvingWerkelijk", "RedenUitschrijving",
+]
+verplichte_velden = [
+    "Inschrijvingvolgnummer", "DatumInschrijving", "DatumUitschrijvingGepland",
 ]
 optionele_achtervelden = ["DatumUitschrijvingWerkelijk", "RedenUitschrijving"]
 date_fields = ["DatumInschrijving", "DatumUitschrijvingGepland", "DatumUitschrijvingWerkelijk"]
@@ -47,6 +56,10 @@ fields = [
     "LocatiecodeVSV", "Onderwijsaanbieder", "Onderwijslocatie",
     "Leerroute", "Leerroutefase",
 ]
+verplichte_velden = [
+    "Inschrijvingvolgnummer", "DatumBegin", "Opleidingcode", "Leertraject",
+    "IndicatieBekostigbaar",
+]
 optionele_achtervelden = [
     "LocatiecodeVSV", "Onderwijsaanbieder", "Onderwijslocatie", "Leerroute",
     "Leerroutefase",
@@ -59,6 +72,7 @@ peildatum = "DatumBegin"
 
 [ISE]
 fields      = ["Recordsoort", "Burgerservicenummer", "Onderwijsnummer", "Inschrijvingvolgnummer", "DatumBegin", "DatumEind"]
+verplichte_velden = ["Inschrijvingvolgnummer", "DatumBegin"]
 optionele_achtervelden = ["DatumEind"]
 date_fields = ["DatumBegin", "DatumEind"]
 int_fields  = []
@@ -69,6 +83,10 @@ fields = [
     "Inschrijvingvolgnummer", "Volgnummer", "Afsluitdatum",
     "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk",
     "Omvang", "LeerbedrijfID", "Opleidingcode", "CodeKeuzedeel",
+]
+verplichte_velden = [
+    "Inschrijvingvolgnummer", "Volgnummer", "Afsluitdatum", "DatumBegin",
+    "DatumEindGepland", "LeerbedrijfID",
 ]
 optionele_achtervelden = ["Opleidingcode", "CodeKeuzedeel"]
 date_fields = ["Afsluitdatum", "DatumBegin", "DatumEindGepland", "DatumEindWerkelijk"]
@@ -84,6 +102,10 @@ fields = [
     "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
     "_onbekend", "IndicatieBekostigbaar", "Inschrijvingvolgnummer",
     "Onderwijsaanbieder",
+]
+verplichte_velden = [
+    "Resultaatvolgnummer", "Opleidingcode", "DatumResultaat",
+    "IndicatieBekostigbaar",
 ]
 optionele_achtervelden = ["Inschrijvingvolgnummer", "Onderwijsaanbieder"]
 date_fields = ["DatumResultaat"]
@@ -106,6 +128,7 @@ fields = [
     "Resultaatvolgnummer", "CodeAMvBOnderdeel", "DatumResultaat",
     "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+verplichte_velden = ["Resultaatvolgnummer", "CodeAMvBOnderdeel"]
 optionele_achtervelden = [
     "DatumResultaat", "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
@@ -122,6 +145,7 @@ fields = [
     "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
     "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+verplichte_velden = ["Resultaatvolgnummer", "CodeGeneriekExamenonderdeel"]
 optionele_achtervelden = [
     "DatumResultaat", "Eindcijfer", "VrijstellingGeneriekExamenonderdeel",
     "CijferIE", "VrijstellingIE", "CijferCE", "VrijstellingCE",
@@ -139,6 +163,7 @@ fields = [
     "Resultaatvolgnummer", "CodeKeuzedeel", "DatumResultaat",
     "Resultaat", "Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder",
 ]
+verplichte_velden = ["Resultaatvolgnummer", "CodeKeuzedeel", "Resultaat"]
 optionele_achtervelden = ["Certificaat", "Inschrijvingvolgnummer", "Onderwijsaanbieder"]
 date_fields = ["DatumResultaat"]
 int_fields  = []
@@ -151,6 +176,10 @@ fields = [
     "Recordsoort", "AantalPER", "AantalISG", "AantalISP",
     "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO",
     "AantalGEO", "AantalKZD",
+]
+verplichte_velden = [
+    "AantalPER", "AantalISG", "AantalISP", "AantalISE", "AantalBPV", "AantalDIP",
+    "AantalAMO", "AantalGEO", "AantalKZD",
 ]
 date_fields = []
 int_fields  = ["AantalPER", "AantalISG", "AantalISP", "AantalISE", "AantalBPV", "AantalDIP", "AantalAMO", "AantalGEO", "AantalKZD"]
