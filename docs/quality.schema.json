@@ -331,6 +331,10 @@
                 "enum": ["formeel", "proxy", "niet_bepaalbaar"],
                 "description": "JR/DR zijn proxy's, geen formele Inspectie-indicatoren (#296, #297)"
               },
+              "formeel_gebruik": {
+                "enum": ["uitgesloten"],
+                "description": "Formeel gebruik (verantwoording, Inspectie-oordeel) is uitgesloten: er komt geen officiële studiesucces-laag (besluit #296, optie B)"
+              },
               "afwijkingen": {
                 "type": "array",
                 "items": {

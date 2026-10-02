@@ -3,7 +3,11 @@
 import polars as pl
 import streamlit as st
 from _chart_docs import chart_help
-from _indicatoren import (
+
+from _dashboard.data import Selectie
+from _dashboard.grafieken import gevuld, heeft_kolommen
+from _dashboard.kwaliteit import uitstroom_scope
+from mbo_bekostiging_bestanden.indicatoren import (
     bereken_oordeel,
     entree_indicatoren,
     entree_totaal,
@@ -11,16 +15,12 @@ from _indicatoren import (
     rendement,
 )
 
-from _dashboard.data import Selectie
-from _dashboard.grafieken import gevuld, heeft_kolommen
-from _dashboard.kwaliteit import uitstroom_scope
-
 _JR_KOLOMMEN = {"Schooljaar", "Niveau", "_jr_noemer", "_jr_teller"}
 _DR_KOLOMMEN = {"Schooljaar", "Niveau", "_dr_noemer", "_dr_teller"}
 
 
 def _toon_rendement(tabel: pl.DataFrame | None, naam: str, leeg: str) -> None:
-    """Tabel en staafdiagram van :func:`_indicatoren.rendement`."""
+    """Tabel en staafdiagram van :func:`indicatoren.rendement`."""
     if tabel is None:
         st.info("fact_inschrijving_schooljaar niet beschikbaar.")
         return

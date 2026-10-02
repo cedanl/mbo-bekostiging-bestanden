@@ -9,15 +9,22 @@ publiek herbruikbaar door andere repos die op de output voortbouwen.
 `app/` bevat de Streamlit-app zelf én de presentatielogica die alleen de app
 gebruikt — code die niet over de kern gaat, maar over hoe de kern getoond
 wordt. Herkenbaar aan een onderstrepingsprefix (`_utils.py`, `_chart_docs.py`,
-`_tabel_docs.py`, `_indicatoren.py`) en geïmporteerd via `pythonpath = ["app"]`
-(`pyproject.toml`), dus als platte module (`from _indicatoren import ...`),
+`_tabel_docs.py`) en geïmporteerd via `pythonpath = ["app"]`
+(`pyproject.toml`), dus als platte module (`from _utils import ...`),
 niet via het pakket.
 
-**Vuistregel:** een module die alleen door `app/pages/*.py` wordt
-geïmporteerd, hoort in `app/`, ook als de logica zelf geen Streamlit
-aanroept. `indicatoren.py` verhuisde daarom naar `app/_indicatoren.py`
-(#253) — de indicatorberekeningen (JR/DR-normen, oordeel, entree) dienen
-uitsluitend het dashboard.
+**Vuistregel:** domeininhoud hoort in de package, presentatie in `app/`. Een
+module die alleen opmaakt wat de app toont, hoort in `app/`; een module met
+regels die een gebruiker buiten de app ook nodig heeft, hoort in de package, ook
+als vooralsnog alleen de app haar importeert.
+
+`indicatoren.py` (normen per niveau, populatieregels, minimumnoemer, oordeel,
+Entree) staat daarom in de package (#294), na een periode als
+`app/_indicatoren.py` (#253). #253 wilde voorkomen dat `quality` via de
+indicatoren van de sterbouw ging afhangen; dat blijft zo, want `indicatoren` is
+een leaf-module: ze leest alleen stertabellen en `metadata/normen.toml` en
+importeert niets uit de sterbouw (`tests/test_architectuur.py` bewaakt dat).
+JR en DR zijn proxy's; formeel gebruik is uitgesloten (#296).
 
 ### Het dashboard is een map, geen bestand
 
