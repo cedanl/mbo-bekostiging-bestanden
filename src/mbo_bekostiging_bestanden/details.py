@@ -15,7 +15,6 @@ from mbo_bekostiging_bestanden.contracts import (
     JOIN_INSTELLING_INSCHRIJVING,
     PERIODE_ID,
 )
-from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS, voeg_persoon_id_toe
 from mbo_bekostiging_bestanden.koppelingen import Koppelingen
 from mbo_bekostiging_bestanden.perioden import koppel_periode_id
 from mbo_bekostiging_bestanden.stack import heeft_records
@@ -75,17 +74,13 @@ def _resolve_inschrijving(
     if dip is None or dip.is_empty() or "ResultaatvolgnummerDiploma" not in df.columns:
         return df
 
-    dip_sleutel = (
-        voeg_persoon_id_toe(dip)
-        .select(
-            ["levering", "_persoon_id", "Resultaatvolgnummer", "Inschrijvingvolgnummer"]
-        )
-        .rename(
-            {
-                "Resultaatvolgnummer": "_dip_vnr",
-                "Inschrijvingvolgnummer": "_isg_via_dip",
-            }
-        )
+    dip_sleutel = dip.select(
+        ["levering", "_persoon_id", "Resultaatvolgnummer", "Inschrijvingvolgnummer"]
+    ).rename(
+        {
+            "Resultaatvolgnummer": "_dip_vnr",
+            "Inschrijvingvolgnummer": "_isg_via_dip",
+        }
     )
     df = df.join(
         dip_sleutel,
@@ -113,7 +108,7 @@ def geo_pivot(
     if geo.is_empty():
         return None
 
-    geo = _resolve_inschrijving(voeg_persoon_id_toe(geo), dip)
+    geo = _resolve_inschrijving(geo, dip)
     index = [*JOIN_INSCHRIJVING]
     agg = geo.group_by([*index, "CodeGeneriekExamenonderdeel"]).agg(
         pl.col("Eindcijfer").max(),
@@ -157,7 +152,7 @@ def _per_periode(
 def bpv_aggregaat(bpv: pl.DataFrame, perioden: pl.DataFrame) -> pl.DataFrame:
     """Aggregeer BPV per ISP-periode: tellers en datumbereik."""
     return _per_periode(
-        voeg_persoon_id_toe(bpv),
+        bpv,
         perioden,
         "detail_bpv",
         pl.len().alias("BPV_Aantal"),
@@ -174,7 +169,7 @@ def kzd_aggregaat(
 ) -> pl.DataFrame:
     """Aggregeer KZD per ISP-periode: totaal en behaald."""
     return _per_periode(
-        _resolve_inschrijving(voeg_persoon_id_toe(kzd), dip),
+        _resolve_inschrijving(kzd, dip),
         perioden,
         "detail_kzd_amo",
         pl.len().alias("KZD_Aantal"),
@@ -192,7 +187,7 @@ def amo_aggregaat(
 ) -> pl.DataFrame:
     """Aggregeer AMO per ISP-periode: teller."""
     return _per_periode(
-        _resolve_inschrijving(voeg_persoon_id_toe(amo), dip),
+        _resolve_inschrijving(amo, dip),
         perioden,
         "detail_kzd_amo",
         pl.len().alias("AMO_Aantal"),
@@ -203,7 +198,7 @@ def _bouw_detail_bpv(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """BPV volledig uitgesplitst, ``_persoon_id`` direct na ``levering``."""
     if not heeft_records(stacked, "BPV"):
         return pl.DataFrame()
-    df = voeg_persoon_id_toe(stacked["BPV"]).drop("Recordsoort", strict=False)
+    df = stacked["BPV"].drop("Recordsoort", strict=False)
     overig = [c for c in df.columns if c not in ["levering", "_persoon_id"]]
     return df.select(["levering", "_persoon_id", *overig])
 
@@ -216,9 +211,7 @@ def _bouw_detail_kzd_amo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     frames: list[pl.DataFrame] = []
     for bron in ("KZD", "AMO"):
         if heeft_records(stacked, bron):
-            df = _resolve_inschrijving(
-                voeg_persoon_id_toe(stacked[bron]), stacked.get("DIP")
-            )
+            df = _resolve_inschrijving(stacked[bron], stacked.get("DIP"))
             df = df.drop("Recordsoort", strict=False).with_columns(
                 pl.lit(bron).alias("_bron")
             )
@@ -235,13 +228,14 @@ def _bouw_detail_bekostiging(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     frames: list[pl.DataFrame] = []
 
     if heeft_records(stacked, BRON_BII):
-        bii = voeg_persoon_id_toe(stacked[BRON_BII]).drop("Recordsoort", strict=False)
+        bii = stacked[BRON_BII].drop("Recordsoort", strict=False)
         frames.append(bii.with_columns(pl.lit(BRON_BII).alias(BRON)))
 
     if heeft_records(stacked, "Teldatum"):
-        # BSN/ONr staan al op de rij (read_tbgi); het volgnummer alleen is niet
-        # uniek genoeg om de persoon via de Inschrijving-tabel terug te zoeken.
-        td = voeg_persoon_id_toe(stacked["Teldatum"])
+        # _persoon_id staat al op de rij (read_tbgi erft BSN/ONr, decode
+        # pseudonimiseert); het volgnummer alleen is niet uniek genoeg om de
+        # persoon via de Inschrijving-tabel terug te zoeken.
+        td = stacked["Teldatum"]
         frames.append(td.with_columns(pl.lit(BRON_TBGI).alias(BRON)))
 
     if not frames:
@@ -256,10 +250,10 @@ def _bid_met_dip(
 
     Zonder DIP blijven die leeg: de rij wordt dan een onverklaarde wees (#258).
     """
-    bid = voeg_persoon_id_toe(stacked[BRON_BID]).drop("Recordsoort", strict=False)
+    bid = stacked[BRON_BID].drop("Recordsoort", strict=False)
     if not heeft_records(stacked, "DIP"):
         return bid
-    van_dip = voeg_persoon_id_toe(stacked["DIP"]).select(
+    van_dip = stacked["DIP"].select(
         *_JOIN_DIPLOMA, *(pl.col(k).alias(v) for k, v in _BID_VAN_DIP.items())
     )
     return koppelingen.links(bid, van_dip, on=_JOIN_DIPLOMA, naam="BID.DIP")
@@ -282,12 +276,12 @@ def _bouw_detail_bekostiging_diploma(
         )
 
     if heeft_records(stacked, "Diploma"):
-        diploma = voeg_persoon_id_toe(stacked["Diploma"])
+        diploma = stacked["Diploma"]
         frames.append(diploma.with_columns(pl.lit(BRON_TBGI).alias(BRON)))
 
     if not frames:
         return pl.DataFrame()
-    return pl.concat(frames, how="diagonal_relaxed").drop(*PERSOON_COLS, strict=False)
+    return pl.concat(frames, how="diagonal_relaxed")
 
 
 def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -300,8 +294,8 @@ def _bouw_detail_geo(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """
     if not heeft_records(stacked, "GEO"):
         return pl.DataFrame()
-    geo = _resolve_inschrijving(voeg_persoon_id_toe(stacked["GEO"]), stacked.get("DIP"))
-    geo = geo.drop("Recordsoort", *PERSOON_COLS, strict=False)
+    geo = _resolve_inschrijving(stacked["GEO"], stacked.get("DIP"))
+    geo = geo.drop("Recordsoort", strict=False)
     overig = [c for c in geo.columns if c not in ["levering", "_persoon_id"]]
     return geo.select(["levering", "_persoon_id", *overig])
 

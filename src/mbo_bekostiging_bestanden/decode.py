@@ -5,6 +5,7 @@ from collections.abc import Callable
 import polars as pl
 
 from mbo_bekostiging_bestanden.contracts import PRECISIE_ONBEKEND, PRECISIE_SUFFIX
+from mbo_bekostiging_bestanden.identiteit import pseudonimiseer
 from mbo_bekostiging_bestanden.metadata import load_schema
 from mbo_bekostiging_bestanden.waardenlijsten import indicatie_bekostigbaar
 
@@ -142,6 +143,9 @@ def decode_frames(
       parseverlies in ``quality.json`` (zie :func:`quality.tel_parseverlies`),
       een error voor de kwaliteitspoort (#390).
     - ``IndicatieBekostigbaar`` wordt genormaliseerd naar ``"J"``/``"N"``.
+    - Persoonsidentifiers (BSN, onderwijsnummer, PGN) worden vervangen door
+      het pseudoniem ``_persoon_id`` (:func:`identiteit.pseudonimiseer`, #173);
+      zonder salt faalt decode.
     - Overige velden blijven ``pl.Utf8``.
 
     Args:
@@ -186,7 +190,9 @@ def decode_frames(
             else:
                 exprs.append(leeg_naar_null(pl.col(col)).alias(col))
 
-        result[rt] = _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs))
+        result[rt] = pseudonimiseer(
+            _normaliseer_indicatie_bekostigbaar(df.with_columns(exprs))
+        )
 
     return result
 

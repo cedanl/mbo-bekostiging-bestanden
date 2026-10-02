@@ -3,6 +3,9 @@
 HMAC-SHA256 met een geheime salt (fail-closed: zonder salt geen pseudoniem).
 Het identifierdomein gaat mee in het pseudoniem, zodat een PGN, BSN of ONr met
 dezelfde cijfers nooit als dezelfde persoon koppelt.
+
+De privacygrens ligt bij decode (#173): :func:`pseudonimiseer` vervangt de
+identifiers, zodat ze de brondata (``02-prepared``) niet bereiken.
 """
 
 import functools
@@ -26,6 +29,7 @@ PERSOON_DOMEIN = {
     "Onderwijsnummer": "ONR",
 }
 PERSOON_COLS = list(PERSOON_DOMEIN)
+PERSOON_ID = "_persoon_id"
 
 
 @functools.cache
@@ -59,16 +63,34 @@ def pseudoniem(domein: str, identifier: str) -> str:
     return hmac.new(salt.encode("utf-8"), msg, hashlib.sha256).hexdigest()
 
 
-def voeg_persoon_id_toe(df: pl.DataFrame) -> pl.DataFrame:
-    """Voeg ``_persoon_id`` toe: :func:`pseudoniem` van de eerste gevulde identifier.
+def pseudonimiseer(df: pl.DataFrame) -> pl.DataFrame:
+    """Vervang de identifierkolommen door ``_persoon_id`` op de plek van de eerste.
 
-    Een lege string telt als leeg. Zonder identifier-kolommen of zonder gevulde
-    identifier blijft ``_persoon_id`` leeg.
+    ``_persoon_id`` is :func:`pseudoniem` van de eerste gevulde identifier (in
+    de volgorde van :data:`PERSOON_DOMEIN`); een lege string telt als leeg.
+    Een frame zonder identifierkolommen blijft ongewijzigd.
+
+    Raises:
+        ValueError: zonder salt (:func:`laad_pseudonimisering_salt`).
     """
     beschikbaar = [c for c in PERSOON_COLS if c in df.columns]
     if not beschikbaar:
-        return df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("_persoon_id"))
+        return df
+    kolommen = verwachte_kolommen(df.columns)
+    return _voeg_persoon_id_toe(df, beschikbaar).select(kolommen)
 
+
+def verwachte_kolommen(kolommen: list[str]) -> list[str]:
+    """``kolommen`` na :func:`pseudonimiseer`."""
+    eerste = next((k for k in kolommen if k in PERSOON_DOMEIN), None)
+    return [
+        PERSOON_ID if k == eerste else k
+        for k in kolommen
+        if k == eerste or k not in PERSOON_DOMEIN
+    ]
+
+
+def _voeg_persoon_id_toe(df: pl.DataFrame, beschikbaar: list[str]) -> pl.DataFrame:
     gevuld = {c: pl.col(c) != "" for c in beschikbaar}
     domein = pl.coalesce(
         pl.when(gevuld[c]).then(pl.lit(PERSOON_DOMEIN[c])) for c in beschikbaar
@@ -84,5 +106,5 @@ def voeg_persoon_id_toe(df: pl.DataFrame) -> pl.DataFrame:
             ),
             return_dtype=pl.Utf8,
         )
-        .alias("_persoon_id")
+        .alias(PERSOON_ID)
     )

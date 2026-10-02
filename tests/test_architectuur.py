@@ -17,9 +17,9 @@ PACKAGE = "mbo_bekostiging_bestanden"
 SRC = Path(__file__).parents[1] / "src" / PACKAGE
 
 # De lagen die de ster bouwen; ``quality`` mag daar niet (indirect) van afhangen.
+# identiteit hoort sinds #173 bij decode: de privacygrens ligt bij de brondata.
 STERBOUW = {
     "transform",
-    "identiteit",
     "perioden",
     "inschrijvingen",
     "opleidingsniveau",

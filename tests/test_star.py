@@ -6,11 +6,9 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from mbo_bekostiging_bestanden.identiteit import pseudoniem
 from mbo_bekostiging_bestanden.pipeline import run_auto_pipeline
 from mbo_bekostiging_bestanden.stack import stack_prepared
 from mbo_bekostiging_bestanden.star import (
-    _PERSON_IDENTIFIER_COLS,
     _build_dim,
     build_star,
 )
@@ -21,7 +19,7 @@ def _minimal_stacked() -> dict[str, pl.DataFrame]:
     isp = pl.DataFrame(
         {
             "levering": ["h15/RO_X", "h15/RO_X", "h15/RO_X"],
-            "Burgerservicenummer": ["P1", "P1", "P2"],
+            "_persoon_id": ["P1", "P1", "P2"],
             "Inschrijvingvolgnummer": ["001", "002", "003"],
             "Opleidingcode": ["25655", "23301", "25655"],
             "Niveau": ["MBO-4", "MBO-1", "MBO-4"],
@@ -33,7 +31,7 @@ def _minimal_stacked() -> dict[str, pl.DataFrame]:
     per = pl.DataFrame(
         {
             "levering": ["h15/RO_X", "h15/RO_X"],
-            "Burgerservicenummer": ["P1", "P2"],
+            "_persoon_id": ["P1", "P2"],
             "Geslacht": ["M", "V"],
             "Recordsoort": ["PER", "PER"],
         }
@@ -41,7 +39,7 @@ def _minimal_stacked() -> dict[str, pl.DataFrame]:
     isg = pl.DataFrame(
         schema={
             "levering": pl.Utf8,
-            "Burgerservicenummer": pl.Utf8,
+            "_persoon_id": pl.Utf8,
             "Inschrijvingvolgnummer": pl.Utf8,
         }
     )
@@ -81,9 +79,7 @@ def test_dim_deelnemer_uniek_op_persoon():
     result = build_star(_minimal_stacked())
     dim = result["dim_deelnemer"]
     assert dim.shape[0] == 2
-    expected_personen = sorted([pseudoniem("BSN", "P1"), pseudoniem("BSN", "P2")])
-    actual_personen = sorted(dim["_persoon_id"].to_list())
-    assert actual_personen == expected_personen
+    assert sorted(dim["_persoon_id"].to_list()) == ["P1", "P2"]
     assert "Geslacht" in dim.columns
 
 
@@ -250,23 +246,6 @@ def test_meta_leveringen_bevat_vlp():
     meta = result["meta_leveringen"]
     assert not meta.is_empty()
     assert meta["levering"].to_list() == ["h15/RO_X"]
-
-
-def test_no_person_identifiers_in_star_facts():
-    """Feittabellen bevatten geen persoon-identifiers (BSN, ONr, PseudoNummer).
-
-    _persoon_id mag wel (gehashed), maar ruwe identifiers niet.
-    """
-    result = build_star(_minimal_stacked())
-    fact_tables = [k for k in result.keys() if k.startswith("fact_")]
-
-    for table_name in fact_tables:
-        df = result[table_name]
-        found_identifiers = _PERSON_IDENTIFIER_COLS & set(df.columns)
-        assert not found_identifiers, (
-            f"{table_name} contains person identifiers: {found_identifiers}. "
-            f"These must be removed before star export."
-        )
 
 
 RAW = Path("data/01-raw/demo")
