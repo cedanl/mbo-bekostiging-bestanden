@@ -24,7 +24,7 @@ _STAR_KERNTABEL = Path("datamodel") / "fact_inschrijving.parquet"
 # Sessiesleutels waarin Home het pad van het gebouwde star schema bewaart.
 _STAR_SESSIESLEUTELS = ("resultaten_dir", "star_pad")
 # TBGI-recordtypen (Teldatum, BekostigingsrelevanteBPV, …) uit het schema, zodat
-# een nieuw recordtype automatisch in de TBGI-sectie van Resultaten verschijnt.
+# een nieuw recordtype automatisch in de TBGI-sectie van Werkbare data verschijnt.
 _TBGI_SCHEMA = "tbgi"
 
 
@@ -85,7 +85,7 @@ def vind_star_dir(sessie: Mapping) -> Path | None:
 
 
 def vind_prepared_dirs(sessie: Mapping) -> list[Path]:
-    """Prepared-directories met brondata, voor de Brondata-sectie in Resultaten.
+    """Prepared-directories met brondata, voor de pagina Werkbare data.
 
     Analoog aan :func:`vind_star_dir`: de paden die Home in de sessie zette
     hebben voorrang; zonder sessie (verse sessie of directe link) valt dit

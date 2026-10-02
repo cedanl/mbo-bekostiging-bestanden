@@ -98,7 +98,7 @@ def test_dashboard_toont_kwaliteitsstatus(demo_star_dir):
     assert any("Kwaliteitsstatus: warn" in t for t in teksten)
 
 
-def test_resultaten_toont_brondata_uit_schijf_fallback_zonder_sessie(
+def test_werkbare_data_toont_brondata_uit_schijf_fallback_zonder_sessie(
     demo_prepared, monkeypatch
 ):
     """Verse sessie zonder ``prepared_dirs``: Brondata-sectie valt terug op
@@ -109,7 +109,7 @@ def test_resultaten_toont_brondata_uit_schijf_fallback_zonder_sessie(
     basis, _ = demo_prepared
     monkeypatch.setattr(_utils, "prepared_dir", lambda: basis)
 
-    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
+    app = AppTest.from_file(str(_APP_PAGES / "werkbare_data.py"), default_timeout=60)
     app.run()
 
     assert not app.exception
@@ -117,29 +117,32 @@ def test_resultaten_toont_brondata_uit_schijf_fallback_zonder_sessie(
     assert any(k.startswith("Brondata per levering") for k in koppen)
 
 
-def test_resultaten_toont_beide_lagen_zonder_pii_in_preview(
-    demo_prepared, demo_star_dir
-):
-    """Brondata en analysemodel zijn gelijkwaardige secties; de preview toont
-    standaard geen persoonsgegevens (#213)."""
+def test_tabelpagina_s_tonen_geen_pii_in_preview(demo_prepared, demo_star_dir):
+    """Werkbare data en analysemodel hebben elk een eigen pagina; de preview
+    toont standaard geen persoonsgegevens (#213)."""
     from mbo_bekostiging_bestanden.pii import detect_pii_columns
 
     _, dirs = demo_prepared
-    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
-    app.session_state["resultaten_dir"] = demo_star_dir
-    app.session_state["prepared_dirs"] = [str(d) for d in dirs]
-    app.run()
-    assert not app.exception
-    koppen = [h.value for h in app.subheader]
-    assert any(k.startswith("Analysemodel") for k in koppen)
-    assert any(k.startswith("Brondata per levering") for k in koppen)
-    for tabel in app.dataframe:
-        assert detect_pii_columns(list(tabel.value.columns)) == []
+    verwacht = {
+        "werkbare_data.py": "Brondata per levering",
+        "analysemodel.py": "Analysemodel",
+    }
+    for pagina, kop in verwacht.items():
+        app = AppTest.from_file(str(_APP_PAGES / pagina), default_timeout=60)
+        app.session_state["resultaten_dir"] = demo_star_dir
+        app.session_state["prepared_dirs"] = [str(d) for d in dirs]
+        app.run()
+        assert not app.exception
+        koppen = [h.value for h in app.subheader]
+        assert koppen
+        assert all(k.startswith(kop) for k in koppen), pagina
+        for tabel in app.dataframe:
+            assert detect_pii_columns(list(tabel.value.columns)) == []
 
 
-def test_resultaten_filtert_detailfeit_op_koppelstatus(demo_star_dir):
+def test_analysemodel_filtert_detailfeit_op_koppelstatus(demo_star_dir):
     """Rijen die op de eerste periode terugvielen, apart te bekijken (#121)."""
-    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
+    app = AppTest.from_file(str(_APP_PAGES / "analysemodel.py"), default_timeout=60)
     app.session_state["resultaten_dir"] = demo_star_dir
     app.run()
     [tabelkeuze] = [s for s in app.selectbox if "fact_bpv" in s.options]

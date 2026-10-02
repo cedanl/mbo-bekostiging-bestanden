@@ -1,6 +1,6 @@
-"""Synthetische TBG-i met BPV's en signalen is zichtbaar in Resultaten (#161, #166).
+"""Synthetische TBG-i met BPV's en signalen is zichtbaar op Werkbare data (#161, #166).
 
-End-to-end: XML → ``run_auto_pipeline`` → brondata → Resultaten-pagina. De
+End-to-end: XML → ``run_auto_pipeline`` → brondata → pagina Werkbare data. De
 TBG-i-tabellen worden via ``tbgi_schema.toml`` herkend, niet via bestandsnamen.
 """
 
@@ -39,8 +39,8 @@ def test_brondata_bevat_bpv_en_signalen(prepared):
 @pytest.mark.parametrize(
     ("tabel", "rijen"), [("BekostigingsrelevanteBPV", 2), ("Signaal", 3)]
 )
-def test_resultaten_toont_tbgi_tabel_met_rijen(prepared, tabel, rijen):
-    app = AppTest.from_file(str(_APP_PAGES / "resultaten.py"), default_timeout=60)
+def test_werkbare_data_toont_tbgi_tabel_met_rijen(prepared, tabel, rijen):
+    app = AppTest.from_file(str(_APP_PAGES / "werkbare_data.py"), default_timeout=60)
     app.session_state["prepared_dirs"] = [str(prepared)]
     app.run()
     keuze = app.selectbox(key=SECTIE)

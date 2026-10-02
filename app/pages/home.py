@@ -212,7 +212,7 @@ def _bouw_analysemodel(prep_dirs: list[Path], prepared: Path) -> tuple[dict, lis
                 "Geen inschrijvingen (ISP) in de verwerkte bestanden. Het "
                 "star schema wordt rond inschrijvingen gebouwd en vereist "
                 "een RO-bestand (h15). De brondata van deze bestanden staat "
-                "wél onder Resultaten."
+                "wél onder Werkbare data."
             )
         return {}, [f"Star schema: {melding}"]
     status, kwaliteitsfouten = lees_status(star_output / "quality.json")
@@ -458,8 +458,15 @@ elif vind_star_dir(st.session_state):
 
 if prep_dirs:
     st.write("")
-    if st.button("Bekijk resultaten →", width="stretch"):
-        st.switch_page("pages/resultaten.py")
+    kol_werkbaar, kol_ster = st.columns(2)
+    if kol_werkbaar.button("Bekijk werkbare data →", width="stretch"):
+        st.switch_page("pages/werkbare_data.py")
+    if kol_ster.button(
+        "Bekijk analysemodel →",
+        width="stretch",
+        disabled=not vind_star_dir(st.session_state),
+    ):
+        st.switch_page("pages/analysemodel.py")
 
 st.divider()
 st.caption(

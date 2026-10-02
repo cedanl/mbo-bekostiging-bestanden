@@ -152,7 +152,8 @@ bestanden in `data/01-raw/` en maakt de twee producten in aparte stappen (#264):
    star schema naar `data/03-output/star/datamodel/`, zoals `mbo star`. Beschikbaar zodra er
    brondata is, ook na een herstart; de ruwe bestanden worden niet opnieuw verwerkt.
 
-Navigeer naar **Resultaten** om de tabellen te bekijken en te downloaden als CSV.
+Open **Werkbare data** (brondata per levering) of **Analysemodel** (star schema) in de zijbalk
+om de tabellen te bekijken en te downloaden als CSV.
 
 ---
 

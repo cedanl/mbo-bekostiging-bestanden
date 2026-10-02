@@ -2,7 +2,8 @@
 
 De app toonde beide als tabellenlijst; alleen het analysemodel had een status
 (in het dashboard). Nu draagt ook elk leveringsrapport van de brondata zijn
-status, en zet Resultaten bij elk product de map en de status.
+status, en zetten de pagina's Werkbare data en Analysemodel bij elk product de
+map en de status.
 """
 
 from pathlib import Path
@@ -13,7 +14,7 @@ from streamlit.testing.v1 import AppTest
 from mbo_bekostiging_bestanden.pipeline import run_star
 from mbo_bekostiging_bestanden.quality import QualityReport, kwaliteitsstatus
 
-_RESULTATEN = str(Path(__file__).parents[1] / "app" / "pages" / "resultaten.py")
+_PAGINAS = Path(__file__).parents[1] / "app" / "pages"
 
 
 @pytest.mark.parametrize(
@@ -36,20 +37,33 @@ def test_brondata_is_gepseudonimiseerd():
 
 
 @pytest.fixture(scope="module")
-def pagina(demo_prepared, tmp_path_factory) -> AppTest:
+def sessie(demo_prepared, tmp_path_factory) -> dict[str, object]:
     prepared, dirs = demo_prepared
     ster = tmp_path_factory.mktemp("ster")
     run_star(dirs, ster, relative_to=prepared)
-    app = AppTest.from_file(_RESULTATEN, default_timeout=120)
-    app.session_state["prepared_dirs"] = [str(d) for d in dirs]
-    app.session_state["resultaten_dir"] = str(ster)
-    app.session_state["star_pad"] = str(ster)
+    return {
+        "prepared_dirs": [str(d) for d in dirs],
+        "resultaten_dir": str(ster),
+        "star_pad": str(ster),
+    }
+
+
+def _bijschriften(pagina: str, sessie: dict[str, object]) -> list[str]:
+    app = AppTest.from_file(str(_PAGINAS / pagina), default_timeout=120)
+    for sleutel, waarde in sessie.items():
+        app.session_state[sleutel] = waarde
     app.run()
     assert not app.exception
-    return app
+    return [c.value for c in app.caption]
 
 
-def test_resultaten_toont_per_product_de_status(pagina):
-    bijschriften = [c.value for c in pagina.caption]
+def test_analysemodel_toont_map_en_status(sessie):
+    bijschriften = _bijschriften("analysemodel.py", sessie)
     assert any("Analysemodel" in b and "status" in b for b in bijschriften)
+    assert not any(b.startswith("Brondata") for b in bijschriften)
+
+
+def test_werkbare_data_toont_map_en_status(sessie):
+    bijschriften = _bijschriften("werkbare_data.py", sessie)
     assert any("Brondata" in b and "pass" in b for b in bijschriften)
+    assert not any(b.startswith("Analysemodel") for b in bijschriften)

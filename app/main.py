@@ -11,8 +11,9 @@ st.set_page_config(
 pg = st.navigation(
     [
         st.Page("pages/home.py", title="Home", default=True),
+        st.Page("pages/werkbare_data.py", title="Werkbare data"),
+        st.Page("pages/analysemodel.py", title="Analysemodel"),
         st.Page("pages/dashboard.py", title="Dashboard"),
-        st.Page("pages/resultaten.py", title="Resultaten"),
     ],
     position="sidebar",
 )

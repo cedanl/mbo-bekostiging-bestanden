@@ -75,14 +75,14 @@ studenten (geslacht, herkomst, gemeente) en GEO-examencijfers.
 
 ![Dashboard — analyse-overzicht](docs/assets/dashboard.gif)
 
-### Stap 3 — Resultaten bekijken en downloaden
+### Stap 3 — Werkbare data en analysemodel bekijken en downloaden
 
-Op de Resultaten-pagina kies je een tabel uit het analysemodel of uit de
-brondata per levering, bekijk je een preview van de eerste 1 000 rijen en
-download je de volledige tabel als CSV. Persoonsgegevens zijn in preview en
-download standaard verborgen.
+De zijbalk scheidt de twee producten: **Werkbare data** (ruw omgezet naar brondata
+per levering) en **Analysemodel** (het star schema). Op beide pagina's kies je een
+tabel, bekijk je een preview van de eerste 1 000 rijen en download je de volledige
+tabel als CSV. Persoonsgegevens zijn in preview en download standaard verborgen.
 
-![Resultaten — tabel preview en download](docs/assets/resultaten.gif)
+![Tabel preview en download](docs/assets/resultaten.gif)
 
 ---
 
