@@ -22,7 +22,6 @@ from mbo_bekostiging_bestanden.contracts import (
     SCHOOLJAAR_FEIT,
 )
 from mbo_bekostiging_bestanden.enrich import verrijk_instelling
-from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS
 from mbo_bekostiging_bestanden.referentiedata import TABEL as REFERENTIE_TABEL
 from mbo_bekostiging_bestanden.referentiedata import meta_referentiedata
 from mbo_bekostiging_bestanden.schooljaar import (
@@ -96,11 +95,10 @@ _FK_COLS = {"_persoon_id", "Opleidingcode", "BRIN"}
 # Deze zijn schema-instabiel en worden vervangen door fact_geo.
 _GEO_COL_RE = re.compile(r"^GEO_\d+_")
 
-# Kolommen die PII bevatten en uit de output verwijderd worden.
-# _persoon_id is gepseudonimiseerd (HMAC-SHA256), maar de bron-identifiers
-# (PGN, BSN, ONr) staan nog rechtstreeks in de brondata en moeten weg.
-_PERSON_IDENTIFIER_COLS = set(PERSOON_COLS)
-_PII_DROP = _PERSON_IDENTIFIER_COLS | {"_bron"}
+# Hulpkolom van de sterbouw (herkomst KZD/AMO in detail_kzd_amo), niet van het
+# model. Persoonsidentifiers bereiken de sterbouw niet meer: decode vervangt
+# ze door ``_persoon_id`` (#173).
+_HULPKOLOMMEN = ["_bron"]
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +164,7 @@ def build_star(
     ]
     fact_inschrijving = inschrijvingen.select(fact_cols)
 
-    fact_inschrijving = fact_inschrijving.drop(_PII_DROP, strict=False)
+    fact_inschrijving = fact_inschrijving.drop(_HULPKOLOMMEN, strict=False)
 
     return {
         "dim_deelnemer": dim_deelnemer,
@@ -206,13 +204,8 @@ def _build_fact_bpv(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, Volgnummer).
     Joinbaar met fact_inschrijving via _inschrijving_periode_id.
-    Persoonsidentificerende gegevens (BSN, ONr) worden verwijderd.
     """
-    detail = tables.get("detail_bpv", pl.DataFrame())
-    if detail.is_empty():
-        return pl.DataFrame()
-    drop = [c for c in _PII_DROP if c in detail.columns]
-    return detail.drop(drop)
+    return _of_leeg(tables.get("detail_bpv"))
 
 
 def _uit_kzd_amo_detail(tables: dict[str, pl.DataFrame], bron: str) -> pl.DataFrame:
@@ -222,8 +215,7 @@ def _uit_kzd_amo_detail(tables: dict[str, pl.DataFrame], bron: str) -> pl.DataFr
     filtered = detail.filter(pl.col("_bron") == bron)
     if filtered.is_empty():
         return pl.DataFrame()
-    drop = [c for c in _PII_DROP if c in filtered.columns]
-    return filtered.drop(drop)
+    return filtered.drop(_HULPKOLOMMEN)
 
 
 def _build_fact_kzd(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -249,7 +241,7 @@ def _build_fact_bekostiging(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     Joinbaar met fact_inschrijving via _inschrijving_periode_id en met
     dim_instelling via BRIN; ``Bron`` is het recordtype (``BII``/``TBGI``).
     """
-    return _zonder_persoonsidentifiers(tables.get("detail_bekostiging"))
+    return _of_leeg(tables.get("detail_bekostiging"))
 
 
 def _build_fact_bekostiging_diploma(
@@ -262,13 +254,14 @@ def _build_fact_bekostiging_diploma(
     het recordtype (``BID``/``TBGI``), want alleen bij TBGI is een diploma
     zonder inschrijving verklaard (#258).
     """
-    return _zonder_persoonsidentifiers(tables.get("detail_bekostiging_diploma"))
+    return _of_leeg(tables.get("detail_bekostiging_diploma"))
 
 
-def _zonder_persoonsidentifiers(detail: pl.DataFrame | None) -> pl.DataFrame:
+def _of_leeg(detail: pl.DataFrame | None) -> pl.DataFrame:
+    """De detailtabel als feit, of een lege tabel als ze ontbreekt."""
     if detail is None or detail.is_empty():
         return pl.DataFrame()
-    return detail.drop(_PERSON_IDENTIFIER_COLS, strict=False)
+    return detail
 
 
 def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
@@ -277,13 +270,8 @@ def _build_fact_geo(tables: dict[str, pl.DataFrame]) -> pl.DataFrame:
     Grain: (levering, _persoon_id, Inschrijvingvolgnummer, CodeGeneriekExamenonderdeel).
     Stabiel schema ongeacht welke codes aanwezig zijn in de data.
     Behoudt DatumResultaat, VrijstellingIE/CE die in de pivot verloren gaan.
-    Persoonsidentificerende gegevens (BSN, ONr) worden verwijderd.
     """
-    detail = tables.get("detail_geo", pl.DataFrame())
-    if detail.is_empty():
-        return pl.DataFrame()
-    drop = [c for c in _PII_DROP if c in detail.columns]
-    return detail.drop(drop)
+    return _of_leeg(tables.get("detail_geo"))
 
 
 # ---------------------------------------------------------------------------

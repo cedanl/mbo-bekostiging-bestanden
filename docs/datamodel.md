@@ -119,7 +119,8 @@ Joinen op alleen `(levering, _persoon_id, Inschrijvingvolgnummer)` dupliceert ri
 inschrijving meerdere ISP-perioden heeft.
 `Inschrijvingvolgnummer` is alleen uniek per persoon binnen een instelling (PvE §16.5.1), dus
 nooit zonder persoon joinen. Bij TBGI neemt het inlezen de BSN/ONr van de ouder-`<Inschrijving>`
-(of `<Diploma>`) daarom al over op elke Teldatum- en Signaal-rij.
+(of `<Diploma>`) daarom al over op elke Teldatum- en Signaal-rij; decode maakt daar `_persoon_id`
+van (#173).
 **Persoon over bronfamilies heen.** `_persoon_id` is een pseudoniem van *soort + nummer*
 (PGN, BSN of ONr). GRONDSLAG levert een door DUO omgenummerd PGN in plaats van het BSN
 (PvE 4.8.2 §17.1); een GRONDSLAG-student koppelt daarom nooit op persoon aan RO of TBGI.

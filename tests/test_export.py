@@ -75,7 +75,7 @@ def test_export_frames_csv_readable(frames, tmp_path):
     export_frames(frames, tmp_path, fmt="csv")
     per = pl.read_csv(tmp_path / "PER.csv")
     assert per.height == frames["PER"].height
-    assert "Burgerservicenummer" in per.columns
+    assert "_persoon_id" in per.columns
 
 
 def test_export_frames_csv_row_counts(frames, tmp_path):

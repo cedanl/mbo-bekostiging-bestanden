@@ -70,13 +70,13 @@ def test_bii_en_tbgi_delen_kolommen_in_detail_bekostiging():
 
     sleutel = {"levering": ["L1"], "Inschrijvingvolgnummer": ["1"]}
     bii = decode_frames(_bii(), "grondslag")["BII"].with_columns(
-        pl.lit("P1").alias("PseudoNummer"),
+        pl.lit("P1").alias("_persoon_id"),
         **{k: pl.lit(v[0]) for k, v in sleutel.items()},
     )
     teldatum = decode_frames(
         {"Teldatum": pl.DataFrame({veld: ["1.00"] for veld in BII_BEDRAGEN})}, "tbgi"
     )["Teldatum"].with_columns(
-        pl.lit("B1").alias("Burgerservicenummer"),
+        pl.lit("B1").alias("_persoon_id"),
         **{k: pl.lit(v[0]) for k, v in sleutel.items()},
     )
     detail = _bouw_detail_bekostiging({"BII": bii, "Teldatum": teldatum})

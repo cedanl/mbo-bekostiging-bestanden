@@ -25,10 +25,10 @@ een verschillend `_persoon_id`. Dat vereist een salt, ingesteld via de env-var:
 export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ```
 
-Zonder geldige salt faalt de stap die het analysemodel bouwt (`mbo star`, "Bouw
-analysemodel" in de app; fail-closed). De stap die brondata schrijft (`mbo verwerk`,
-"Verwerk bestanden") heeft geen salt nodig en pseudonimiseert niet: de brondata in
-`02-prepared/` bevat BSN/ONr in platte tekst.
+Zonder geldige salt faalt de stap die brondata schrijft (`mbo verwerk`, "Verwerk
+bestanden" in de app; fail-closed): decode vervangt BSN, onderwijsnummer en PGN
+door het pseudoniem `_persoon_id`, zodat ze `02-prepared/` niet bereiken (#173).
+Gebruik voor alle leveringen die samen in één analysemodel komen dezelfde salt.
 
 - **Productie:** de salt komt uitsluitend uit de environment (secret manager,
   bijv. via het deploymentplatform). Geen salt in de repo of in
@@ -45,8 +45,10 @@ analysemodel" in de app; fail-closed). De stap die brondata schrijft (`mbo verwe
 
 ### Opslag en retentie van brondata
 
-De brondata (`data/02-prepared/`) is persoonsgegevens: ze bevat BSN/Onderwijsnummer in
-platte tekst (#173). Ga ermee om als met de ruwe bestanden in `data/01-raw/`:
+De brondata (`data/02-prepared/`) bevat geen BSN, onderwijsnummer of PGN meer, alleen
+het pseudoniem `_persoon_id` (#173). Het blijft persoonsgegevens: pseudoniemen plus
+kenmerken als geboortedatum en postcodecijfers. De ruwe bestanden in `data/01-raw/` zijn
+de auditbron met de echte identifiers. Ga met beide zorgvuldig om:
 
 - **Opslag:** alleen lokaal, op een schijf met toegangsbeperking van de gebruiker; nooit in git
   (echte data is gitignored), nooit op een gedeelde of gehoste omgeving. De app wordt niet
@@ -55,8 +57,9 @@ platte tekst (#173). Ga ermee om als met de ruwe bestanden in `data/01-raw/`:
   Het analysemodel (`03-output/`) bevat geen bronidentifiers en kan zonder de brondata
   worden bewaard; de brondata is opnieuw te maken uit de ruwe bestanden.
 - **Verwijderen:** verwijder `02-prepared/` zodra het analysemodel gebouwd en gecontroleerd is.
-  Een pseudoniem uit het analysemodel is alleen te koppelen met dezelfde salt.
-- **Structurele oplossing:** pseudonimiseren vóór het wegschrijven van brondata staat in #173.
+  Een pseudoniem is alleen te koppelen met dezelfde salt.
+- **Brondata van vóór v4.0.0** bevat nog BSN/onderwijsnummer; `mbo star` weigert die.
+  Verwerk de leveringen opnieuw en verwijder de oude mappen.
 
 ---
 
@@ -227,7 +230,7 @@ stacked = stack_prepared(
 # stacked["ISP"]  — rijen uit beide leveringen, eerste kolom = "levering"
 ```
 
-Schema-drift (bijv. `Burgerservicenummer` in RO vs. `PseudoNummer` in GRONDSLAG)
+Schema-drift (bijv. `BRIN` wel in GRONDSLAG-ISG maar niet in RO-ISG)
 wordt automatisch afgehandeld — ontbrekende kolommen krijgen `null`.
 
 ---

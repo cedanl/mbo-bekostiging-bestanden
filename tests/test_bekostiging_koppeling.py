@@ -28,19 +28,19 @@ def _stacked(teldata: list[tuple[str, str, str, date]]) -> dict[str, pl.DataFram
         {
             "levering": [RO, RO],
             "Recordsoort": ["ISP", "ISP"],
-            "Burgerservicenummer": ["S1", "S1"],
+            "_persoon_id": ["S1", "S1"],
             "Inschrijvingvolgnummer": ["002", "002"],
             "DatumBegin": [date(2024, 8, 1), date(2025, 8, 1)],
             "Opleidingcode": ["25655", "25655"],
         }
     )
     per = pl.DataFrame(
-        {"levering": [RO], "Recordsoort": ["PER"], "Burgerservicenummer": ["S1"]}
+        {"levering": [RO], "Recordsoort": ["PER"], "_persoon_id": ["S1"]}
     )
     isg = pl.DataFrame(
         {
             "levering": [RO],
-            "Burgerservicenummer": ["S1"],
+            "_persoon_id": ["S1"],
             "Inschrijvingvolgnummer": ["002"],
         }
     )
@@ -49,11 +49,9 @@ def _stacked(teldata: list[tuple[str, str, str, date]]) -> dict[str, pl.DataFram
         {
             "levering": [TBGI] * len(teldata),
             "BRIN": [t[0] for t in teldata],
-            "Burgerservicenummer": [t[1] for t in teldata],
-            "Onderwijsnummer": [None] * len(teldata),
+            "_persoon_id": [t[1] for t in teldata],
             "Inschrijvingvolgnummer": [t[2] for t in teldata],
         },
-        schema_overrides={"Onderwijsnummer": pl.Utf8},
     )
     # read_tbgi zet de persoon van de ouder-inschrijving op elke Teldatum-rij (#125).
     teldatum = inschrijving.with_columns(pl.Series("Teldatum", [t[3] for t in teldata]))

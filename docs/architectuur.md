@@ -48,6 +48,14 @@ alleen als de poort dat toelaat (`publicatie.py`, #363). Een afnemer leest
 haar met `publicatie.lees_ster`, dat een ster met status `fail` standaard
 weigert. De app gebruikt de override: Home moet een fout juist kunnen tonen.
 
+## Privacygrens bij decode
+
+`identiteit.py` (identifierdomeinen, salt, `_persoon_id`) hoort bij de
+brondatafase, niet bij de sterbouw: `decode_frames` vervangt de identifiers door
+het pseudoniem (#173). De sterbouw krijgt alleen `_persoon_id` en kent geen
+BSN, onderwijsnummer of PGN; `stack_prepared` weigert brondata waarin ze nog
+staan (van vóór v4.0.0).
+
 ## Sterbouw per domein
 
 `transform.py` orkestreert alleen; de analysetabellen worden per domein
@@ -55,7 +63,6 @@ gebouwd (#198):
 
 | Module | Verantwoordelijkheid |
 |---|---|
-| `identiteit.py` | identifierdomeinen, salt, `_persoon_id` (pseudonimisering) |
 | `perioden.py` | periodesleutel, -begin en -einde, studiejaar, koppeling van detailrijen aan hun periode |
 | `inschrijvingen.py` | de centrale inschrijvingstabel: ISP-perioden met PER/ISG/VLP/ISE/DIP/GEO, aangevuld met TBGI |
 | `details.py` | detailtabellen (BPV, KZD/AMO, GEO, bekostiging) en hun aggregaten per periode |

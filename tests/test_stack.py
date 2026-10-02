@@ -104,5 +104,5 @@ def test_stack_prepared_schema_drift_fills_null(prepared_dirs):
     """RO en GRONDSLAG hebben een ISG met andere kolommen; ontbrekende → null."""
     result = stack_prepared([prepared_dirs["21CY"], prepared_dirs["IP"]])
     isg = result["ISG"]
-    assert "Burgerservicenummer" in isg.columns
-    assert "PseudoNummer" in isg.columns
+    assert "Inschrijvingvolgnummer" in isg.columns
+    assert "BRIN" in isg.columns

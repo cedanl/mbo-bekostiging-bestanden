@@ -5,6 +5,8 @@ from pathlib import Path
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS
+
 
 def heeft_records(stacked: dict[str, pl.DataFrame], recordtype: str) -> bool:
     """Of de gestapelde data rijen van ``recordtype`` bevat."""
@@ -41,7 +43,14 @@ def _lees_levering(
     """Tabellen van één levering, met de leveringskolom als eerste kolom."""
     uit = []
     for parquet in sorted(path.glob("*.parquet")):
-        df = pl.read_parquet(parquet).with_columns(pl.lit(label).alias(label_col))
+        df = pl.read_parquet(parquet)
+        if identifiers := [c for c in PERSOON_COLS if c in df.columns]:
+            # Brondata van vóór v4.0.0: pseudoniem pas in de sterbouw (#173).
+            raise ValueError(
+                f"{parquet} bevat persoonsidentifiers {identifiers}; verwerk de "
+                "levering opnieuw met `mbo verwerk` (pseudoniem bij decode)"
+            )
+        df = df.with_columns(pl.lit(label).alias(label_col))
         df = df.select([label_col, *[c for c in df.columns if c != label_col]])
         uit.append((parquet.stem, df))
     return uit

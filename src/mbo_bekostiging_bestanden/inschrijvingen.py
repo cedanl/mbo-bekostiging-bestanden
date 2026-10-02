@@ -21,7 +21,6 @@ from mbo_bekostiging_bestanden.details import (
     geo_pivot,
     kzd_aggregaat,
 )
-from mbo_bekostiging_bestanden.identiteit import PERSOON_COLS, voeg_persoon_id_toe
 from mbo_bekostiging_bestanden.koppelingen import Koppelingen
 from mbo_bekostiging_bestanden.metadata import alle_extra_kolommen
 from mbo_bekostiging_bestanden.opleidingsniveau import vul_niveau_aan
@@ -35,12 +34,12 @@ _ISG_KOLOMMEN = (
     "RedenUitschrijving",
 )
 # Kolommen die bij ISE/DIP niet als ``<recordtype>_<kolom>`` meekomen.
-_NIET_OVERNEMEN = (*JOIN_INSCHRIJVING, *PERSOON_COLS, "Recordsoort")
+_NIET_OVERNEMEN = (*JOIN_INSCHRIJVING, "Recordsoort")
 
 
 def isp_met_instelling(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     """ISP met ``_persoon_id`` en ``BRIN``; RO-ISP krijgt BRIN uit het VLP-record."""
-    isp = voeg_persoon_id_toe(stacked["ISP"]).drop("Recordsoort", strict=False)
+    isp = stacked["ISP"].drop("Recordsoort", strict=False)
     vlp = stacked.get("VLP", pl.DataFrame())
     if "BRIN" not in vlp.columns:
         return isp
@@ -55,7 +54,6 @@ def isp_met_instelling(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
 
 def _met_prefix(records: pl.DataFrame, prefix: str, *uitsluiten: str) -> pl.DataFrame:
     """Inschrijvingssleutel plus de overige kolommen als ``<prefix>_<kolom>``."""
-    records = voeg_persoon_id_toe(records)
     extra = [c for c in records.columns if c not in {*_NIET_OVERNEMEN, *uitsluiten}]
     return records.select([*JOIN_INSCHRIJVING, *extra]).rename(
         {c: f"{prefix}_{c}" for c in extra}
@@ -67,12 +65,10 @@ def _koppel_persoon_en_levering(
 ) -> pl.DataFrame:
     """PER (persoonskenmerken), ISG (inschrijvingsdatums) en VLP (bestand)."""
     # Posities buiten het PvE horen bij de brondata, niet bij het model (#260).
-    per = voeg_persoon_id_toe(stacked["PER"]).drop(
-        "Recordsoort", *PERSOON_COLS, *alle_extra_kolommen(), strict=False
-    )
+    per = stacked["PER"].drop("Recordsoort", *alle_extra_kolommen(), strict=False)
     df = koppelingen.links(df, per, on=JOIN_PERSOON, naam="PER")
 
-    isg = voeg_persoon_id_toe(stacked["ISG"])
+    isg = stacked["ISG"]
     isg_kolommen = [c for c in _ISG_KOLOMMEN if c in isg.columns]
     df = koppelingen.links(
         df,
@@ -184,7 +180,7 @@ def _bouw_tbgi_inschrijvingen(stacked: dict[str, pl.DataFrame]) -> pl.DataFrame:
     ``DatumInschrijving``-periode. Verander deze pseudo-periode niet in de
     veronderstelling dat hij het schooljaar bepaalt.
     """
-    inschrijving = voeg_persoon_id_toe(stacked["Inschrijving"])
+    inschrijving = stacked["Inschrijving"]
     return _verrijk(voeg_periode_id_toe(inschrijving.drop("Recordsoort", strict=False)))
 
 

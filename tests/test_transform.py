@@ -14,7 +14,7 @@ from mbo_bekostiging_bestanden.details import (
 from mbo_bekostiging_bestanden.identiteit import (
     laad_pseudonimisering_salt,
     pseudoniem,
-    voeg_persoon_id_toe,
+    pseudonimiseer,
 )
 from mbo_bekostiging_bestanden.inschrijvingen import _voeg_afgeleide_velden_toe
 from mbo_bekostiging_bestanden.koppelingen import Koppelingen
@@ -43,8 +43,7 @@ def test_bouw_analysetabellen_tbgi_fallback_gebruikt_inschrijving_als_grain():
         {
             "levering": ["L1"],
             "BRIN": ["25LX"],
-            "Burgerservicenummer": ["BSN1"],
-            "Onderwijsnummer": [None],
+            "_persoon_id": ["BSN1"],
             "Inschrijvingvolgnummer": ["001"],
         }
     )
@@ -61,8 +60,7 @@ def test_bouw_analysetabellen_tbgi_fallback_detail_bekostiging_gevuld():
         {
             "levering": ["L1"],
             "BRIN": ["25LX"],
-            "Burgerservicenummer": ["BSN1"],
-            "Onderwijsnummer": [None],
+            "_persoon_id": ["BSN1"],
             "Inschrijvingvolgnummer": ["001"],
         }
     )
@@ -214,7 +212,7 @@ def test_detail_bekostiging_bevat_bii_indien_aanwezig():
     bii = pl.DataFrame(
         {
             "levering": ["L1"],
-            "Burgerservicenummer": ["P1"],
+            "_persoon_id": ["P1"],
             "Inschrijvingvolgnummer": ["C1"],
             "Teldatum": ["2024-10-01"],
             "Recordsoort": ["BII"],
@@ -237,27 +235,6 @@ def test_detail_bekostiging_bevat_tbgi(demo_tabellen):
 def test_detail_bekostiging_diploma_leeg_zonder_diploma():
     """Zonder Diploma-sleutel geeft de functie een leeg DataFrame."""
     assert _bouw_detail_bekostiging_diploma({}, Koppelingen()).is_empty()
-
-
-def test_detail_bekostiging_diploma_persoon_id_aanwezig():
-    """_persoon_id gepseudonimiseerd van Burgerservicenummer; BSN verwijderd."""
-    dip = pl.DataFrame(
-        {
-            "levering": ["L1"],
-            "BRIN": ["25LX"],
-            "Burgerservicenummer": ["900000001"],
-            "Inschrijvingvolgnummer": ["001"],
-            "Resultaatvolgnummer": ["1362433"],
-            "BijdrageDiplomawaarde": ["5"],
-            "Bekostigingsstatus": ["true"],
-        }
-    )
-    result = _bouw_detail_bekostiging_diploma({"Diploma": dip}, Koppelingen())
-    assert "_persoon_id" in result.columns
-    assert "Burgerservicenummer" not in result.columns
-    expected_pseudoniem = pseudoniem("BSN", "900000001")
-    assert result["_persoon_id"][0] == expected_pseudoniem
-    assert result["BijdrageDiplomawaarde"][0] == "5"
 
 
 def test_detail_bekostiging_diploma_in_demo_tabellen(demo_tabellen):
@@ -286,11 +263,10 @@ def test_meta_leveringen_bevat_alle_leveringen(demo_tabellen, demo_stacked):
 
 def test_resolve_inschrijving_vult_via_dip():
     """Lege Inschrijvingvolgnummer wordt via ResultaatvolgnummerDiploma → DIP gevuld."""
-    p1_pseudoniem = pseudoniem("BSN", "P1")
     kzd = pl.DataFrame(
         {
             "levering": ["L1"],
-            "_persoon_id": [p1_pseudoniem],
+            "_persoon_id": ["P1"],
             "Inschrijvingvolgnummer": [""],
             "ResultaatvolgnummerDiploma": ["REF1"],
         }
@@ -298,7 +274,7 @@ def test_resolve_inschrijving_vult_via_dip():
     dip = pl.DataFrame(
         {
             "levering": ["L1"],
-            "Burgerservicenummer": ["P1"],
+            "_persoon_id": ["P1"],
             "Resultaatvolgnummer": ["REF1"],
             "Inschrijvingvolgnummer": ["C3"],
         }
@@ -320,7 +296,7 @@ def test_resolve_inschrijving_behoudt_ingevuld_volgnummer():
     dip = pl.DataFrame(
         {
             "levering": ["L1"],
-            "Burgerservicenummer": ["P1"],
+            "_persoon_id": ["P1"],
             "Resultaatvolgnummer": ["REF1"],
             "Inschrijvingvolgnummer": ["C9"],
         }
@@ -354,7 +330,7 @@ def test_resolve_inschrijving_zonder_resultaatvolgnummer_kolom():
     dip = pl.DataFrame(
         {
             "levering": ["L1"],
-            "Burgerservicenummer": ["P1"],
+            "_persoon_id": ["P1"],
             "Resultaatvolgnummer": ["REF1"],
             "Inschrijvingvolgnummer": ["C9"],
         }
@@ -636,11 +612,9 @@ def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
         {
             "levering": ["L1", "L1"],
             "BRIN": ["25LX", "25LX"],
-            "Burgerservicenummer": ["P1", "P2"],
-            "Onderwijsnummer": [None, None],
+            "_persoon_id": ["P1", "P2"],
             "Inschrijvingvolgnummer": ["C1", "C1"],
         },
-        schema_overrides={"Onderwijsnummer": pl.Utf8},
     )
     teldatum = inschrijving.with_columns(pl.lit("2025-10-01").alias("Teldatum"))
 
@@ -653,7 +627,7 @@ def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
 
 
 # ---------------------------------------------------------------------------
-# voeg_persoon_id_toe – identifierdomeinen (#128)
+# pseudonimiseer – identifierdomeinen (#128)
 # ---------------------------------------------------------------------------
 # GRONDSLAG levert een omgenummerd PGN, RO/TBGI een BSN of ONr (PvE 4.8.2
 # §17.1). Gelijke cijfers uit verschillende domeinen zijn verschillende personen.
@@ -661,7 +635,7 @@ def test_detail_bekostiging_gedeeld_volgnummer_geeft_geen_fan_out():
 
 def _persoon_ids(**kolommen: list[str | None]) -> list[str | None]:
     df = pl.DataFrame(kolommen, schema=dict.fromkeys(kolommen, pl.Utf8))
-    return voeg_persoon_id_toe(df)["_persoon_id"].to_list()
+    return pseudonimiseer(df)["_persoon_id"].to_list()
 
 
 def test_zelfde_waarde_in_ander_identifierdomein_is_andere_persoon():

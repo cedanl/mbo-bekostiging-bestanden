@@ -2,6 +2,7 @@
 
 import polars as pl
 
+from mbo_bekostiging_bestanden.identiteit import verwachte_kolommen
 from mbo_bekostiging_bestanden.metadata import load_schema
 
 
@@ -25,7 +26,7 @@ def _controleer_kolommen(
     for rt, df in frames.items():
         if rt not in schema:
             continue
-        missing = set(schema[rt]["fields"]) - set(df.columns)
+        missing = set(verwachte_kolommen(schema[rt]["fields"])) - set(df.columns)
         if missing:
             raise ValueError(f"{rt}: ontbrekende kolommen {sorted(missing)}")
 
@@ -48,7 +49,8 @@ def validate_multi_record(
 
     Controles (schema-gedreven):
     - Elk recordtype met ``verplicht = true`` komt minstens één keer voor (#322).
-    - Alle verwachte kolommen aanwezig per recordtype.
+    - Alle verwachte kolommen aanwezig per recordtype (identifiers als
+      ``_persoon_id``, #173).
     - Recordtypes met ``single_row = true`` in het schema bevatten exact 1 rij.
 
     Args:

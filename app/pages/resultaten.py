@@ -94,7 +94,7 @@ def _toon_tabel_sectie(titel: str, tabellen: dict[str, Path], help_fn=None):
         if _heeft_pii(df):
             st.warning(
                 "⚠️ **Persoonsgegevens aanwezig**  \n"
-                "Deze tabel bevat privacygevoelige kolommen (bijv. BSN, "
+                "Deze tabel bevat privacygevoelige kolommen (bijv. pseudoniem, "
                 "geboortedatum, postcode). Ze zijn standaard verborgen; behandel "
                 "de data verantwoord als je ze toont.",
                 icon="⚠️",

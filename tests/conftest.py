@@ -36,7 +36,7 @@ def prepared_dirs(tmp_path_factory):
     isg_ro_a = pl.DataFrame(
         {
             "Recordsoort": ["ISG"] * 4,
-            "Burgerservicenummer": ["100", "101", "102", "103"],
+            "_persoon_id": ["100", "101", "102", "103"],
             "Inschrijvingvolgnummer": ["A1", "A2", "A3", "A4"],
             "DatumInschrijving": [date(2024, 8, 1)] * 4,
         }
@@ -44,7 +44,7 @@ def prepared_dirs(tmp_path_factory):
     isg_ro_b = pl.DataFrame(
         {
             "Recordsoort": ["ISG"] * 3,
-            "Burgerservicenummer": ["200", "201", "202"],
+            "_persoon_id": ["200", "201", "202"],
             "Inschrijvingvolgnummer": ["B1", "B2", "B3"],
             "DatumInschrijving": [date(2025, 8, 1)] * 3,
         }
@@ -53,7 +53,7 @@ def prepared_dirs(tmp_path_factory):
     isg_grondslag = pl.DataFrame(
         {
             "Recordsoort": ["ISG"] * 2,
-            "PseudoNummer": ["P1", "P2"],
+            "_persoon_id": ["P1", "P2"],
             "BRIN": ["27DV", "27DV"],
             "DatumInschrijving": [date(2025, 8, 1)] * 2,
         }
