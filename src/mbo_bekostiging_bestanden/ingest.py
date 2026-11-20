@@ -596,10 +596,12 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
     - ``Signaal`` — één rij per signaalparameter (van Teldatum of Diploma);
       kolom ``Bron`` geeft de herkomst aan.
 
-    Elementen met alleen xsi:nil-velden (lege BPV-/Signaal-placeholders) geven
-    geen rij.  Kind-rijen dragen de persoons-identifiers van hun
-    ouder-element: ``Inschrijvingvolgnummer`` is alleen uniek per persoon
-    (PvE §16.5.1), dus achteraf koppelen via het volgnummer is niet eenduidig.
+    Elementen met alleen xsi:nil-velden (lege Teldatum-, BPV- en
+    Signaal-placeholders) geven geen rij; bij een Teldatum tellen alleen de
+    eigen velden, niet de geërfde context (#445).  Kind-rijen dragen de
+    persoons-identifiers van hun ouder-element: ``Inschrijvingvolgnummer`` is
+    alleen uniek per persoon (PvE §16.5.1), dus achteraf koppelen via het
+    volgnummer is niet eenduidig.
 
     Args:
         path: Pad naar het TBGI XML-bestand.
@@ -633,7 +635,13 @@ def read_tbgi(path: str | Path) -> dict[str, pl.DataFrame]:
         context = {v: inschrijving[v] for v in _TBGI_INSCHRIJVING_CONTEXT}
 
         for td in isg.findall("Teldatum"):
-            teldatum = context | _lees_velden(td, teldatum_eigen)
+            eigen = _lees_velden(td, teldatum_eigen)
+            # DUO levert per niet-bekostigde inschrijving een lege <Teldatum>,
+            # ook met lege BPV en Signaal; de geërfde context maakt er geen
+            # record van (#445).
+            if not _heeft_waarde(eigen):
+                continue
+            teldatum = context | eigen
             teldatum_rows.append(teldatum)
             teldatum_context = context | {"Teldatum": teldatum["Teldatum"]}
             bpv_rows += _bpv_rijen(td, teldatum_context, velden[_TBGI_BPV])

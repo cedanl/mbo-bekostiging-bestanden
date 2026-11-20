@@ -50,3 +50,14 @@ voor 4.8.3.
 De afwijkingen van het PvE die echte leveringen hebben (GRONDSLAG-VLP met BRIN,
 RO-DIP met positie 7) bestaan in beide versies; de ingest herkent beide layouts
 (#236, #321).
+
+## Lege elementen in TBG-i-leveringen
+
+Het PvE (§16) beschrijft per inschrijving een `<Teldatum>` met gevulde
+velden. In de praktijk levert DUO per niet-bekostigde inschrijving een
+`<Teldatum>` waarvan alle velden `xsi:nil` zijn, inclusief de geneste
+`<BekostigingsrelevanteBPV>` en `<Signaal>`. `read_tbgi` slaat zo'n lege
+Teldatum over, net als lege BPV- en Signaal-elementen (#445); de inschrijving
+blijft bestaan. Alleen de eigen Teldatum-velden tellen: BRIN, persoon en
+inschrijvingvolgnummer erft de rij van de inschrijving. Een Teldatum met
+minstens één gevuld eigen veld blijft een rij.
