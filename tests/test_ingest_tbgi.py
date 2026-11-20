@@ -234,3 +234,81 @@ def test_alfanumerieke_volgnummers_overleven_decode(tbgi_meervoudig):
 def test_bpv_datums_worden_gedecodeerd(tbgi_meervoudig):
     bpv = decode_tbgi(tbgi_meervoudig)["BekostigingsrelevanteBPV"]
     assert bpv["DatumBegin"].to_list() == [date(2025, 8, 1), date(2025, 9, 1)]
+
+
+# ---------------------------------------------------------------------------
+# Lege Teldatum-placeholders (#445)
+# ---------------------------------------------------------------------------
+# DUO levert per niet-bekostigde inschrijving een <Teldatum> met alleen
+# xsi:nil, ook voor BPV en Signaal. Alleen de eigen Teldatum-velden tellen:
+# BRIN, BSN en volgnummer erft elke rij van de inschrijving.
+
+_TBGI_LEGE_TELDATUM = """<?xml version="1.0" encoding="utf-8"?>
+<Bekostigingsgrondslagen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Inschrijving>
+    <BRIN>25LX</BRIN>
+    <Burgerservicenummer>111111110</Burgerservicenummer>
+    <Inschrijvingvolgnummer>C1</Inschrijvingvolgnummer>
+    <Teldatum>
+      <Teldatum xsi:nil="true"/>
+      <Opleidingcode xsi:nil="true"/>
+      <IndicatieBekostigbaar xsi:nil="true"/>
+      <BekostigingsrelevanteBPV>
+        <Inschrijvingvolgnummer xsi:nil="true"/>
+        <Volgnummer xsi:nil="true"/>
+      </BekostigingsrelevanteBPV>
+      <Signaal>
+        <Signaalcode xsi:nil="true"/>
+        <Parameter><Parameternaam xsi:nil="true"/></Parameter>
+      </Signaal>
+    </Teldatum>
+  </Inschrijving>
+  <Inschrijving>
+    <BRIN>25LX</BRIN>
+    <Burgerservicenummer>222222220</Burgerservicenummer>
+    <Inschrijvingvolgnummer>C2</Inschrijvingvolgnummer>
+    <Teldatum>
+      <Teldatum>2025-10-01</Teldatum>
+      <Opleidingcode xsi:nil="true"/>
+      <BekostigingsrelevanteBPV>
+        <Inschrijvingvolgnummer>C2</Inschrijvingvolgnummer>
+        <Volgnummer>1</Volgnummer>
+      </BekostigingsrelevanteBPV>
+      <Signaal><Signaalcode>S1</Signaalcode></Signaal>
+    </Teldatum>
+  </Inschrijving>
+</Bekostigingsgrondslagen>
+"""
+
+
+@pytest.fixture
+def tbgi_lege_teldatum(tmp_path: Path) -> dict[str, pl.DataFrame]:
+    pad = tmp_path / "TBGI_25LX_2027_20251124.XML"
+    pad.write_text(_TBGI_LEGE_TELDATUM, encoding="utf-8")
+    return read_tbgi(pad)
+
+
+def test_lege_teldatum_geeft_geen_rijen(tbgi_lege_teldatum):
+    for tabel in ("Teldatum", "BekostigingsrelevanteBPV", "Signaal"):
+        volgnummers = tbgi_lege_teldatum[tabel]["Inschrijvingvolgnummer"]
+        assert "C1" not in volgnummers.to_list(), tabel
+
+
+def test_inschrijving_met_lege_teldatum_blijft(tbgi_lege_teldatum):
+    assert tbgi_lege_teldatum["Inschrijving"]["Inschrijvingvolgnummer"].to_list() == [
+        "C1",
+        "C2",
+    ]
+
+
+def test_teldatum_met_alleen_datum_blijft_met_kinderen(tbgi_lege_teldatum):
+    """Eén gevuld eigen veld, ook alleen de teldatum, maakt het een record."""
+    assert tbgi_lege_teldatum["Teldatum"].select(
+        "Inschrijvingvolgnummer", "Teldatum"
+    ).rows() == [("C2", "2025-10-01")]
+    assert tbgi_lege_teldatum["BekostigingsrelevanteBPV"].select(
+        "Inschrijvingvolgnummer", "Teldatum", "Volgnummer"
+    ).rows() == [("C2", "2025-10-01", "1")]
+    assert tbgi_lege_teldatum["Signaal"].select(
+        "Inschrijvingvolgnummer", "Teldatum", "Signaalcode"
+    ).rows() == [("C2", "2025-10-01", "S1")]
