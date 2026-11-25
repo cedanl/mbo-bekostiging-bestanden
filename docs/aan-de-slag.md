@@ -342,13 +342,17 @@ data/
             ├── dim_opleiding.parquet
             ├── dim_instelling.parquet
             ├── fact_inschrijving.parquet
+            ├── fact_inschrijving_schooljaar.parquet
             ├── fact_bpv.parquet
             ├── fact_kzd.parquet
             ├── fact_amo.parquet
             ├── fact_geo.parquet
             ├── fact_bekostiging.parquet
             ├── fact_bekostiging_diploma.parquet
-            └── meta_leveringen.parquet
+            ├── meta_leveringen.parquet
+            ├── meta_canonicalisatie.parquet
+            ├── meta_referentiedata.parquet
+            └── meta_koppelkeuzes.parquet
 ```
 
 Echte data zet je in `data/01-raw/` buiten de `demo/`-submap — die staat in `.gitignore`.
