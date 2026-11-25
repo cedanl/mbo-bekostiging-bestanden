@@ -4,7 +4,7 @@
 - Eén branch en één PR per issue (`fix/<nr>-<slug>`), vanaf `main`.
 - Test-first: eerst een falende test, dan de fix.
 - Vóór de PR: `MBO_PSEUDONIMISERING_SALT="ci-test-key-do-not-use-in-production" uv run pytest`,
-  `uv run ruff check .`, `uv run ty check` en `uv run --group docs mkdocs build --strict`.
+  `uv run ruff check .`, `uv run ty check` en `uv run --group docs zensical build --strict`.
 - Pas de demodata in `data/*/demo/` nooit aan; gebruik synthetische fixtures in `tests/`.
 
 ## Releases
