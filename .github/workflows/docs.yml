@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs
 
+      - name: Versie en release-notes in de docs
+        run: uv run --group docs python scripts/docs_versie.py --commit "${GITHUB_SHA::7}"
+
       - name: Build docs
         run: uv run --group docs zensical build --strict --clean
 
