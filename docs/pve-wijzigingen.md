@@ -35,6 +35,9 @@ workflow; DUO kan de PDF opnieuw genereren.
    waarom er geen gevolg is (hieronder).
 4. Zet `versie`, `sha256` en `sha256_volledig` in `pve_bron.json`; de tests in `test_pve_bron.py` en
    `test_pve_versie.py` controleren dat PDF, manifest en schema's kloppen.
+5. Werk `docs/waardenlijsten.md` en de pagina's onder `docs/recordtypes/` bij waar het schema of de
+   waardenlijst veranderde. `test_docs_waardenlijsten.py` toetst de waarden en geldigheidsdata van de
+   waardenlijsten tegen `waardenlijsten.toml`; de beschrijvingen blijven handwerk.
 
 ## 4.8.2 → 4.8.3 (12-05-2026)
 

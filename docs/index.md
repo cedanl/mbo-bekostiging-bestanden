@@ -34,5 +34,10 @@ Installeer met `uv sync`, zet de pseudonimiserings-salt en start de app of de CL
 
 ## Bronnen
 
+<!-- versie -->
+Documentatie bij versie **4.0.0**.
+<!-- /versie -->
+Zie [Wijzigingen](wijzigingen.md).
+
 - Bestandsbeschrijving DUO PvE MBO-instelling (hoofdstuk 13–17), `bestandsbeschrijving_beknopt.pdf` in deze repo; versie, datum en sha256 staan alleen in `metadata/pve_bron.json`. Een wekelijkse workflow (`pve-upstream`) meldt als duo.nl een andere versie publiceert (#299); hoe je die verwerkt en wat er per versie veranderde, staat in [PvE-versies](pve-wijzigingen.md) (#298)
 - Demo-data: [cedanl/duo-mbo-datafiles](https://github.com/cedanl/duo-mbo-datafiles)
