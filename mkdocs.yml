@@ -77,6 +77,9 @@ nav:
   - Producten:
     - Brondata per levering: producten/brondata.md
     - Analysemodel (star schema): producten/analysemodel.md
+    - De app gebruiken: producten/app.md
+  - Privacy en pseudonimisering: privacy.md
+  - Problemen oplossen: problemen-oplossen.md
   - Datamodel: datamodel.md
   - Ontwerpkeuzes: ontwerpkeuzes.md
   - Architectuur: architectuur.md

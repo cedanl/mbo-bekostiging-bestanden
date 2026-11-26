@@ -15,7 +15,7 @@ De brondata is het eerste product van de tool: elk DUO-bestand per recordtype, g
 | Keuzes | Alleen technisch (typering, notaties) |
 | Gegarandeerd | Kolommen en volgorde volgens het PvE; een onbekend recordtype of gevuld veld voorbij het schema breekt de ingest (fail-closed, #257) in plaats van stil te worden genegeerd |
 | Status | Per levering in `quality.json` → `status`; in de app bij de brondata op Werkbare data |
-| Beperkingen | Gepseudonimiseerd (`_persoon_id` in plaats van BSN/ONr/PGN, #173), maar nog persoonsgegevens; zie [opslag en retentie](../aan-de-slag.md#opslag-en-retentie-van-brondata) |
+| Beperkingen | Gepseudonimiseerd (`_persoon_id` in plaats van BSN/ONr/PGN, #173), maar nog persoonsgegevens; zie [opslag en retentie](../privacy.md#wat-zit-er-nog-wel-in-de-uitvoer) |
 | Voor wie | Wie eigen keuzes wil maken of een levering wil controleren |
 
 ## Fasering
