@@ -64,6 +64,14 @@ ISP  ← inschrijvingsperiode (per inschrijving)
 SLR  ← altijd laatste regel (sluitrecord)
 ```
 
+Een voorbeeld van de ruwe regels (elke regel begint met een recordtype-code):
+
+```
+VLP|27DV|2024-07-31|2026-03-24|2026-03-25
+PER|BSN1||1987-11-23|V
+ISG|BSN1||C3|2023-01-30|2025-01-29||08
+```
+
 Er zijn **geen kolomkoppen** in de bestanden. De veldvolgorde per recordtype staat beschreven in [Recordtypes](../recordtypes/index.md).
 
 ---

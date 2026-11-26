@@ -5,12 +5,12 @@ from pathlib import Path
 
 DOCS = Path("docs")
 SCHEMA = DOCS / "quality.schema.json"
-BESCHRIJVING = DOCS / "aan-de-slag.md"
+BESCHRIJVING = DOCS / "python-api.md"
 # Vervallen sleutels: de docs mogen ze alleen als vervallen noemen.
 VERVALLEN = ("pve_schema",)
 
 
-def test_aan_de_slag_noemt_elke_conformiteitssleutel():
+def test_python_api_noemt_elke_conformiteitssleutel():
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     sleutels = schema["properties"]["conformiteit"]["properties"]
     tekst = BESCHRIJVING.read_text(encoding="utf-8")
