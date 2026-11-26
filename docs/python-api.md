@@ -130,4 +130,4 @@ uv run pytest
 ```
 
 De tests draaien fail-closed op de pseudonimiserings-salt; zonder de env-var
-slaat de fase die het analysemodel bouwt af (zie [Pseudonimisering](aan-de-slag.md#pseudonimisering)).
+slaat de fase die het analysemodel bouwt af (zie [Privacy en pseudonimisering](privacy.md#wat-is-pseudonimisering-in-deze-tool)).

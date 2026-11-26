@@ -10,7 +10,7 @@ Installeer de tool, draai de app of de CLI en vind je uitvoer terug in `data/`. 
 
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
-- `MBO_PSEUDONIMISERING_SALT`, tenzij je bewust [identifiers behoudt](#persoonsverwerking-kiezen) (zie [Pseudonimisering](#pseudonimisering))
+- `MBO_PSEUDONIMISERING_SALT`, tenzij je bewust [identifiers behoudt](privacy.md#identifiers-behouden) (zie [Privacy en pseudonimisering](privacy.md))
 
 ## Installatie
 
@@ -42,84 +42,9 @@ De variabele geldt alleen voor het huidige venster. Genereer de salt niet met
 
 ---
 
-## Pseudonimisering
+## Pseudonimisering en privacy
 
-Persoons-identifiers (BSN, Onderwijsnummer, PGN) worden met HMAC-SHA256
-gehasht, samen met hun soort: een PGN, BSN en ONr met dezelfde cijfers krijgen
-een verschillend `_persoon_id`. Dat vereist een salt, ingesteld via de env-var:
-
-```bash
-export MBO_PSEUDONIMISERING_SALT="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-```
-
-Zonder geldige salt faalt de stap die brondata schrijft (`mbo verwerk`, "Verwerk
-bestanden" in de app; fail-closed): decode vervangt BSN, onderwijsnummer en PGN
-door het pseudoniem `_persoon_id`, zodat ze `02-prepared/` niet bereiken (#173).
-Gebruik voor alle leveringen die samen in één analysemodel komen dezelfde salt.
-
-- **Productie:** de salt komt uitsluitend uit de environment (secret manager,
-  bijv. via het deploymentplatform). Geen salt in de repo of in
-  applicatieconfig opslaan.
-- **Lokale demo:** het `export`-commando hierboven genereert een willekeurige
-  salt per shell. Bewaar die zelf als je pseudoniemen tussen sessies wilt
-  kunnen koppelen.
-- **Tests/CI:** gebruiken de vaste, publieke waarde
-  `ci-test-key-do-not-use-in-production`. Die is herleidbaar en hoort dus
-  nooit bij echte data.
-- `app/config.toml` heeft nog een `[security] pseudonimisering_salt`-fallback
-  voor oude setups, maar de meegeleverde config bevat bewust géén salt meer.
-  Gebruik die fallback niet voor echte data; een echte salt hoort er niet thuis.
-
-### Persoonsverwerking kiezen
-
-Pseudonimiseren is de standaard. Voor een BI-team dat de DUO-gegevens in een
-beveiligde, interne omgeving aan een eigen administratie koppelt, is er een
-tweede, expliciete modus:
-
-| Modus | Wanneer | Salt | Uitvoer |
-|---|---|---|---|
-| **Pseudonimiseren** (standaard) | Je hebt geen persoonskoppeling nodig | Vereist; zonder salt stopt de verwerking | Alleen `_persoon_id`, geen BSN/ONR/PGN |
-| **Identifiers behouden** | Je koppelt intern aan een eigen bronbestand, in een vertrouwde omgeving | Niet nodig | BSN, onderwijsnummer en PGN blijven staan; in het analysemodel alleen in `dim_deelnemer` |
-
-Kies de modus op Home ("Hoe moeten persoonsidentifiers worden verwerkt?") of in
-de CLI:
-
-```bash
-uv run mbo verwerk <bron> <doel> --persoonsverwerking identifiers_behouden
-```
-
-- Een ontbrekende salt schakelt de tweede modus **nooit** in: zonder de
-  expliciete keuze faalt de verwerking nog steeds.
-- Bij identifiers behouden bevat de uitvoer persoonsgegevens. De CLI en de app
-  waarschuwen daarvoor; behandel `02-prepared/` en `03-output/` dan als
-  persoonsgegevens en deel ze niet.
-- `_persoon_id` is in deze modus een ongezouten SHA-256 per identifierdomein:
-  een stabiele join-sleutel, geen privacybescherming.
-- Het gekozen profiel staat als `privacyprofiel` in `quality.json`. Leveringen
-  met verschillende profielen kunnen niet in één analysemodel; verwerk ze dan
-  allemaal opnieuw met dezelfde keuze.
-- In de app blijven persoonskolommen in preview en download standaard
-  verborgen, ook de identifiers.
-- De standaardkeuze op Home staat in `app/config.toml` (`[security]
-  persoonsverwerking`); de gebruiker kiest altijd zelf.
-
-### Opslag en retentie van brondata
-
-De brondata (`data/02-prepared/`) bevat geen BSN, onderwijsnummer of PGN meer, alleen
-het pseudoniem `_persoon_id` (#173); bij de opt-in modus identifiers behouden (#435) wel. Het blijft persoonsgegevens: pseudoniemen plus
-kenmerken als geboortedatum en postcodecijfers. De ruwe bestanden in `data/01-raw/` zijn
-de auditbron met de echte identifiers. Ga met beide zorgvuldig om:
-
-- **Opslag:** alleen lokaal, op een schijf met toegangsbeperking van de gebruiker; nooit in git
-  (echte data is gitignored), nooit op een gedeelde of gehoste omgeving. De app wordt niet
-  gehost (#82).
-- **Retentie:** bewaar de brondata niet langer dan nodig om het analysemodel te bouwen.
-  Het analysemodel (`03-output/`) bevat geen bronidentifiers en kan zonder de brondata
-  worden bewaard; de brondata is opnieuw te maken uit de ruwe bestanden.
-- **Verwijderen:** verwijder `02-prepared/` zodra het analysemodel gebouwd en gecontroleerd is.
-  Een pseudoniem is alleen te koppelen met dezelfde salt.
-- **Brondata van vóór v4.0.0** bevat nog BSN/onderwijsnummer; `mbo star` weigert die.
-  Verwerk de leveringen opnieuw en verwijder de oude mappen.
+Persoons-identifiers (BSN, onderwijsnummer, PGN) worden bij het verwerken vervangen door het pseudoniem `_persoon_id`. Dat vereist een salt in de env-var `MBO_PSEUDONIMISERING_SALT` (zie [Installatie](#installatie)). Wat dit betekent, hoe je de salt beheert, hoe je bewust identifiers behoudt en hoe je brondata opslaat en verwijdert, staat op [Privacy en pseudonimisering](privacy.md).
 
 ---
 

@@ -13,7 +13,7 @@ DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan co
 | [Brondata per levering](producten/brondata.md): elk DUO-bestand per recordtype, getrouw aan de levering | Wie eigen keuzes wil maken of een levering wil controleren |
 | [Analysemodel](producten/analysemodel.md): een star schema dat de leveringen samenvoegt | Wie direct wil analyseren met de keuzes van deze tool |
 
-De data is gepseudonimiseerd (`_persoon_id` in plaats van BSN, onderwijsnummer of PGN), maar blijft persoonsgegevens. Lees [opslag en retentie](aan-de-slag.md#opslag-en-retentie-van-brondata) voordat je de uitvoer deelt.
+De data is gepseudonimiseerd (`_persoon_id` in plaats van BSN, onderwijsnummer of PGN), maar blijft persoonsgegevens. Lees [Privacy en pseudonimisering](privacy.md) voordat je de uitvoer deelt.
 
 ## Snel starten
 
@@ -24,7 +24,10 @@ Installeer met `uv sync`, zet de pseudonimiserings-salt en start de app of de CL
 | Ik wil… | Ga naar |
 |---|---|
 | de tool installeren en draaien | [Aan de slag](aan-de-slag.md) |
-| weten wat de producten bevatten | [Producten](producten/brondata.md) |
+| weten wat de producten bevatten | [Brondata](producten/brondata.md) en [Analysemodel](producten/analysemodel.md) |
+| de app gebruiken | [De app gebruiken](producten/app.md) |
+| weten wat er met persoonsgegevens gebeurt | [Privacy en pseudonimisering](privacy.md) |
+| een foutmelding begrijpen | [Problemen oplossen](problemen-oplossen.md) |
 | de tabellen en kolommen van het analysemodel kennen | [Datamodel](datamodel.md) |
 | weten waarom het analysemodel iets zo doet | [Ontwerpkeuzes](ontwerpkeuzes.md) |
 | de inhoud van een DUO-bestand opzoeken | [Databestanden](databestanden/index.md) en [Recordtypes](recordtypes/index.md) |

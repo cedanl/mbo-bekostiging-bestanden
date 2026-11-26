@@ -38,7 +38,7 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 > of "Verwerk bestanden" in de app): `02-prepared/` bevat geen BSN, onderwijsnummer
 > of PGN, alleen het pseudoniem `_persoon_id` (#173). Zonder
 > `MBO_PSEUDONIMISERING_SALT` weigert die stap te draaien. De brondata blijft
-> persoonsgegevens (zie [Aan de slag](docs/aan-de-slag.md#opslag-en-retentie-van-brondata)).
+> persoonsgegevens (zie [Privacy en pseudonimisering](docs/privacy.md#wat-zit-er-nog-wel-in-de-uitvoer)).
 > Productie gebruikt uitsluitend de environment
 > (secret manager); lokaal genereert het `export`-commando hierboven een
 > willekeurige salt per shell. Bewaar die zelf als je pseudoniemen tussen sessies
@@ -48,7 +48,7 @@ De repo bevat demo-data, zodat alles direct werkt zonder eigen bestanden.
 > Alleen voor een vertrouwde omgeving die DUO-gegevens intern aan een eigen
 > administratie koppelt, kun je expliciet kiezen voor **identifiers behouden**
 > (geen salt, BSN/ONR/PGN blijven in de uitvoer). Een ontbrekende salt kiest
-> dat nooit. Zie [Aan de slag](docs/aan-de-slag.md#persoonsverwerking-kiezen).
+> dat nooit. Zie [Privacy en pseudonimisering](docs/privacy.md#identifiers-behouden).
 
 > **Alleen lokaal gebruiken:** de app is een lokale, single-user analysetool en
 > wordt bewust níet gehost (ook niet op SURF). Er is geen login, geen
@@ -69,9 +69,9 @@ Open de app en bekijk de ontdekte bestanden. De twee producten zijn aparte stapp
 
 ### Stap 2 — Dashboard
 
-Na de verwerking toont het Dashboard een visueel overzicht verdeeld over vijf
-tabs: rendementen (JR), bekostigingstrechter, opleidingen (BOL/BBL, BPV, KZD),
-studenten (geslacht, herkomst, gemeente) en GEO-examencijfers.
+Na de verwerking toont het Dashboard een visueel overzicht verdeeld over zes
+tabs: Rendementen, Bekostiging, Opleidingen, Studenten, Examens en
+Opleidingsstructuur.
 
 ![Dashboard — analyse-overzicht](docs/assets/dashboard.gif)
 
