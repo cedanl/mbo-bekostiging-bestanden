@@ -1,3 +1,7 @@
+---
+icon: lucide/compass
+---
+
 # Ontwerpkeuzes
 
 De tool levert twee producten (zie [Home](index.md#wat-levert-de-tool-op)):

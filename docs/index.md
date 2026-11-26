@@ -1,3 +1,7 @@
+---
+icon: lucide/house
+---
+
 # MBO-bekostigingsbestanden
 
 DUO levert aan MBO-instellingen periodiek bestanden waarmee de instelling kan controleren of haar studenten bekostigd worden en op welke grondslag. Deze bestanden zijn technisch van opzet: meerdere recordtypes per bestand, gecodeerde velden, geen kolomkoppen.

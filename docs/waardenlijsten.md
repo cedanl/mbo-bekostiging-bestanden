@@ -1,3 +1,7 @@
+---
+icon: lucide/list
+---
+
 # Waardenlijsten
 
 Overzicht van alle gecodeerde waarden in de bekostigingsbestanden.

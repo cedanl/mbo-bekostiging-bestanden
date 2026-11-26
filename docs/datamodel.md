@@ -1,3 +1,7 @@
+---
+icon: lucide/database
+---
+
 # Datamodel
 
 De ETL produceert een star schema: drie dimensietabellen, zeven feittabellen en

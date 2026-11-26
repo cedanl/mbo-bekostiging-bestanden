@@ -1,3 +1,7 @@
+---
+icon: lucide/files
+---
+
 # Databestanden
 
 DUO levert drie categorieën bekostigingsbestanden aan MBO-instellingen. Ze overlappen deels in inhoud maar hebben elk een eigen doel en tijdsmoment.

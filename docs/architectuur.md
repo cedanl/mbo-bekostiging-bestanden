@@ -1,3 +1,7 @@
+---
+icon: lucide/layers
+---
+
 # Architectuur
 
 ## Grens presentatie–transformatie

@@ -1,3 +1,7 @@
+---
+icon: lucide/table-2
+---
+
 # Recordtypes
 
 Alle CSV-bestanden (RO en GRONDSLAG IP MBO) zijn opgebouwd uit records zonder kolomkoppen. Het eerste veld van elke regel is altijd de **recordtype-code**.

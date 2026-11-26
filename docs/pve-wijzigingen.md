@@ -1,3 +1,7 @@
+---
+icon: lucide/history
+---
+
 # PvE-versies
 
 De veldindelingen komen uit de bestandsbeschrijvingen (hoofdstuk 13–17) van het
