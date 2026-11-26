@@ -71,7 +71,12 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Aan de slag: aan-de-slag.md
+  - Snel starten:
+    - Installeren en draaien: aan-de-slag.md
+    - Python-API en kwaliteitsrapport: python-api.md
+  - Producten:
+    - Brondata per levering: producten/brondata.md
+    - Analysemodel (star schema): producten/analysemodel.md
   - Datamodel: datamodel.md
   - Ontwerpkeuzes: ontwerpkeuzes.md
   - Architectuur: architectuur.md
